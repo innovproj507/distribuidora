@@ -1,0 +1,27 @@
+<?php
+return [
+    'label'        => 'Inventario',
+    'version'      => '1.0.0',
+    'icon'         => 'fas fa-boxes',
+    'color'        => 'blue',
+    'hex'          => '#0ea5e9',
+    'description'  => 'Gestión completa de productos, categorías, marcas, proveedores, depósitos, compras, traslados y conteos físicos.',
+    'category'     => 'Operaciones',
+    'depends'      => ['core'],
+    'auto_install' => false,
+    'menu_order'   => 20,
+    'menu' => [
+        ['type' => 'section', 'label' => 'Inventario'],
+        ['type' => 'link', 'label' => 'Productos',       'icon' => 'fas fa-box',                  'href' => '/inventario'],
+        ['type' => 'link', 'label' => 'Categorías',      'icon' => 'fas fa-tags',                 'href' => '/inventario/categorias'],
+        ['type' => 'link', 'label' => 'Marcas',          'icon' => 'fas fa-certificate',          'href' => '/inventario/marcas'],
+        ['type' => 'link', 'label' => 'Proveedores',     'icon' => 'fas fa-truck',                'href' => '/inventario/proveedores'],
+        ['type' => 'link', 'label' => 'Depósitos',       'icon' => 'fas fa-warehouse',            'href' => '/inventario/depositos'],
+        ['type' => 'link', 'label' => 'Compras',         'icon' => 'fas fa-file-invoice-dollar',  'href' => '/compras'],
+        ['type' => 'link', 'label' => 'Traslados',       'icon' => 'fas fa-exchange-alt',         'href' => '/inventario/traslados'],
+        ['type' => 'link', 'label' => 'Kardex',          'icon' => 'fas fa-stream',               'href' => '/inventario/kardex'],
+        ['type' => 'link', 'label' => 'Alertas',         'icon' => 'fas fa-bell',                 'href' => '/inventario/alertas'],
+        ['type' => 'link', 'label' => 'Conteo Físico',   'icon' => 'fas fa-clipboard-check',      'href' => '/inventario/conteos'],
+        ['type' => 'link', 'label' => 'OC Automáticas',  'icon' => 'fas fa-robot',                'href' => '/compras/sugerencias'],
+    ],
+];

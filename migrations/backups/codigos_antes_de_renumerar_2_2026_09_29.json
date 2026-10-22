@@ -1,0 +1,202 @@
+{
+    "cotizaciones": [
+        {
+            "cotizacion_id": 1,
+            "numero": "C0001"
+        },
+        {
+            "cotizacion_id": 3,
+            "numero": "C0002"
+        },
+        {
+            "cotizacion_id": 4,
+            "numero": "C0003"
+        },
+        {
+            "cotizacion_id": 5,
+            "numero": "C0004"
+        }
+    ],
+    "ventas": [
+        {
+            "venta_id": 1,
+            "numero_factura": "F0001"
+        },
+        {
+            "venta_id": 2,
+            "numero_factura": "F0002"
+        }
+    ],
+    "clientes": [
+        {
+            "cliente_id": 1,
+            "codigo": "CLI-0001"
+        },
+        {
+            "cliente_id": 2,
+            "codigo": "CLI-0002"
+        },
+        {
+            "cliente_id": 3,
+            "codigo": "CLI-0003"
+        },
+        {
+            "cliente_id": 4,
+            "codigo": "CLI-0004"
+        }
+    ],
+    "proveedores": [
+        {
+            "proveedor_id": 1,
+            "codigo": "PROV-0001"
+        },
+        {
+            "proveedor_id": 2,
+            "codigo": "PROV-0002"
+        },
+        {
+            "proveedor_id": 3,
+            "codigo": "PROV-0003"
+        },
+        {
+            "proveedor_id": 4,
+            "codigo": "PROV-0004"
+        },
+        {
+            "proveedor_id": 5,
+            "codigo": "PROV-0005"
+        },
+        {
+            "proveedor_id": 6,
+            "codigo": "PROV-0006"
+        },
+        {
+            "proveedor_id": 7,
+            "codigo": "PROV-0007"
+        },
+        {
+            "proveedor_id": 8,
+            "codigo": "PROV-0008"
+        },
+        {
+            "proveedor_id": 9,
+            "codigo": "PROV-0009"
+        },
+        {
+            "proveedor_id": 10,
+            "codigo": "PROV-0010"
+        },
+        {
+            "proveedor_id": 11,
+            "codigo": "PROV-0011"
+        },
+        {
+            "proveedor_id": 12,
+            "codigo": "PROV-0012"
+        },
+        {
+            "proveedor_id": 13,
+            "codigo": "PROV-0013"
+        },
+        {
+            "proveedor_id": 14,
+            "codigo": "PROV-0014"
+        },
+        {
+            "proveedor_id": 15,
+            "codigo": "PROV-0015"
+        },
+        {
+            "proveedor_id": 16,
+            "codigo": "PROV-0016"
+        },
+        {
+            "proveedor_id": 17,
+            "codigo": "PROV-0017"
+        },
+        {
+            "proveedor_id": 18,
+            "codigo": "PROV-0018"
+        },
+        {
+            "proveedor_id": 19,
+            "codigo": "PROV-0019"
+        },
+        {
+            "proveedor_id": 20,
+            "codigo": "PROV-0020"
+        },
+        {
+            "proveedor_id": 21,
+            "codigo": "PROV-0021"
+        },
+        {
+            "proveedor_id": 22,
+            "codigo": "PROV-0022"
+        },
+        {
+            "proveedor_id": 23,
+            "codigo": "PROV-0023"
+        },
+        {
+            "proveedor_id": 24,
+            "codigo": "PROV-0024"
+        },
+        {
+            "proveedor_id": 25,
+            "codigo": "PROV-0025"
+        },
+        {
+            "proveedor_id": 26,
+            "codigo": "PROV-0026"
+        },
+        {
+            "proveedor_id": 27,
+            "codigo": "PROV-0027"
+        },
+        {
+            "proveedor_id": 28,
+            "codigo": "PROV-0028"
+        },
+        {
+            "proveedor_id": 29,
+            "codigo": "PROV-0029"
+        },
+        {
+            "proveedor_id": 30,
+            "codigo": "PROV-0030"
+        },
+        {
+            "proveedor_id": 31,
+            "codigo": "PROV-0031"
+        },
+        {
+            "proveedor_id": 32,
+            "codigo": "PROV-0032"
+        },
+        {
+            "proveedor_id": 33,
+            "codigo": "PROV-0033"
+        },
+        {
+            "proveedor_id": 34,
+            "codigo": "PROV-0034"
+        },
+        {
+            "proveedor_id": 35,
+            "codigo": "PROV-0035"
+        },
+        {
+            "proveedor_id": 36,
+            "codigo": "PROV-0036"
+        },
+        {
+            "proveedor_id": 37,
+            "codigo": "PROV-0037"
+        },
+        {
+            "proveedor_id": 38,
+            "codigo": "PROV-0038"
+        }
+    ]
+}

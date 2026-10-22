@@ -1,0 +1,202 @@
+{
+    "cotizaciones": [
+        {
+            "cotizacion_id": 1,
+            "numero": "C202606060001"
+        },
+        {
+            "cotizacion_id": 3,
+            "numero": "C202606080001"
+        },
+        {
+            "cotizacion_id": 4,
+            "numero": "C202606280001"
+        },
+        {
+            "cotizacion_id": 5,
+            "numero": "C202609140001"
+        }
+    ],
+    "ventas": [
+        {
+            "venta_id": 1,
+            "numero_factura": "F202609140001"
+        },
+        {
+            "venta_id": 2,
+            "numero_factura": "F202609210001"
+        }
+    ],
+    "clientes": [
+        {
+            "cliente_id": 1,
+            "codigo": "01"
+        },
+        {
+            "cliente_id": 2,
+            "codigo": "02"
+        },
+        {
+            "cliente_id": 3,
+            "codigo": "03"
+        },
+        {
+            "cliente_id": 4,
+            "codigo": "04"
+        }
+    ],
+    "proveedores": [
+        {
+            "proveedor_id": 1,
+            "codigo": "01"
+        },
+        {
+            "proveedor_id": 2,
+            "codigo": "02"
+        },
+        {
+            "proveedor_id": 3,
+            "codigo": "03"
+        },
+        {
+            "proveedor_id": 4,
+            "codigo": "04"
+        },
+        {
+            "proveedor_id": 5,
+            "codigo": "05"
+        },
+        {
+            "proveedor_id": 6,
+            "codigo": "06"
+        },
+        {
+            "proveedor_id": 7,
+            "codigo": "07"
+        },
+        {
+            "proveedor_id": 8,
+            "codigo": "08"
+        },
+        {
+            "proveedor_id": 9,
+            "codigo": "09"
+        },
+        {
+            "proveedor_id": 10,
+            "codigo": "10"
+        },
+        {
+            "proveedor_id": 11,
+            "codigo": "11"
+        },
+        {
+            "proveedor_id": 12,
+            "codigo": "12"
+        },
+        {
+            "proveedor_id": 13,
+            "codigo": "13"
+        },
+        {
+            "proveedor_id": 14,
+            "codigo": "14"
+        },
+        {
+            "proveedor_id": 15,
+            "codigo": "15"
+        },
+        {
+            "proveedor_id": 16,
+            "codigo": "16"
+        },
+        {
+            "proveedor_id": 17,
+            "codigo": "17"
+        },
+        {
+            "proveedor_id": 18,
+            "codigo": "18"
+        },
+        {
+            "proveedor_id": 19,
+            "codigo": "19"
+        },
+        {
+            "proveedor_id": 20,
+            "codigo": "20"
+        },
+        {
+            "proveedor_id": 21,
+            "codigo": "21"
+        },
+        {
+            "proveedor_id": 22,
+            "codigo": "22"
+        },
+        {
+            "proveedor_id": 23,
+            "codigo": "23"
+        },
+        {
+            "proveedor_id": 24,
+            "codigo": "24"
+        },
+        {
+            "proveedor_id": 25,
+            "codigo": "25"
+        },
+        {
+            "proveedor_id": 26,
+            "codigo": "26"
+        },
+        {
+            "proveedor_id": 27,
+            "codigo": "27"
+        },
+        {
+            "proveedor_id": 28,
+            "codigo": "28"
+        },
+        {
+            "proveedor_id": 29,
+            "codigo": "29"
+        },
+        {
+            "proveedor_id": 30,
+            "codigo": "30"
+        },
+        {
+            "proveedor_id": 31,
+            "codigo": "31"
+        },
+        {
+            "proveedor_id": 32,
+            "codigo": "32"
+        },
+        {
+            "proveedor_id": 33,
+            "codigo": "33"
+        },
+        {
+            "proveedor_id": 34,
+            "codigo": "34"
+        },
+        {
+            "proveedor_id": 35,
+            "codigo": "35"
+        },
+        {
+            "proveedor_id": 36,
+            "codigo": "36"
+        },
+        {
+            "proveedor_id": 37,
+            "codigo": "PROV01"
+        },
+        {
+            "proveedor_id": 38,
+            "codigo": "PROV02"
+        }
+    ]
+}

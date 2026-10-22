@@ -1,0 +1,40 @@
+# Entorno
+.env
+.env.*
+!.env.example
+
+# Dependencias
+/vendor/
+
+# Uploads generados por usuarios
+/public/assets/uploads/
+
+# Logs
+*.log
+/logs/
+
+# Archivos temporales y del sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp.*
+/tmp/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+CLAUDE.md
+
+# Excel y archivos de datos
+*.xlsm
+*.xlsx
+*.csv
+*.sql
+
+# Scripts de diagnóstico/debug (nunca en producción)
+elevate_user.php
+debug_*.php
+diag.php
+tmp_*.php

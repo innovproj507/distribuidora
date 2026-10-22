@@ -1,0 +1,20 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Bloquear acceso directo a archivos sensibles de la raíz
+<FilesMatch "\.(env|json|md|lock|sql|log|sh|bat|xlsm|xlsx|csv)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Bloquear acceso a directorios internos
+<IfModule mod_rewrite.c>
+    RewriteRule ^(src|config|migrations|vendor)(/.*)?$ - [F,L]
+</IfModule>
