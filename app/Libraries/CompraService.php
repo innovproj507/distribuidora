@@ -56,6 +56,8 @@ final class CompraService
             $costo      = (float) $item['costo'];
             $depositoId = (int) ($item['deposito_id'] ?? 0) ?: $depositoPrincipal;
             $unidadId   = !empty($item['unidad_id']) ? (int) $item['unidad_id'] : null;
+            // El stock comprado entra solo en depósitos de la sucursal de la compra
+            SucursalService::exigirDepositoDeSucursal($depositoId, (int) $ctx['sucursal_id']);
 
             if ($cantidad <= 0) {
                 throw new \RuntimeException('Las cantidades deben ser mayores que cero.');
@@ -113,6 +115,7 @@ final class CompraService
      */
     public static function recibirPendientes(int $compraId, array $compra, array $recibidas, int $depositoId): string
     {
+        SucursalService::exigirDepositoDeSucursal($depositoId, (int) $compra['sucursal_id']);
         $recibidoAlgo = false;
         foreach (Db::all("SELECT * FROM compras_detalle WHERE compra_id = ? AND cantidad > cantidad_recibida", [$compraId]) as $linea) {
             $detalleId = (int) $linea['detalle_id'];

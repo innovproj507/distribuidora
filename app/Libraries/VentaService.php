@@ -73,6 +73,10 @@ final class VentaService
             // Sin depósito explícito se usa el activo de la sesión, para que siempre
             // se descuente stock (antes el POS web no lo enviaba y no bajaba inventario).
             $depositoId = (int) ($item['deposito_id'] ?? 0) ?: (int) ($ctx['deposito_id'] ?? 0);
+            if ($depositoId > 0) {
+                // Un deposito_id enviado por el cliente no puede descontar stock de otra sucursal
+                SucursalService::exigirDepositoDeSucursal($depositoId, (int) $ctx['sucursal_id']);
+            }
 
             $factor = 1.0;
             if (!empty($item['unidad_id'])) {

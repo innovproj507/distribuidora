@@ -34,7 +34,8 @@ $routes->group('m', ['filter' => ['movilauth', 'sucursal']], static function ($r
     $routes->post('api/traslado/(:num)/recibir', 'MovilApiController::recibirTraslado/$1');
     $routes->get('api/venta/(:num)', 'MovilApiController::venta/$1');
     $routes->post('api/alerta/(:num)/resolver', 'MovilApiController::resolverAlerta/$1');
-    $routes->get('logout', 'MovilController::logout');
+    $routes->post('logout', 'MovilController::logout');
+    $routes->get('logout', static fn () => redirect()->to('/m/mas'));
 
     $routes->get('api/productos', 'MovilApiController::productos');
     $routes->post('api/movimiento', 'MovilApiController::movimiento');

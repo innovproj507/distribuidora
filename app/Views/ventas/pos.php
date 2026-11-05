@@ -205,9 +205,12 @@
                         </div>
                     </div>
                     
-                    <a href="/logout" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all border border-transparent hover:border-red-100" title="Cerrar Sesión">
-                        <i class="fas fa-power-off"></i>
-                    </a>
+                    <form method="POST" action="/logout" class="inline">
+                        <?= csrf_field() ?>
+                        <button type="submit" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all border border-transparent hover:border-red-100" title="Cerrar Sesión">
+                            <i class="fas fa-power-off"></i>
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

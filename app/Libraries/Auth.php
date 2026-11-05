@@ -83,6 +83,22 @@ final class Auth
 
     // ── Contraseñas ──────────────────────────────────────────────────────────
 
+    /**
+     * Política de contraseñas para todo alta o cambio (web y API). Devuelve el mensaje de
+     * error o null si es válida: mínimo 8 caracteres, al menos una letra y un número, y
+     * distinta del nombre de usuario.
+     */
+    public static function errorPassword(string $password, string $username = ''): ?string
+    {
+        return match (true) {
+            mb_strlen($password) < 8                                       => 'La contraseña debe tener al menos 8 caracteres.',
+            mb_strlen($password) > 128                                     => 'La contraseña no puede pasar de 128 caracteres.',
+            !preg_match('/\pL/u', $password) || !preg_match('/\d/', $password) => 'La contraseña debe tener al menos una letra y un número.',
+            $username !== '' && mb_strtolower($password) === mb_strtolower($username) => 'La contraseña no puede ser igual al nombre de usuario.',
+            default                                                        => null,
+        };
+    }
+
     public static function verifyPassword(string $password, string $encoded): bool
     {
         if (str_starts_with($encoded, '$2y$') || str_starts_with($encoded, '$2b$')) {

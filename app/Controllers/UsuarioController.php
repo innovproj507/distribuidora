@@ -71,6 +71,10 @@ class UsuarioController extends BaseController
                 $this->error('La contraseña actual es incorrecta.');
                 return redirect()->to('/usuarios/perfil');
             }
+            if ($msg = Auth::errorPassword($newPw, (string) ($user['username'] ?? ''))) {
+                $this->error($msg);
+                return redirect()->to('/usuarios/perfil');
+            }
         }
 
         Db::update('users', ['first_name' => $firstName, 'last_name' => $lastName, 'email' => $post('email') ?: null], ['id' => Auth::id()]);
@@ -99,7 +103,8 @@ class UsuarioController extends BaseController
 
         $error = match (true) {
             $username === '' || $password === ''                       => 'Usuario y contraseña son obligatorios.',
-            !in_array($rol, self::ROLES, true)                          => 'Rol no válido.',
+            ($e = Auth::errorPassword($password, $username)) !== null   => $e,
+            !in_array($rol, self::ROLES, true)                         => 'Rol no válido.',
             $rol === 'superadmin' && Auth::rol() !== 'superadmin'       => 'Solo un superadmin puede crear ese rol.',
             (bool) Db::value("SELECT 1 FROM users WHERE username = ?", [$username]) => "El nombre de usuario '{$username}' ya está en uso.",
             default => null,
@@ -167,6 +172,12 @@ class UsuarioController extends BaseController
             $rol = $usuario['rol']; // rol inválido, no permitido o propio: se conserva
         }
 
+        $password = (string) ($this->request->getPost('password') ?? '');
+        if ($password !== '' && ($msg = Auth::errorPassword($password, (string) $usuario['username']))) {
+            $this->error($msg);
+            return redirect()->to("/usuarios/{$userId}/editar");
+        }
+
         $post = fn (string $k) => trim((string) ($this->request->getPost($k) ?? ''));
         Db::update('users', [
             'first_name'   => $post('first_name'),
@@ -178,7 +189,7 @@ class UsuarioController extends BaseController
             'is_superuser' => $rol === 'superadmin' ? 1 : 0,
         ], ['id' => $userId]);
 
-        if (($password = (string) ($this->request->getPost('password') ?? '')) !== '') {
+        if ($password !== '') {
             Db::update('users', ['password' => password_hash($password, PASSWORD_BCRYPT)], ['id' => $userId]);
         }
 

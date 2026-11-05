@@ -84,7 +84,10 @@ $enlace = function (string $href, string $emoji, string $bg, string $titulo, str
 <?php if (Auth::can('reportes.ver')) $enlace('/reportes', '📊', 'var(--green-light)', 'Reportes', 'Versión web'); ?>
 <?php $enlace('/', '🖥️', 'var(--navy-light)', 'Versión web completa', 'Todo el sistema, optimizado para computadora'); ?>
 
-<a href="/m/logout" class="w-full py-3 rounded-xl text-white font-medium block text-center mt-6 mb-4" style="background:var(--red)">Cerrar sesión</a>
+<form method="POST" action="/m/logout">
+  <?= csrf_field() ?>
+  <button type="submit" class="w-full py-3 rounded-xl text-white font-medium block text-center mt-6 mb-4" style="background:var(--red)">Cerrar sesión</button>
+</form>
 
 <?php $this->endSection(); ?>
 

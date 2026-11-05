@@ -113,6 +113,34 @@ final class SucursalService
         }
     }
 
+    // ── Validación de depósitos recibidos de formularios/API ─────────────────
+
+    /** @var array<string, bool> */
+    private static array $depositoValido = [];
+
+    /**
+     * Regla estructural (servicios): el depósito existe, está activo y es de la sucursal.
+     * Lanza RuntimeException si no. No mira permisos del usuario (eso es puedeUsarDeposito).
+     */
+    public static function exigirDepositoDeSucursal(int $depositoId, int $sucursalId): void
+    {
+        $k = $depositoId . '-' . $sucursalId;
+        self::$depositoValido[$k] ??= (bool) Db::value(
+            "SELECT 1 FROM depositos WHERE deposito_id = ? AND sucursal_id = ? AND estado = 'activo'",
+            [$depositoId, $sucursalId]
+        );
+        if (!self::$depositoValido[$k]) {
+            throw new \RuntimeException('El depósito indicado no pertenece a esta sucursal o está inactivo.');
+        }
+    }
+
+    /** Regla de usuario (controladores): el depósito está entre los que el usuario actual puede usar en la sucursal. */
+    public static function puedeUsarDeposito(int $depositoId, int $sucursalId): bool
+    {
+        return $depositoId > 0
+            && in_array($depositoId, array_map('intval', array_column(self::depositosDe($sucursalId), 'deposito_id')), true);
+    }
+
     // ── Alta y edición ───────────────────────────────────────────────────────
 
     /**

@@ -180,7 +180,7 @@ class ApiGeneralController extends ApiController
 
         $error = match (true) {
             $username === '' || $password === ''                  => 'username y password son obligatorios.',
-            strlen($password) < 8                                  => 'La contraseña debe tener al menos 8 caracteres.',
+            ($e = Auth::errorPassword($password, $username)) !== null => $e,
             !in_array($rol, self::ROLES, true)                     => 'Rol no válido.',
             $rol === 'superadmin' && Auth::rol() !== 'superadmin'  => 'Solo un superadmin puede crear ese rol.',
             (bool) Db::value("SELECT 1 FROM users WHERE username = ?", [$username]) => 'El nombre de usuario ya está en uso.',
@@ -235,8 +235,8 @@ class ApiGeneralController extends ApiController
         }
 
         if (!empty($data['password'])) {
-            if (strlen((string) $data['password']) < 8) {
-                return $this->fallo('La contraseña debe tener al menos 8 caracteres.', 422);
+            if ($msg = Auth::errorPassword((string) $data['password'], (string) $objetivo['username'])) {
+                return $this->fallo($msg, 422);
             }
             if ($esPropio && !Auth::verifyPassword((string) ($data['current_password'] ?? ''), $objetivo['password'])) {
                 return $this->fallo('La contraseña actual es incorrecta.', 422);

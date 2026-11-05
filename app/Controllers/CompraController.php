@@ -127,7 +127,7 @@ class CompraController extends BaseController
                  ORDER BY pr.nombre",
                 [$id]
             ),
-            'depositos' => Db::all("SELECT * FROM depositos WHERE sucursal_id = ? AND estado = 'activo' ORDER BY es_principal DESC, nombre", [$this->sucursalId()]),
+            'depositos' => \App\Libraries\SucursalService::depositosDe((int) $this->sucursalId()),
         ]);
     }
 
@@ -141,6 +141,10 @@ class CompraController extends BaseController
 
         $recibidas = (array) ($this->request->getPost('cantidad_recibida') ?? []);
         $depositoId = (int) ($this->request->getPost('deposito_id') ?? 0) ?: (int) $compra['deposito_id'];
+        if (!\App\Libraries\SucursalService::puedeUsarDeposito($depositoId, (int) $compra['sucursal_id'])) {
+            $this->error('Ese depósito no pertenece a la sucursal de la compra o no tienes acceso.');
+            return redirect()->to("/compras/{$id}/recibir");
+        }
 
         try {
             Db::begin();

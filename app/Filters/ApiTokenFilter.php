@@ -29,9 +29,9 @@ class ApiTokenFilter implements FilterInterface
             "SELECT u.id, u.username, u.first_name, u.last_name, u.rol, u.is_superuser, u.is_staff,
                     p.empresa_id, p.sucursal_actual_id AS sucursal_id
              FROM users u LEFT JOIN user_profiles p ON u.id = p.user_id
-             WHERE u.api_token = ? AND u.is_active = 1
+             WHERE u.api_token = ? AND u.api_token_expira > NOW() AND u.is_active = 1
              LIMIT 1",
-            [$token]
+            [self::hash($token)]
         );
         if (!$user) {
             return self::noAutorizado('Token de acceso inválido o expirado.');
@@ -74,6 +74,12 @@ class ApiTokenFilter implements FilterInterface
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
     {
         return null;
+    }
+
+    /** Lo que se guarda en users.api_token: SHA-256 del token (64 hex). */
+    public static function hash(string $token): string
+    {
+        return hash('sha256', $token);
     }
 
     public static function token(RequestInterface $request): ?string

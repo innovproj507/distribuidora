@@ -12,7 +12,10 @@ use CodeIgniter\Router\RouteCollection;
 
 $routes->get('login', 'AuthController::showLogin');
 $routes->post('login', 'AuthController::login');
-$routes->get('logout', 'AuthController::logout');
+// Cerrar sesión solo por POST con CSRF (un <img src="/logout"> en otra página ya no la cierra).
+// El GET queda para enlaces viejos: no cierra nada, solo vuelve al inicio.
+$routes->post('logout', 'AuthController::logout');
+$routes->get('logout', static fn () => redirect()->to('/'));
 
 $routes->get('auth/2fa', 'Auth2faController::show');
 $routes->post('auth/2fa/verificar', 'Auth2faController::verificar');

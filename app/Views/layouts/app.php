@@ -248,9 +248,12 @@ $breadcrumbLabel = $page_title ?? 'Sistema POS';
                         <a href="/auth/2fa/setup" class="w-7 h-7 rounded-lg flex items-center justify-center text-green-600 bg-green-50 hover:bg-green-600 hover:text-white transition-colors" title="Verificación en dos pasos">
                             <i class="fas fa-shield-halved text-xs"></i>
                         </a>
-                        <a href="/logout" class="w-7 h-7 rounded-lg flex items-center justify-center text-red-500 bg-red-50 hover:bg-red-500 hover:text-white transition-colors" title="Cerrar Sesión">
-                            <i class="fas fa-sign-out-alt text-xs"></i>
-                        </a>
+                        <form method="POST" action="/logout" class="inline-flex">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="w-7 h-7 rounded-lg flex items-center justify-center text-red-500 bg-red-50 hover:bg-red-500 hover:text-white transition-colors" title="Cerrar Sesión">
+                                <i class="fas fa-sign-out-alt text-xs"></i>
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>

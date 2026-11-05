@@ -40,7 +40,7 @@ class ConteoController extends BaseController
         return $this->render('inventario.conteos.crear', [
             'page_title'    => 'Nuevo Conteo',
             'page_subtitle' => 'Iniciar sesión de inventario físico',
-            'depositos'     => Db::all("SELECT * FROM depositos WHERE sucursal_id = ? AND estado = 'activo' ORDER BY nombre", [$this->sucursalId()]),
+            'depositos'     => \App\Libraries\SucursalService::depositosDe((int) $this->sucursalId()),
         ]);
     }
 
@@ -50,12 +50,9 @@ class ConteoController extends BaseController
         $tipo       = in_array($this->request->getPost('tipo'), ['completo', 'ciclico', 'aleatorio'], true) ? $this->request->getPost('tipo') : 'completo';
         $empresaId  = $this->empresaId();
 
-        $sucursalId = Db::value(
-            "SELECT d.sucursal_id FROM depositos d JOIN branches b ON d.sucursal_id = b.sucursal_id
-             WHERE d.deposito_id = ? AND b.empresa_id = ?",
-            [$depositoId, $empresaId]
-        );
-        if (!$sucursalId) {
+        // Solo depósitos de la sucursal activa que el usuario puede usar
+        $sucursalId = (int) $this->sucursalId();
+        if (!\App\Libraries\SucursalService::puedeUsarDeposito($depositoId, $sucursalId)) {
             $this->error('Depósito no válido.');
             return redirect()->to('/inventario/conteos/nuevo');
         }

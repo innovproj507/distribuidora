@@ -9,6 +9,7 @@ use App\Libraries\Db;
 use App\Libraries\Fila;
 use App\Libraries\ProductoService;
 use App\Libraries\SimpleXlsxWriter;
+use App\Libraries\SucursalService;
 
 class ProductoController extends BaseController
 {
@@ -249,11 +250,17 @@ class ProductoController extends BaseController
             return redirect()->to('/inventario');
         }
 
-        $cantidad = (float) ($this->request->getPost('cantidad') ?? 0);
+        $cantidad   = (float) ($this->request->getPost('cantidad') ?? 0);
+        $depositoId = (int) $this->request->getPost('deposito_id');
+
+        if (!SucursalService::puedeUsarDeposito($depositoId, (int) $this->sucursalId())) {
+            $this->error('Ese depósito no pertenece a tu sucursal o no tienes acceso.');
+            return redirect()->to("/inventario/{$productoId}");
+        }
 
         try {
             Db::begin();
-            ProductoService::agregarStock($productoId, (int) $this->request->getPost('deposito_id'), $cantidad, (float) ($this->request->getPost('costo') ?? 0));
+            ProductoService::agregarStock($productoId, $depositoId, $cantidad, (float) ($this->request->getPost('costo') ?? 0));
             Db::commit();
             $this->success("Se agregaron {$cantidad} unidades al inventario.");
         } catch (\InvalidArgumentException $e) {

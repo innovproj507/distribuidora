@@ -17,6 +17,7 @@ class ApiAuthController extends ApiController
     private const ROLES_2FA = ['gerente', 'auditor', 'superadmin'];
 
     private const MAX_INTENTOS = 10;
+    private const TOKEN_DIAS   = 30;
 
     /** GET /api/v1 — estado (público). */
     public function estado()
@@ -77,15 +78,18 @@ class ApiAuthController extends ApiController
 
         LimiteIntentos::limpiar($clave);
 
-        // Token nuevo en cada login (invalida el anterior), mismo formato que el sistema anterior
-        $token = bin2hex(random_bytes(32));
-        Db::update('users', ['api_token' => $token], ['id' => $user['id']]);
+        // Token nuevo en cada login (invalida el anterior). En la BD solo se guarda su SHA-256:
+        // quien lea la tabla users no obtiene tokens utilizables. Vence a los TOKEN_DIAS días.
+        $token  = bin2hex(random_bytes(32));
+        $expira = date('Y-m-d H:i:s', strtotime('+' . self::TOKEN_DIAS . ' days'));
+        Db::update('users', ['api_token' => ApiTokenFilter::hash($token), 'api_token_expira' => $expira], ['id' => $user['id']]);
 
         Auth::usarUsuarioApi(['id' => (int) $user['id'], 'user_fullname' => $user['username'], 'rol' => $user['rol'], 'empresa_id' => $user['empresa_id']]);
         AuditService::log('auth.api_login', "Login API: {$user['username']}", (int) $user['id'], 'usuario');
 
         return $this->ok([
-            'token' => $token,
+            'token'      => $token,
+            'expires_at' => $expira,
             'user'  => [
                 'id'           => (int) $user['id'],
                 'username'     => $user['username'],
@@ -107,7 +111,7 @@ class ApiAuthController extends ApiController
     {
         $token = ApiTokenFilter::token($this->request);
         if ($token !== null) {
-            Db::query("UPDATE users SET api_token = NULL WHERE api_token = ?", [$token]);
+            Db::query("UPDATE users SET api_token = NULL, api_token_expira = NULL WHERE api_token = ?", [ApiTokenFilter::hash($token)]);
         }
         return $this->ok([], 'Token revocado correctamente');
     }
