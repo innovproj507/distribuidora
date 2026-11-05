@@ -20,13 +20,13 @@ $bc = match($venta['estado']) {
 <div class="flex items-center justify-between bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-2.5 mb-4">
     <div class="flex gap-2">
         <?php if ($venta['estado'] === 'pendiente'): ?>
-        <button onclick="abrirModalPagar(<?= $venta['venta_id'] ?>, '<?= addslashes($venta['numero_factura']) ?>', <?= $venta['total'] ?>)"
+        <button onclick="abrirModalPagar(<?= (int) $venta['venta_id'] ?>, <?= esc(json_encode((string) $venta['numero_factura']), 'attr') ?>, <?= (float) $venta['total'] ?>)"
                 class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-semibold hover:bg-emerald-600 transition shadow-sm">
             <i class="fas fa-check-circle"></i> Registrar Pago
         </button>
         <?php endif; ?>
         <?php if ($venta['estado'] !== 'anulada'): ?>
-        <button onclick="abrirModalAnular(<?= $venta['venta_id'] ?>, '<?= addslashes($venta['numero_factura']) ?>')"
+        <button onclick="abrirModalAnular(<?= (int) $venta['venta_id'] ?>, <?= esc(json_encode((string) $venta['numero_factura']), 'attr') ?>)"
                 class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition">
             <i class="fas fa-ban"></i> Anular
         </button>

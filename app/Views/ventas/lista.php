@@ -171,7 +171,7 @@ $clientes_json = json_encode(array_map(function($c) use ($cliente_actual, &$clie
                            class="w-8 h-8 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors flex items-center justify-center shadow-sm shadow-emerald-500/30"><i class="fas fa-print text-xs"></i></button>
                         <?php endif; ?>
                         <?php if ($venta['estado'] != 'anulada'): ?>
-                        <button onclick="abrirModalAnular(<?= $venta['venta_id'] ?>, '<?= addslashes($venta['numero_factura']) ?>')" title="Anular"
+                        <button onclick="abrirModalAnular(<?= (int) $venta['venta_id'] ?>, <?= esc(json_encode((string) $venta['numero_factura']), 'attr') ?>)" title="Anular"
                            class="w-8 h-8 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors flex items-center justify-center shadow-sm shadow-red-500/30"><i class="fas fa-ban text-xs"></i></button>
                         <?php endif; ?>
                     </div>
