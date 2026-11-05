@@ -539,11 +539,20 @@
 
     <!-- Scripts -->
     <script>
+        // Escapa texto para insertarlo en HTML (nombres de productos/clientes vienen de la BD)
+        function escHtml(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        // Valor para usar como argumento JS dentro de un atributo onclick="f(...)": literal JSON escapado
+        function escAttrJs(v) {
+            return escHtml(JSON.stringify(v ?? ''));
+        }
+
         function toast(msg, type = 'info', duration = 5000) {
             const icons = { success: 'fa-check-circle', error: 'fa-times-circle', info: 'fa-info-circle' };
             const el = document.createElement('div');
             el.className = `toast ${type}`;
-            el.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${msg}</span>`;
+            el.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${escHtml(msg)}</span>`;
             document.getElementById('toast-container').appendChild(el);
             setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => el.remove(), 300); }, duration);
         }
@@ -674,9 +683,9 @@
                     if (data.tiene_credito) {
                         badge.className = 'text-xs rounded-lg px-3 py-2 border bg-emerald-50 border-emerald-200 text-emerald-800';
                         badge.innerHTML = `<i class="fas fa-credit-card mr-1"></i>
-                            <span class="font-bold">Crédito disponible: $${data.credito_disponible.toFixed(2)}</span>
-                            <span class="text-emerald-600 ml-2">${data.dias_credito} días</span>
-                            ${data.saldo_pendiente > 0 ? `<span class="ml-2 text-amber-600">Saldo: $${data.saldo_pendiente.toFixed(2)}</span>` : ''}`;
+                            <span class="font-bold">Crédito disponible: $${Number(data.credito_disponible).toFixed(2)}</span>
+                            <span class="text-emerald-600 ml-2">${parseInt(data.dias_credito, 10) || 0} días</span>
+                            ${data.saldo_pendiente > 0 ? `<span class="ml-2 text-amber-600">Saldo: $${Number(data.saldo_pendiente).toFixed(2)}</span>` : ''}`;
                         // Pre-seleccionar CRÉDITO si el cliente tiene crédito disponible
                         if (pagos.length === 1 && pagos[0].forma_pago === 'EFECTIVO') {
                             pagos[0].forma_pago = 'CREDITO';
@@ -818,7 +827,7 @@
                 const sinPrecio = '<span class="text-gray-300">—</span>';
 
                 pagina.forEach((p, idx) => {
-                    const imgUrl = p.imagen_principal ? '/assets/uploads/' + p.imagen_principal : '/assets/img/no-image.svg';
+                    const imgUrl = p.imagen_principal ? '/assets/uploads/' + encodeURI(p.imagen_principal) : '/assets/img/no-image.svg';
                     const prA = parseFloat(p.precio_a || 0);
                     const stock = parseFloat(p.stock) || 0;
                     const stockTxt = Number.isInteger(stock) ? String(stock) : stock.toFixed(2);
@@ -830,7 +839,7 @@
                         presentaciones = '<div class="flex flex-wrap gap-1 mt-1">';
                         unidades.forEach(u => {
                             const uPrecio = parseFloat(u.precio_a || 0) || prA * parseFloat(u.factor_conversion);
-                            presentaciones += `<button onclick="seleccionarYAgregar(${p.producto_id}, 'a', ${uPrecio}, ${u.unidad_id}, '${u.nombre}')" class="px-2 py-0.5 bg-sky-700 hover:bg-sky-800 text-white text-[11px] font-bold rounded transition-colors" title="Agregar por ${u.nombre}">${u.nombre} $${uPrecio.toFixed(2)}</button>`;
+                            presentaciones += `<button onclick="seleccionarYAgregar(${parseInt(p.producto_id, 10)}, 'a', ${Number(uPrecio)}, ${parseInt(u.unidad_id, 10)}, ${escAttrJs(u.nombre)})" class="px-2 py-0.5 bg-sky-700 hover:bg-sky-800 text-white text-[11px] font-bold rounded transition-colors" title="Agregar por ${escHtml(u.nombre)}">${escHtml(u.nombre)} $${uPrecio.toFixed(2)}</button>`;
                         });
                         presentaciones += '</div>';
                     }
@@ -841,14 +850,14 @@
                     tr.className = filaColor + " transition-colors";
                     tr.innerHTML = `
                         <td class="px-3 py-0.5 text-sm text-gray-400">${inicio + idx + 1}</td>
-                        <td class="px-3 py-0.5 text-xs font-mono text-gray-500">${p.codigo}</td>
+                        <td class="px-3 py-0.5 text-xs font-mono text-gray-500">${escHtml(p.codigo)}</td>
                         <td class="px-3 py-0.5">
-                            <div class="text-sm font-semibold text-gray-900">${p.nombre}</div>
+                            <div class="text-sm font-semibold text-gray-900">${escHtml(p.nombre)}</div>
                             ${presentaciones}
                         </td>
                         <td class="px-3 py-0.5 text-center text-sm font-semibold ${stock > 0 ? 'text-gray-700' : 'text-red-500'}">${stockTxt}</td>
-                        <td class="px-1 py-0.5 text-center">${btnPrecio(p.producto_id, 'a', prA, 'bg-blue-600 hover:bg-blue-700')}</td>
-                        <td class="px-3 py-0.5 text-center"><img src="${imgUrl}" onerror="this.onerror=null;this.src='/assets/img/no-image.svg'" class="w-12 h-12 object-cover rounded shadow-sm border border-gray-200 mx-auto"></td>
+                        <td class="px-1 py-0.5 text-center">${btnPrecio(parseInt(p.producto_id, 10), 'a', prA, 'bg-blue-600 hover:bg-blue-700')}</td>
+                        <td class="px-3 py-0.5 text-center"><img src="${escHtml(imgUrl)}" onerror="this.onerror=null;this.src='/assets/img/no-image.svg'" class="w-12 h-12 object-cover rounded shadow-sm border border-gray-200 mx-auto"></td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -974,10 +983,10 @@
                 const linea = (item.cantidad * item.precio) - descMonto;
                 tr.innerHTML = `
                     <td class="px-4 py-3 text-sm text-gray-400">${i + 1}</td>
-                    <td class="px-4 py-3 text-sm font-mono text-gray-600 cursor-pointer" ondblclick="editarProductoFila(${i})" title="Doble clic para cambiar el producto">${item.codigo}</td>
+                    <td class="px-4 py-3 text-sm font-mono text-gray-600 cursor-pointer" ondblclick="editarProductoFila(${i})" title="Doble clic para cambiar el producto">${escHtml(item.codigo)}</td>
                     <td class="px-4 py-3 cursor-pointer" ondblclick="editarProductoFila(${i})" title="Doble clic para cambiar el producto">
-                        <div class="text-sm font-medium text-gray-900 line-clamp-1">${item.nombre}</div>
-                        <div class="text-xs text-gray-400 mt-0.5">${item.presentacion || 'Unid.'}</div>
+                        <div class="text-sm font-medium text-gray-900 line-clamp-1">${escHtml(item.nombre)}</div>
+                        <div class="text-xs text-gray-400 mt-0.5">${escHtml(item.presentacion || 'Unid.')}</div>
                     </td>
                     <td class="px-4 py-3 text-center">
                         <input type="number" min="1" step="1" value="${item.cantidad}" class="w-16 text-center border border-gray-300 rounded text-sm py-1 focus:outline-none focus:border-pos" onchange="cambiarCantidad(${i}, this.value)" onkeyup="if(event.key==='Enter') this.blur();">
@@ -1437,15 +1446,15 @@
                 div.innerHTML = `
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2">
-                            <span class="text-xs font-black text-gray-800 font-mono">${c.numero}</span>
+                            <span class="text-xs font-black text-gray-800 font-mono">${escHtml(c.numero)}</span>
                             ${estadoBadge}
                         </div>
-                        <p class="text-[11px] text-gray-500 truncate mt-0.5">${c.cliente_nombre}</p>
-                        <p class="text-[10px] text-gray-300 mt-0.5">${fechaStr}</p>
+                        <p class="text-[11px] text-gray-500 truncate mt-0.5">${escHtml(c.cliente_nombre)}</p>
+                        <p class="text-[10px] text-gray-300 mt-0.5">${escHtml(fechaStr)}</p>
                     </div>
                     <div class="text-right shrink-0">
                         <p class="text-sm font-bold text-gray-800">$${parseFloat(c.total).toFixed(2)}</p>
-                        <button onclick="cargarCotizacionAlCarrito(${c.cotizacion_id}, '${c.numero}')"
+                        <button onclick="cargarCotizacionAlCarrito(${parseInt(c.cotizacion_id, 10)}, ${escAttrJs(c.numero)})"
                             class="mt-1 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold rounded-lg transition-colors">
                             <i class="fas fa-cart-plus mr-1"></i>Cargar
                         </button>

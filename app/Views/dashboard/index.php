@@ -124,15 +124,15 @@ function haceTiempo(string $fecha): string {
         <?php foreach ($insights as $insight): ?>
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex gap-5 hover:shadow-md transition border-l-4 <?= $insight['type'] === 'warning' ? 'border-l-amber-400' : ($insight['type'] === 'success' ? 'border-l-emerald-400' : 'border-l-sky-400') ?>">
             <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-white shadow-sm <?= $insight['type'] === 'warning' ? 'bg-amber-500 shadow-amber-500/30' : ($insight['type'] === 'success' ? 'bg-emerald-500 shadow-emerald-500/30' : 'bg-sky-500 shadow-sky-500/30') ?>">
-                <i class="<?= $insight['icon'] ?> text-lg"></i>
+                <i class="<?= esc($insight['icon'], 'attr') ?> text-lg"></i>
             </div>
             <div class="flex-1">
-                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-tighter mb-1"><?= $insight['title'] ?></p>
-                <p class="text-sm font-bold text-gray-700 leading-tight mb-2"><?= $insight['message'] ?></p>
-                <p class="text-xs text-gray-400 italic mb-3"><?= $insight['detail'] ?></p>
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-tighter mb-1"><?= esc($insight['title']) ?></p>
+                <p class="text-sm font-bold text-gray-700 leading-tight mb-2"><?= esc($insight['message']) ?></p>
+                <p class="text-xs text-gray-400 italic mb-3"><?= esc($insight['detail']) ?></p>
                 <div class="flex justify-end">
-                    <a href="<?= $insight['action_url'] ?>" class="text-[10px] font-bold text-sky-500 hover:underline uppercase flex items-center gap-1">
-                        <?= $insight['action_label'] ?> <i class="fas fa-arrow-right text-[8px]"></i>
+                    <a href="<?= esc($insight['action_url'], 'attr') ?>" class="text-[10px] font-bold text-sky-500 hover:underline uppercase flex items-center gap-1">
+                        <?= esc($insight['action_label']) ?> <i class="fas fa-arrow-right text-[8px]"></i>
                     </a>
                 </div>
             </div>

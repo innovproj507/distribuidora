@@ -139,9 +139,20 @@
                                 </div>
                                 <span class="text-sm font-semibold text-gray-700">Consumidor Final</span>
                             </div>
-                            <?php foreach (($clientes ?? []) as $cliente): ?>
-                            <div x-show="'<?= addslashes(strtolower($cliente['nombre'])) ?>'.includes(searchCliente.toLowerCase()) || '<?= $cliente['ruc'] ?>'.includes(searchCliente)"
-                                 @click="seleccionarCliente('<?= $cliente['cliente_id'] ?>', '<?= addslashes($cliente['nombre']) ?>', '<?= $cliente['ruc'] ?>', '<?= $cliente['telefono'] ?>', '<?= addslashes($cliente['direccion']) ?>'); open = false"
+                            <?php foreach (($clientes ?? []) as $cliente):
+                                // Datos del cliente como JSON escapado para atributo: nada de lo que escriba
+                                // el usuario (nombre, dirección...) se interpreta como código en Alpine.
+                                $jsCliente = esc(json_encode([
+                                    'id'        => (string) $cliente['cliente_id'],
+                                    'nombre'    => (string) ($cliente['nombre'] ?? ''),
+                                    'ruc'       => (string) ($cliente['ruc'] ?? ''),
+                                    'telefono'  => (string) ($cliente['telefono'] ?? ''),
+                                    'direccion' => (string) ($cliente['direccion'] ?? ''),
+                                ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), 'attr');
+                            ?>
+                            <div x-data="{ c: <?= $jsCliente ?> }"
+                                 x-show="c.nombre.toLowerCase().includes(searchCliente.toLowerCase()) || c.ruc.includes(searchCliente)"
+                                 @click="seleccionarCliente(c.id, c.nombre, c.ruc, c.telefono, c.direccion); open = false"
                                  class="px-4 py-3 border-b border-gray-50 hover:bg-sky-50 cursor-pointer flex items-center justify-between group">
                                 <div class="flex items-center gap-3">
                                     <div class="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-white">

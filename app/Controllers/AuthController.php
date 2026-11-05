@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Libraries\Auth;
+use App\Libraries\LimiteIntentos;
 
 class AuthController extends BaseController
 {
-    /** Máximo de intentos fallidos por IP en la ventana de tiempo. */
-    private const MAX_INTENTOS = 10;
-    private const VENTANA_SEG  = 900;
+    /** Máximo de intentos fallidos en la ventana de tiempo, por IP y por nombre de usuario. */
+    private const MAX_INTENTOS    = 10;
+    private const MAX_POR_USUARIO = 20;
+    private const VENTANA_SEG     = 900;
 
     public function showLogin()
     {
@@ -27,21 +29,19 @@ class AuthController extends BaseController
         $loginUrl = $esMovil ? '/m/login' : '/login';
         $homeUrl  = $esMovil ? '/m' : '/';
 
-        $key      = 'login_fail_' . md5($this->request->getIPAddress());
-        $intentos = (int) ($this->session->get($key . '_count') ?? 0);
-        $desde    = (int) ($this->session->get($key . '_since') ?? 0);
+        $username = trim((string) $this->request->getPost('username'));
+        $password = (string) $this->request->getPost('password');
 
-        if ($intentos >= self::MAX_INTENTOS && (time() - $desde) < self::VENTANA_SEG) {
+        // Contadores en caché del servidor: por IP y por usuario (frena también ataques
+        // repartidos entre varias IP contra una misma cuenta)
+        $claveIp      = LimiteIntentos::clave('login_ip', $this->request->getIPAddress());
+        $claveUsuario = LimiteIntentos::clave('login_usuario', $username);
+
+        if (LimiteIntentos::bloqueado($claveIp, self::MAX_INTENTOS)
+            || ($username !== '' && LimiteIntentos::bloqueado($claveUsuario, self::MAX_POR_USUARIO))) {
             $this->error('Demasiados intentos fallidos. Espera 15 minutos.');
             return redirect()->to($loginUrl);
         }
-        if ((time() - $desde) >= self::VENTANA_SEG) {
-            $intentos = 0;
-            $this->session->set([$key . '_count' => 0, $key . '_since' => time()]);
-        }
-
-        $username = trim((string) $this->request->getPost('username'));
-        $password = (string) $this->request->getPost('password');
 
         if ($username === '' || $password === '') {
             $this->error('Por favor ingrese usuario y contraseña.');
@@ -49,15 +49,13 @@ class AuthController extends BaseController
         }
 
         if (!Auth::attempt($username, $password)) {
-            $this->session->set($key . '_count', $intentos + 1);
-            if ($intentos === 0) {
-                $this->session->set($key . '_since', time());
-            }
+            LimiteIntentos::fallo($claveIp, self::VENTANA_SEG);
+            LimiteIntentos::fallo($claveUsuario, self::VENTANA_SEG);
             $this->error('Usuario o contraseña incorrectos.');
             return redirect()->to($loginUrl);
         }
 
-        $this->session->remove([$key . '_count', $key . '_since']);
+        LimiteIntentos::limpiar($claveIp, $claveUsuario);
 
         if (Auth::needs2fa()) {
             $this->session->set('2fa_destino', $homeUrl);

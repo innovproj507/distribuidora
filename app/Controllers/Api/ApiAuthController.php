@@ -8,6 +8,7 @@ use App\Filters\ApiTokenFilter;
 use App\Libraries\AuditService;
 use App\Libraries\Auth;
 use App\Libraries\Db;
+use App\Libraries\LimiteIntentos;
 use App\Libraries\TotpService;
 
 /** Login/logout de la API (token Bearer). */
@@ -16,7 +17,6 @@ class ApiAuthController extends ApiController
     private const ROLES_2FA = ['gerente', 'auditor', 'superadmin'];
 
     private const MAX_INTENTOS = 10;
-    private const VENTANA_SEG  = 900;
 
     /** GET /api/v1 — estado (público). */
     public function estado()
@@ -31,8 +31,8 @@ class ApiAuthController extends ApiController
      */
     public function login()
     {
-        $clave = 'api_login_fail_' . md5($this->request->getIPAddress());
-        if ((int) cache($clave) >= self::MAX_INTENTOS) {
+        $clave = LimiteIntentos::clave('api_login_ip', $this->request->getIPAddress());
+        if (LimiteIntentos::bloqueado($clave, self::MAX_INTENTOS)) {
             return $this->fallo('Demasiados intentos fallidos. Espera 15 minutos.', 429);
         }
 
@@ -53,7 +53,7 @@ class ApiAuthController extends ApiController
         );
 
         if (!$user || !Auth::verifyPassword($password, $user['password'])) {
-            $this->registrarFallo($clave);
+            LimiteIntentos::fallo($clave);
             return $this->fallo('Credenciales inválidas.', 401);
         }
 
@@ -62,13 +62,20 @@ class ApiAuthController extends ApiController
             if ($codigo === '') {
                 return $this->fallo('Este usuario requiere el código de verificación en dos pasos (codigo_2fa).', 401, ['requiere_2fa' => true]);
             }
+            // Mismo contador de 2FA por usuario que la web (5 fallos / 15 min)
+            $clave2fa = LimiteIntentos::clave('2fa_usuario', (string) $user['id']);
+            if (LimiteIntentos::bloqueado($clave2fa, 5)) {
+                return $this->fallo('Demasiados códigos incorrectos. Espera 15 minutos.', 429);
+            }
             if (!TotpService::verify((string) $user['totp_secret'], $codigo)) {
-                $this->registrarFallo($clave);
+                LimiteIntentos::fallo($clave);
+                LimiteIntentos::fallo($clave2fa);
                 return $this->fallo('Código de verificación incorrecto.', 401, ['requiere_2fa' => true]);
             }
+            LimiteIntentos::limpiar($clave2fa);
         }
 
-        cache()->delete($clave);
+        LimiteIntentos::limpiar($clave);
 
         // Token nuevo en cada login (invalida el anterior), mismo formato que el sistema anterior
         $token = bin2hex(random_bytes(32));
@@ -93,14 +100,6 @@ class ApiAuthController extends ApiController
                 'is_staff'     => (bool) $user['is_staff'],
             ],
         ], 'Login exitoso');
-    }
-
-    /** Cuenta un intento fallido por IP; la ventana de 15 minutos arranca con el primero. */
-    private function registrarFallo(string $clave): void
-    {
-        $fallos = (int) cache($clave) + 1;
-        $ttl    = $fallos === 1 ? self::VENTANA_SEG : max(1, (int) (cache()->getMetaData($clave)['expire'] ?? time() + self::VENTANA_SEG) - time());
-        cache()->save($clave, $fallos, $ttl);
     }
 
     /** POST /api/v1/logout — revoca el token enviado. */

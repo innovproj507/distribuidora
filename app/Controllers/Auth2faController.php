@@ -7,10 +7,13 @@ namespace App\Controllers;
 use App\Libraries\AuditService;
 use App\Libraries\Auth;
 use App\Libraries\Db;
+use App\Libraries\LimiteIntentos;
 use App\Libraries\TotpService;
 
 class Auth2faController extends BaseController
 {
+    private const MAX_INTENTOS_2FA = 5;
+
     // ── Verificación tras login ──────────────────────────────────────────────
 
     public function show()
@@ -30,11 +33,29 @@ class Auth2faController extends BaseController
         $pending = Auth::pending2faData();
         $code    = trim((string) $this->request->getPost('code'));
 
+        // Un código de 6 dígitos se adivina por fuerza bruta si no hay límite: 5 fallos por
+        // usuario cada 15 minutos (en caché, no en la sesión). Al llegar al límite se anula el
+        // login pendiente y hay que volver a poner la contraseña.
+        $clave = LimiteIntentos::clave('2fa_usuario', (string) $pending['user_id']);
+        if (LimiteIntentos::bloqueado($clave, self::MAX_INTENTOS_2FA)) {
+            $this->session->remove(['2fa_pending', '2fa_destino']);
+            $this->error('Demasiados códigos incorrectos. Espera 15 minutos e inicia sesión de nuevo.');
+            return redirect()->to('/login');
+        }
+
         if (!TotpService::verify($pending['totp_secret'], $code)) {
-            AuditService::log('auth.2fa_fallido', "Código 2FA incorrecto para '{$pending['username']}'", (int) $pending['user_id'], 'usuario');
+            $fallos = LimiteIntentos::fallo($clave);
+            AuditService::log('auth.2fa_fallido', "Código 2FA incorrecto para '{$pending['username']}' (intento {$fallos})", (int) $pending['user_id'], 'usuario');
+            if ($fallos >= self::MAX_INTENTOS_2FA) {
+                $this->session->remove(['2fa_pending', '2fa_destino']);
+                $this->error('Demasiados códigos incorrectos. Espera 15 minutos e inicia sesión de nuevo.');
+                return redirect()->to('/login');
+            }
             $this->error('Código incorrecto. Intenta de nuevo.');
             return redirect()->to('/auth/2fa');
         }
+
+        LimiteIntentos::limpiar($clave);
 
         // El login (web o móvil) indicó a dónde volver
         $destino = $this->session->get('2fa_destino') ?? '/';
