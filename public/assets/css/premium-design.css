@@ -1,0 +1,140 @@
+/* 
+  Premium Design System - Inspiration: Odoo, Stripe, SaaS Moderno
+  Paleta basada en HSL para máxima armonía
+*/
+
+:root {
+  /* Colors - Sophisticated Blue / Indigo */
+  --primary-h: 217;
+  --primary-s: 91%;
+  --primary-l: 60%;
+  
+  --primary: hsl(var(--primary-h), var(--primary-s), var(--primary-l));
+  --primary-dark: hsl(var(--primary-h), var(--primary-s), 45%);
+  --primary-light: hsl(var(--primary-h), var(--primary-s), 95%);
+  --primary-soft: hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.1);
+
+  /* Neutrals */
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+
+  /* Accents */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-soft: 0 4px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  --shadow-md: 0 10px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  
+  /* Borders */
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+}
+
+/* Base Styles */
+body {
+    background-color: var(--slate-50);
+    color: var(--slate-800);
+    letter-spacing: -0.01em;
+}
+
+/* Premium Card & Containers */
+.premium-card {
+    background: white;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--slate-100);
+    box-shadow: var(--shadow-soft);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.premium-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+/* Glass Effect */
+.glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Elegant Scrollbar */
+.scroll-custom::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.scroll-custom::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scroll-custom::-webkit-scrollbar-thumb {
+    background: var(--slate-200);
+    border-radius: 10px;
+}
+
+.scroll-custom::-webkit-scrollbar-thumb:hover {
+    background: var(--slate-300);
+}
+
+/* Buttons Transformation */
+.btn-premium {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease;
+    border-radius: 0.75rem;
+    font-weight: 600;
+}
+
+.btn-premium:active {
+    transform: scale(0.96);
+}
+
+/* Inputs Refinement */
+.form-input-premium {
+    background-color: var(--slate-50);
+    border: 2px solid transparent;
+    border-radius: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.form-input-premium:focus {
+    background-color: white;
+    border-color: var(--primary-soft);
+    box-shadow: 0 0 0 4px var(--primary-soft);
+}
+
+/* Sidebar & Navigation Sophistication */
+.nav-item-active {
+    background: var(--primary);
+    box-shadow: 0 4px 12px hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.3);
+}
+
+.sidebar-glass {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid var(--slate-100);
+}
+
+/* Animations */
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+    animation: slideUp 0.4s ease forwards;
+}

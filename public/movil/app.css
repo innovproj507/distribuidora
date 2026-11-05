@@ -1,0 +1,104 @@
+:root{
+  --bg:#F2F4F9;
+  --ink:#16233F;
+  --ink-soft:#6B7794;
+  --navy-dark:#0F2E6B;
+  --navy:#1D4FD6;
+  --navy-light:#E7EDFB;
+  --green:#1E8F5F;
+  --green-light:#E4F5EC;
+  --orange:#DB7A1F;
+  --orange-light:#FBEBDA;
+  --purple:#6E4FC9;
+  --purple-light:#EEE8FB;
+  --red:#C7401F;
+  --red-light:#FAE6DE;
+  --teal:#0D8C8C;
+  --teal-dark:#0A6B6B;
+  --teal-light:#DFF4F3;
+  --amber:#C98A0A;
+  --amber-dark:#9C6B08;
+  --amber-light:#FBEFD6;
+  --line:#E4E8F1;
+}
+body{ font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); }
+.font-head{ font-family:'Space Grotesk',sans-serif; }
+.font-mono{ font-family:'IBM Plex Mono',monospace; }
+.header-grad{ background:linear-gradient(160deg, var(--navy-dark) 0%, var(--navy) 100%); }
+.safe-top{ padding-top:calc(env(safe-area-inset-top) + 12px); }
+
+.card{ background:white; border-radius:18px; padding:16px; box-shadow:0 2px 12px -4px rgba(22,35,63,.10); }
+.icon-tile{ width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; }
+
+/* Tarjetas de estadística con degradado, estilo billetera/fintech, para el dashboard. */
+.stat-card{
+  border-radius:18px; padding:16px; color:white; position:relative; overflow:hidden;
+  box-shadow:0 8px 20px -8px rgba(22,35,63,.35);
+}
+.stat-card::after{
+  content:''; position:absolute; right:-18px; top:-18px; width:80px; height:80px;
+  border-radius:50%; background:rgba(255,255,255,.12);
+}
+.stat-teal{ background:linear-gradient(160deg, var(--teal) 0%, var(--teal-dark) 100%); }
+.stat-amber{ background:linear-gradient(160deg, var(--amber) 0%, var(--amber-dark) 100%); }
+.stat-navy{ background:linear-gradient(160deg, var(--navy) 0%, var(--navy-dark) 100%); }
+
+/* Insignia circular con icono, para movimientos/categorías en listas. */
+.badge-icon{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+
+/* Anillo de progreso (donut) via conic-gradient, sin necesidad de SVG/JS.
+   El fondo (conic-gradient) se define inline por instancia, según los datos. */
+.ring{
+  width:88px; height:88px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+}
+.ring-inner{
+  width:62px; height:62px; border-radius:50%; background:white;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+
+.navbtn{ display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--ink-soft); text-decoration:none; }
+.navbtn.active{ color:var(--navy); }
+.navbtn.active .navline{ opacity:1; }
+.navline{ width:16px; height:2px; background:var(--navy); border-radius:2px; opacity:0; margin-top:1px; }
+
+.stockbar{ height:5px; border-radius:3px; background:var(--line); overflow:hidden; }
+.stockbar > div{ height:100%; border-radius:3px; }
+
+.fab-center{
+  position:fixed; left:50%; transform:translateX(-50%); bottom:36px;
+  width:56px; height:56px; border-radius:50%;
+  background:linear-gradient(160deg, var(--navy) 0%, var(--navy-dark) 100%);
+  display:flex; align-items:center; justify-content:center; color:white; font-size:26px;
+  box-shadow:0 10px 20px -4px rgba(15,46,107,.5); z-index:40; border:5px solid var(--bg);
+}
+
+.sheet{
+  position:fixed; left:0; right:0; bottom:0; background:var(--bg);
+  border-radius:24px 24px 0 0; box-shadow:0 -10px 30px rgba(0,0,0,.15);
+  padding:20px; z-index:60; border-top:1px solid var(--line);
+  max-height:88vh; overflow-y-auto; transition:transform .25s ease; z-index:70;
+}
+.sheet-handle{ width:40px; height:4px; background:var(--line); border-radius:4px; margin:0 auto 14px; }
+
+.field-label{ font-size:12px; color:var(--ink-soft); margin-bottom:4px; display:block; }
+.field-input{
+  width:100%; background:white; border:1px solid var(--line); border-radius:10px;
+  padding:10px 12px; font-family:'IBM Plex Mono',monospace; font-size:15px; color:var(--ink);
+}
+
+/* ── Añadidos para la PWA de distribuidora ─────────────────────────────── */
+.sheet{ overflow-y:auto; }
+.sheet-backdrop{ position:fixed; inset:0; background:rgba(15,46,107,.35); z-index:65; display:none; }
+.sheet-backdrop.visible{ display:block; }
+.chip{ font-size:12px; padding:6px 12px; border-radius:9999px; white-space:nowrap; background:white; border:1px solid var(--line); color:var(--ink-soft); }
+.chip.activo{ background:var(--navy-light); color:var(--navy); border-color:var(--navy-light); font-weight:600; }
+.chip-pago{ flex:1; padding:10px 4px; border-radius:12px; font-size:12px; font-weight:600; background:white; border:1px solid var(--line); color:var(--ink-soft); }
+.chip-pago.activo{ background:var(--navy); color:white; border-color:var(--navy); }
+.toast{ position:fixed; left:50%; top:calc(env(safe-area-inset-top) + 14px); transform:translateX(-50%); z-index:90;
+        max-width:92vw; padding:10px 16px; border-radius:12px; font-size:14px; font-weight:500; color:white;
+        box-shadow:0 8px 20px -6px rgba(0,0,0,.35); transition:opacity .2s; }
+.toast-ok{ background:var(--green); }
+.toast-error{ background:var(--red); }
+.btn-primario{ width:100%; padding:12px; border-radius:12px; color:white; font-weight:500; background:var(--navy); }
+.btn-primario:disabled{ opacity:.6; }

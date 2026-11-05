@@ -1,0 +1,130 @@
+<?php
+
+namespace Config;
+
+use CodeIgniter\Config\BaseConfig;
+
+/**
+ * Matriz de permisos por rol (formato modulo.accion).
+ * superadmin recibe todos los permisos automáticamente vía Auth::can().
+ */
+class Permisos extends BaseConfig
+{
+    public array $roles = 
+    [
+    
+        'cajero' => [
+            'dashboard.ver',
+            'pos.usar',
+            'ventas.crear',
+            'ventas.ver',
+            'cotizaciones.ver',
+            'cotizaciones.crear',
+            'clientes.ver',
+            'clientes.crear',
+            'productos.ver',
+            'lotes.ver',
+        ],
+    
+        'supervisor' => [
+            'dashboard.ver',
+            'pos.usar',
+            'ventas.ver',
+            'ventas.crear',
+            'ventas.anular',
+            'descuentos.aplicar',
+            'cotizaciones.ver',
+            'cotizaciones.crear',
+            'cotizaciones.aprobar',
+            'clientes.ver',
+            'clientes.crear',
+            'clientes.editar',
+            'productos.ver',
+            'inventario.ver',
+            'inventario.ajustar',
+            'traslados.ver',
+            'traslados.crear',
+            'lotes.ver',
+            'lotes.gestionar',
+            'alertas.ver',
+            'alertas.resolver',
+            'conteos.ver',
+            'conteos.crear',
+            'reportes.ver',
+        ],
+    
+        'gerente' => [
+            'dashboard.ver',
+            'pos.usar',
+            'ventas.ver',
+            'ventas.crear',
+            'ventas.anular',
+            'descuentos.aplicar',
+            'cotizaciones.ver',
+            'cotizaciones.crear',
+            'cotizaciones.aprobar',
+            'clientes.ver',
+            'clientes.crear',
+            'clientes.editar',
+            'clientes.eliminar',
+            'productos.ver',
+            'productos.crear',
+            'productos.editar',
+            'productos.eliminar',
+            'categorias.ver',
+            'categorias.crear',
+            'categorias.editar',
+            'categorias.eliminar',
+            'inventario.ver',
+            'inventario.ajustar',
+            'compras.ver',
+            'compras.crear',
+            'compras.recibir',
+            'proveedores.ver',
+            'proveedores.crear',
+            'proveedores.editar',
+            'traslados.ver',
+            'traslados.crear',
+            'traslados.aprobar',
+            'lotes.ver',
+            'lotes.gestionar',
+            'alertas.ver',
+            'alertas.resolver',
+            'conteos.ver',
+            'conteos.crear',
+            'conteos.reconciliar',
+            'sugerencias.ver',
+            'sugerencias.gestionar',
+            'depositos.ver',
+            'depositos.gestionar',
+            'reportes.ver',
+            'reportes.avanzados',
+            'usuarios.ver',
+            'usuarios.gestionar',
+            'bitacora.ver',
+            'sucursales.ver',
+            'sucursales.gestionar',
+        ],
+
+        'auditor' => [
+            'dashboard.ver',
+            'ventas.ver',
+            'cotizaciones.ver',
+            'clientes.ver',
+            'productos.ver',
+            'categorias.ver',
+            'inventario.ver',
+            'compras.ver',
+            'proveedores.ver',
+            'traslados.ver',
+            'lotes.ver',
+            'alertas.ver',
+            'conteos.ver',
+            'reportes.ver',
+            'reportes.avanzados',
+            'bitacora.ver',
+            'sucursales.ver',
+        ],
+
+    ];
+}

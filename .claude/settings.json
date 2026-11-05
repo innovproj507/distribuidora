@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "C:\\laragon\\www\\distribuidora-ci4\\app\\Modules\\reportes"
+    ]
+  }
+}
