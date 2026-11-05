@@ -253,7 +253,8 @@ class ApiGeneralController extends ApiController
             if (array_key_exists('is_active', $data)) {
                 $datos['is_active'] = !empty($data['is_active']) ? 1 : 0;
                 if (!$datos['is_active']) {
-                    $datos['api_token'] = null; // un usuario desactivado pierde su token
+                    $datos['api_token']        = null; // un usuario desactivado pierde su token
+                    $datos['api_token_expira'] = null;
                 }
             }
             if (array_key_exists('is_staff', $data)) {
