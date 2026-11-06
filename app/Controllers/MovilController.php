@@ -247,6 +247,12 @@ class MovilController extends BaseController
                  FROM clientes c WHERE c.saldo_pendiente > 0 AND c.empresa_id = ? ORDER BY c.saldo_pendiente DESC",
                 [$this->empresaId()]
             ),
+            'cobrosHoy'   => Db::all(
+                "SELECT forma_pago, COUNT(*) AS recibos, SUM(monto) AS total FROM cobros
+                 WHERE sucursal_id = ? AND DATE(fecha) = CURDATE() GROUP BY forma_pago ORDER BY total DESC",
+                [$this->sucursalId()]
+            ),
+            'puedeCobrar' => Auth::can('ventas.crear') || Auth::can('pos.usar'),
         ]);
     }
 
@@ -291,15 +297,114 @@ class MovilController extends BaseController
             'headerTitle'  => 'Compra ' . ($compra['numero_factura_proveedor'] ?: $compra['numero_factura']),
             'activeTab'    => 'mas',
             'compra'       => $compra,
-            'lineas'       => Db::all(
-                "SELECT d.detalle_id, d.producto_id, d.cantidad, d.cantidad_recibida, d.costo, p.nombre, p.codigo
-                 FROM compras_detalle d JOIN productos p ON p.producto_id = d.producto_id WHERE d.compra_id = ? ORDER BY p.nombre",
-                [$id]
-            ),
+            'lineas'       => $this->lineasConPresentaciones($id),
             'porEnviar'    => \App\Libraries\PedidoCiudadService::porEnviar($id),
             'puedeRecibir' => Auth::can('compras.recibir') && !in_array($compra['estado'], ['recibida', 'cancelada'], true),
             'puedeEnviar'  => Auth::can('traslados.crear'),
         ]);
+    }
+
+    public function conteos()
+    {
+        if ($r = $this->exigir('conteos.ver', '/m/mas')) return $r;
+
+        return $this->render('movil.conteos', [
+            'page_title'   => 'Conteo físico',
+            'headerTitle'  => 'Conteo físico',
+            'activeTab'    => 'mas',
+            'conteos'      => Db::all(
+                "SELECT c.conteo_id, c.descripcion, c.tipo, c.estado, c.fecha_inicio, c.total_productos, c.total_diferencias, d.nombre AS deposito,
+                        (SELECT COUNT(*) FROM conteo_detalle x WHERE x.conteo_id = c.conteo_id AND x.estado <> 'pendiente') AS contados
+                 FROM inventario_conteos c JOIN depositos d ON d.deposito_id = c.deposito_id
+                 WHERE c.sucursal_id = ? AND c.estado IN ('en_proceso', 'completado')
+                 ORDER BY (c.estado = 'en_proceso') DESC, c.conteo_id DESC LIMIT 15",
+                [$this->sucursalId()]
+            ),
+            'ubicaciones'  => \App\Libraries\ConteoService::ubicaciones($this->depositoId()),
+            'categorias'   => Db::all(
+                "SELECT c.categoria_id, c.nombre, COUNT(*) AS total FROM categorias_productos c
+                 JOIN productos p ON p.categoria_id = c.categoria_id AND p.estado = 'activo'
+                 WHERE c.empresa_id = ? GROUP BY c.categoria_id, c.nombre ORDER BY c.nombre",
+                [$this->empresaId()]
+            ),
+            'puedeCrear'   => Auth::can('conteos.crear'),
+        ]);
+    }
+
+    public function conteo(int $id)
+    {
+        if ($r = $this->exigir('conteos.ver', '/m/mas')) return $r;
+
+        $conteo = \App\Libraries\ConteoService::buscar($id, $this->empresaId(), $this->sucursalId());
+        if (!$conteo || $conteo['estado'] === 'cancelado') {
+            return redirect()->to('/m/conteos');
+        }
+        $abierto = $conteo['estado'] === 'en_proceso';
+
+        $items = Db::all(
+            "SELECT cd.producto_id, cd.cantidad_sistema, cd.cantidad_contada, cd.diferencia, cd.estado, cd.costo_unitario,
+                    p.nombre, p.codigo, p.codigo_barras, COALESCE(i.ubicacion, '') AS ubicacion
+             FROM conteo_detalle cd
+             JOIN productos p ON p.producto_id = cd.producto_id
+             LEFT JOIN inventario i ON i.producto_id = cd.producto_id AND i.deposito_id = ?
+             WHERE cd.conteo_id = ?
+             ORDER BY (COALESCE(i.ubicacion, '') = ''), i.ubicacion, p.nombre",
+            [$conteo['deposito_id'], $id]
+        );
+        // Conteo a ciegas: mientras el producto no esté contado no se envía lo que dice el sistema
+        $items = array_map(function (array $i) use ($abierto): array {
+            $contado = $i['estado'] !== 'pendiente';
+            return [
+                'id'         => (int) $i['producto_id'],
+                'nombre'     => $i['nombre'],
+                'codigo'     => $i['codigo'],
+                'barras'     => $i['codigo_barras'],
+                'ubicacion'  => $i['ubicacion'],
+                'costo'      => (float) $i['costo_unitario'],
+                'estado'     => $i['estado'],
+                'contada'    => $i['cantidad_contada'] !== null ? (float) $i['cantidad_contada'] : null,
+                'sistema'    => $contado || !$abierto ? (float) $i['cantidad_sistema'] : null,
+                'diferencia' => $contado && $i['diferencia'] !== null ? (float) $i['diferencia'] : null,
+            ];
+        }, $items);
+
+        return $this->render('movil.conteo', [
+            'page_title'     => 'Conteo',
+            'headerTitle'    => $conteo['descripcion'] ?: 'Conteo #' . $id,
+            'activeTab'      => 'mas',
+            'conteo'         => $conteo,
+            'abierto'        => $abierto,
+            'items'          => $items,
+            'resumen'        => \App\Libraries\ConteoService::resumen($id),
+            'ubicaciones'    => array_values(array_filter(array_column(\App\Libraries\ConteoService::ubicaciones((int) $conteo['deposito_id']), 'ubicacion'))),
+            'puedeContar'    => Auth::can('conteos.crear'),
+            'puedeAjustar'   => Auth::can('conteos.reconciliar'),
+        ]);
+    }
+
+    /** Líneas de una compra con las presentaciones (docena, caja…) de cada producto, para contar en bultos. */
+    private function lineasConPresentaciones(int $compraId): array
+    {
+        $lineas = Db::all(
+            "SELECT d.detalle_id, d.producto_id, d.cantidad, d.cantidad_recibida, d.costo, p.nombre, p.codigo
+             FROM compras_detalle d JOIN productos p ON p.producto_id = d.producto_id WHERE d.compra_id = ? ORDER BY p.nombre",
+            [$compraId]
+        );
+        if (!$lineas) return [];
+
+        $ids = array_map(fn ($l) => (int) $l['producto_id'], $lineas);
+        $pres = [];
+        foreach (Db::all(
+            "SELECT producto_id, nombre, factor_conversion FROM productos_unidades
+             WHERE producto_id IN (" . implode(',', array_fill(0, count($ids), '?')) . ") AND factor_conversion > 1 ORDER BY factor_conversion",
+            $ids
+        ) as $u) {
+            $pres[(int) $u['producto_id']][] = ['nombre' => $u['nombre'], 'factor' => (float) $u['factor_conversion']];
+        }
+        foreach ($lineas as &$l) {
+            $l['pres'] = $pres[(int) $l['producto_id']] ?? [];
+        }
+        return $lineas;
     }
 
     public function pedido()

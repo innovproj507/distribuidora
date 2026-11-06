@@ -127,3 +127,6 @@ _modules/*
 
 # Imágenes subidas por usuarios
 /public/assets/uploads/
+
+# Generador de datos ficticios: solo para pruebas locales, nunca al servidor
+/app/Commands/DatosPrueba.php

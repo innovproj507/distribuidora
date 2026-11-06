@@ -57,6 +57,28 @@ $this->extend('layouts/movil');
 </div>
 <?php endif; ?>
 
+<?php if ($puedeEditar): ?>
+<!-- Sheet: presentaciones (unidad, docena, caja…) del producto -->
+<div id="sheet-presentaciones" class="sheet" style="transform:translateY(110%)">
+  <div class="sheet-handle"></div>
+  <div class="flex items-center justify-between mb-1">
+    <h2 class="font-head text-lg font-semibold truncate pr-2" id="pp-nombre">Presentaciones</h2>
+    <button type="button" onclick="cerrarSheet('sheet-presentaciones')" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:var(--navy-light); color:var(--navy)">✕</button>
+  </div>
+  <p class="text-xs mb-3" style="color:var(--ink-soft)">Cómo se compra o vende este producto además de por unidad (docena, caja, bulto…). El inventario siempre se cuenta en unidades.</p>
+  <div id="pp-lista" class="flex flex-col gap-2 mb-4"></div>
+
+  <p class="field-label">Agregar presentación</p>
+  <div class="grid grid-cols-2 gap-2 mb-2">
+    <input id="pp-nueva-nombre" class="field-input" style="font-family:'Inter'" placeholder="Nombre (Caja, Docena…)" list="pp-sugerencias">
+    <input id="pp-nueva-factor" type="number" inputmode="decimal" min="0" step="any" class="field-input" placeholder="Unidades que trae">
+  </div>
+  <datalist id="pp-sugerencias"><option value="Docena"><option value="Caja"><option value="Bulto"><option value="Paca"><option value="Saco"></datalist>
+  <input id="pp-nueva-precio" type="number" inputmode="decimal" min="0" step="0.01" class="field-input mb-3" placeholder="Precio de venta (vacío = unidad × cantidad)">
+  <button type="button" onclick="agregarPresentacion()" class="btn-primario">Agregar</button>
+</div>
+<?php endif; ?>
+
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
@@ -68,6 +90,56 @@ let soloStockBajo = <?= json_encode($soloStockBajo) ?>;
 let categoriaActual = '';
 let movProductoId = null;
 let movTipo = 'entrada';
+let presProductoId = null;
+
+// ── Presentaciones (caja, docena…) ──────────────────────────────────────────
+function pintarPresentaciones(p) {
+  document.getElementById('pp-nombre').textContent = p.nombre;
+  document.getElementById('pp-lista').innerHTML = (p.unidades || []).map(function (u) {
+    return '<div class="card !p-3 flex items-center justify-between gap-2">' +
+      '<span class="text-sm"><span class="font-medium">' + esc(u.nombre) + '</span> <span class="text-xs" style="color:var(--ink-soft)">trae ' + numero(u.factor) + '</span></span>' +
+      '<span class="font-mono text-sm">' + dinero(u.precio) + '</span>' +
+      '<button type="button" onclick="quitarPresentacion(' + u.unidad_id + ')" class="w-7 h-7 rounded-full text-sm" style="background:var(--red-light); color:var(--red)" title="Quitar">✕</button></div>';
+  }).join('') || '<p class="text-xs" style="color:var(--ink-soft)">Solo se vende por unidad.</p>';
+}
+
+function abrirPresentaciones(id) {
+  const p = lista.get(id);
+  if (!p) return;
+  presProductoId = id;
+  document.getElementById('pp-nueva-nombre').value = '';
+  document.getElementById('pp-nueva-factor').value = '';
+  document.getElementById('pp-nueva-precio').value = '';
+  pintarPresentaciones(p);
+  abrirSheet('sheet-presentaciones');
+}
+
+async function agregarPresentacion() {
+  const nombre = document.getElementById('pp-nueva-nombre').value.trim();
+  const factor = parseFloat(document.getElementById('pp-nueva-factor').value);
+  if (!nombre || !(factor > 0)) { toast('Escribe el nombre y cuántas unidades trae.', 'error'); return; }
+  try {
+    const r = await api('/m/api/producto/' + presProductoId + '/presentacion', { method: 'POST', body: {
+      nombre: nombre, factor: factor, precio: parseFloat(document.getElementById('pp-nueva-precio').value) || 0,
+    }});
+    const p = lista.get(presProductoId);
+    p.unidades = r.unidades;
+    pintarPresentaciones(p);
+    document.getElementById('pp-nueva-nombre').value = '';
+    document.getElementById('pp-nueva-factor').value = '';
+    document.getElementById('pp-nueva-precio').value = '';
+    toast('Presentación agregada.');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function quitarPresentacion(unidadId) {
+  try {
+    const r = await api('/m/api/presentacion/' + unidadId + '/eliminar', { method: 'POST', body: {} });
+    const p = lista.get(presProductoId);
+    p.unidades = r.unidades;
+    pintarPresentaciones(p);
+  } catch (e) { toast(e.message, 'error'); }
+}
 
 const lista = new ListaProductos({
   contenedor: 'lista-productos',
@@ -82,7 +154,7 @@ const lista = new ListaProductos({
     const estado = estadoStock(p);
     const colores = coloresStock(estado);
     const etiqueta = estado === 'agotado' ? 'Agotado' : numero(p.existencia) + ' uds';
-    let detalle = esc(p.codigo || '');
+    let detalle = esc(p.codigo || '') + (p.ubicacion ? ' · 📍 ' + esc(p.ubicacion) : '');
     if (PUEDE_EDITAR && p.costo !== undefined) detalle += ' · Costo ' + dinero(p.costo);
 
     const contenido =
@@ -110,7 +182,11 @@ const lista = new ListaProductos({
         '</button>'
       : '';
 
-    return '<div class="card flex gap-3 !p-3" id="prod-' + p.producto_id + '">' + cuerpo + botonMov + '</div>';
+    const botonPres = PUEDE_EDITAR
+      ? '<button type="button" onclick="abrirPresentaciones(' + p.producto_id + ')" class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 self-center text-base" style="background:var(--amber-light)" title="Presentaciones (caja, docena…)">📦</button>'
+      : '';
+
+    return '<div class="card flex gap-3 !p-3" id="prod-' + p.producto_id + '">' + cuerpo + botonPres + botonMov + '</div>';
   },
 });
 

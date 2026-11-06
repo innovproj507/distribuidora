@@ -176,37 +176,9 @@ class ConteoController extends BaseController
             return redirect()->to('/inventario/conteos');
         }
 
-        $items = Db::all("SELECT * FROM conteo_detalle WHERE conteo_id = ? AND estado = 'contado' AND diferencia <> 0", [$conteoId]);
-
         try {
             Db::begin();
-            foreach ($items as $item) {
-                $inv = Db::row(
-                    "SELECT inventario_id, existencia FROM inventario WHERE producto_id = ? AND deposito_id = ? FOR UPDATE",
-                    [$item['producto_id'], $conteo['deposito_id']]
-                );
-                if (!$inv) continue;
-
-                $dif           = (float) $item['diferencia'];
-                $saldoAnterior = (float) $inv['existencia'];
-                $saldoNuevo    = $saldoAnterior + $dif;
-
-                // tipo 'ajuste' con saldo explícito: InventarioService::registrar() trata 'ajuste' como salida
-                Db::query("UPDATE inventario SET existencia = ? WHERE inventario_id = ?", [$saldoNuevo, $inv['inventario_id']]);
-                Db::insert('inventario_movimientos', [
-                    'inventario_id'   => $inv['inventario_id'],
-                    'tipo'            => 'ajuste',
-                    'cantidad'        => abs($dif),
-                    'saldo_anterior'  => $saldoAnterior,
-                    'saldo_nuevo'     => $saldoNuevo,
-                    'usuario_id'      => Auth::id(),
-                    'referencia_id'   => $conteoId,
-                    'referencia_tipo' => 'conteo',
-                    'motivo'          => 'Ajuste por conteo físico (' . ($dif > 0 ? 'sobrante' : 'faltante') . ')',
-                ]);
-                Db::update('conteo_detalle', ['estado' => 'ajustado'], ['detalle_id' => $item['detalle_id']]);
-            }
-            Db::update('inventario_conteos', ['estado' => 'completado', 'fecha_cierre' => date('Y-m-d H:i:s')], ['conteo_id' => $conteoId]);
+            $ajustadas = \App\Libraries\ConteoService::aplicarAjustes($conteoId, (int) $this->empresaId(), (int) $conteo['sucursal_id']);
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollback();
@@ -215,8 +187,8 @@ class ConteoController extends BaseController
         }
 
         AuditService::log(
-            'inventario.ajustar', "Ajuste de inventario por conteo #{$conteoId}: " . count($items) . ' líneas ajustadas',
-            $conteoId, 'conteo', ['deposito_id' => $conteo['deposito_id'], 'diferencias' => count($items)], $this->empresaId()
+            'inventario.ajustar', "Ajuste de inventario por conteo #{$conteoId}: {$ajustadas} líneas ajustadas",
+            $conteoId, 'conteo', ['deposito_id' => $conteo['deposito_id'], 'diferencias' => $ajustadas], $this->empresaId()
         );
         $this->success('Ajustes aplicados. Inventario actualizado.');
         return redirect()->to("/inventario/conteos/{$conteoId}/reconciliar");

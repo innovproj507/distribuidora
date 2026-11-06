@@ -89,6 +89,23 @@ final class PedidoCiudadService
 
         usort($items, fn ($a, $b) => [$a['proveedor_nombre'], $a['nombre']] <=> [$b['proveedor_nombre'], $b['nombre']]);
 
+        // Presentaciones de compra (docena, caja, bulto…) para pedir en bultos completos
+        if ($items) {
+            $ids = array_column($items, 'producto_id');
+            $porProducto = [];
+            foreach (Db::all(
+                "SELECT producto_id, unidad_id, nombre, factor_conversion FROM productos_unidades
+                 WHERE producto_id IN (" . implode(',', array_fill(0, count($ids), '?')) . ") AND factor_conversion > 1 ORDER BY factor_conversion",
+                $ids
+            ) as $u) {
+                $porProducto[(int) $u['producto_id']][] = ['unidad_id' => (int) $u['unidad_id'], 'nombre' => $u['nombre'], 'factor' => (float) $u['factor_conversion']];
+            }
+            foreach ($items as &$it) {
+                $it['presentaciones'] = $porProducto[$it['producto_id']] ?? [];
+            }
+            unset($it);
+        }
+
         $total = 0.0;
         foreach ($items as $it) {
             $total += array_sum(array_column($it['tiendas'], 'necesita')) * $it['costo'];
@@ -241,7 +258,7 @@ final class PedidoCiudadService
                 'compra_id' => $compraId,
                 'proveedor' => $proveedorId ? (string) Db::value("SELECT nombre FROM proveedores WHERE proveedor_id = ?", [$proveedorId]) : 'Sin proveedor',
                 'lineas'    => count($items),
-                'total'     => array_sum(array_map(fn ($i) => $i['cantidad'] * $i['costo'], $items)),
+                'total'     => round(array_sum(array_map(fn ($i) => $i['cantidad'] * $i['costo'], $items)), 2),
             ];
         }
         return $creadas;

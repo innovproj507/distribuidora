@@ -78,15 +78,42 @@ final class VentaService
                 SucursalService::exigirDepositoDeSucursal($depositoId, (int) $ctx['sucursal_id']);
             }
 
-            $factor = 1.0;
+            $factor       = 1.0;
+            $unidadId     = null;
+            $unidadNombre = null;
             if (!empty($item['unidad_id'])) {
-                $f = Db::value("SELECT factor_conversion FROM productos_unidades WHERE unidad_id = ?", [$item['unidad_id']]);
-                if ($f !== null) $factor = (float) $f;
+                // La presentación debe ser del producto (si no, un factor ajeno alteraría el stock)
+                $u = Db::row("SELECT unidad_id, nombre, factor_conversion FROM productos_unidades WHERE unidad_id = ? AND producto_id = ?", [(int) $item['unidad_id'], $productoId]);
+                if (!$u) {
+                    throw new \RuntimeException('La presentación indicada no pertenece al producto.');
+                }
+                $factor       = max(0.001, (float) $u['factor_conversion']);
+                $unidadId     = (int) $u['unidad_id'];
+                $unidadNombre = $u['nombre'];
             }
             $cantidadBase = $cantidad * $factor;
 
             $precio     = (float) $item['precio'];
             $descuento  = (float) ($item['descuento'] ?? 0);
+
+            if ($cantidad <= 0) {
+                throw new \RuntimeException('Las cantidades deben ser mayores que cero.');
+            }
+            if ($precio < 0 || $descuento < 0 || $descuento > $cantidad * $precio + 0.005) {
+                throw new \RuntimeException('Precio o descuento inválido en una de las líneas.');
+            }
+            if ($depositoId > 0) {
+                // Sin stock suficiente no se vende (las líneas del mismo producto ya descontaron antes en este bucle)
+                $inv = Db::row(
+                    "SELECT i.existencia, p.nombre FROM inventario i JOIN productos p ON p.producto_id = i.producto_id
+                     WHERE i.producto_id = ? AND i.deposito_id = ? FOR UPDATE",
+                    [$productoId, $depositoId]
+                );
+                if (!$inv || (float) $inv['existencia'] < $cantidadBase - 0.0001) {
+                    $nombre = $inv['nombre'] ?? Db::value("SELECT nombre FROM productos WHERE producto_id = ?", [$productoId]) ?? "#{$productoId}";
+                    throw new \RuntimeException("Stock insuficiente de \"{$nombre}\" (hay " . (float) ($inv['existencia'] ?? 0) . ', pides ' . (float) $cantidadBase . ').');
+                }
+            }
             $totalLinea = ($cantidad * $precio) - $descuento;
             $itbmsLinea = $totalLinea * $itbmsRate;
             $subtotal  += $totalLinea;
@@ -106,6 +133,9 @@ final class VentaService
                 'descuento'   => $descuento,
                 'total_linea' => $totalLinea + $itbmsLinea,
                 'deposito_id' => $depositoId ?: null,
+                'unidad_id'     => $unidadId,
+                'unidad_nombre' => $unidadNombre,
+                'factor'        => $factor,
             ]);
 
             if ($depositoId) {
@@ -134,6 +164,16 @@ final class VentaService
         }
         if ($totalPagado == 0) {
             $pagos[0]['monto'] = $total; // un solo pago por el total exacto
+        } elseif ($totalPagado > $total + 0.005) {
+            // El cliente entregó de más (vuelto): los pagos registrados deben sumar el total,
+            // si no el vuelto se cuenta como ingreso en efectivo. El vuelto sale de las líneas en efectivo.
+            $exceso = $totalPagado - $total;
+            for ($i = count($pagos) - 1; $i >= 0 && $exceso > 0.005; $i--) {
+                if ($pagos[$i]['forma_pago'] !== 'EFECTIVO') continue;
+                $quitar            = min($exceso, (float) $pagos[$i]['monto']);
+                $pagos[$i]['monto'] = round((float) $pagos[$i]['monto'] - $quitar, 2);
+                $exceso            -= $quitar;
+            }
         }
 
         if ($hayCredito) {
@@ -194,12 +234,16 @@ final class VentaService
         if ($venta['estado'] === 'anulada') {
             throw new \RuntimeException('Esta venta ya fue anulada.');
         }
+        if (CobroService::abonado($ventaId) > 0.004) {
+            throw new \RuntimeException('Esta venta tiene abonos registrados ($' . number_format(CobroService::abonado($ventaId), 2) . '); no se puede anular sin devolver ese dinero al cliente.');
+        }
 
-        foreach (Db::all("SELECT producto_id, cantidad, deposito_id FROM ventas_detalle WHERE venta_id = ?", [$ventaId]) as $d) {
+        foreach (Db::all("SELECT producto_id, cantidad, deposito_id, factor FROM ventas_detalle WHERE venta_id = ?", [$ventaId]) as $d) {
             if (!$d['deposito_id']) continue;
             $inventarioId = InventarioService::inventarioId((int) $d['producto_id'], (int) $d['deposito_id']);
             if ($inventarioId) {
-                InventarioService::registrar($inventarioId, 'entrada', (float) $d['cantidad'], $ventaId, 'ventas_anulacion', "Anulación venta #{$venta['numero_factura']}");
+                // cantidad está en la presentación vendida; el stock se repone en unidades base
+                InventarioService::registrar($inventarioId, 'entrada', (float) $d['cantidad'] * max(0.001, (float) $d['factor']), $ventaId, 'ventas_anulacion', "Anulación venta #{$venta['numero_factura']}");
             }
         }
 

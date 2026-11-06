@@ -12,6 +12,7 @@ $itemsJs = array_map(fn ($it) => [
     'proveedor' => $it['proveedor_nombre'],
     'costo'     => $it['costo'],
     'tiendas'   => (object) $it['tiendas'],
+    'pres'      => $it['presentaciones'] ?? [],
 ], $items);
 $tiendasJs = array_map(fn ($t) => ['deposito_id' => (int) $t['deposito_id'], 'nombre' => $t['sucursal']], $tiendas);
 ?>
@@ -71,17 +72,36 @@ const TIENDAS = <?= json_encode($tiendasJs, JSON_UNESCAPED_UNICODE | JSON_HEX_TA
 const ITEMS   = <?= json_encode($itemsJs, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;
 const HUB     = <?= (int) $hubDep ?>;
 
-// Cantidad a pedir por producto y tienda (editable); incluido = entra al pedido
+// Por producto: incluir (entra al pedido), factor (unidades por bulto; 1 = unidad) y cant por tienda EN ESA PRESENTACIÓN.
+// Al elegir "Caja ×24" lo que falta se redondea hacia arriba a cajas completas; el servidor recibe unidades base.
 const estado = {};
-ITEMS.forEach(function (it) {
+function necesidadBase(it, dep) { return it.tiendas[dep] ? it.tiendas[dep].necesita : 0; }
+function calcularCant(it, factor) {
   const c = {};
-  TIENDAS.forEach(function (t) { c[t.deposito_id] = it.tiendas[t.deposito_id] ? it.tiendas[t.deposito_id].necesita : 0; });
-  estado[it.id] = { incluir: true, cant: c };
+  TIENDAS.forEach(function (t) { c[t.deposito_id] = Math.ceil(necesidadBase(it, t.deposito_id) / factor - 0.0001); });
+  return c;
+}
+ITEMS.forEach(function (it) {
+  // Por defecto el bulto más grande, pero se puede cambiar (el mismo producto a veces viene en otra presentación)
+  const factor = it.pres.length ? it.pres[it.pres.length - 1].factor : 1;
+  estado[it.id] = { incluir: true, factor: factor, cant: calcularCant(it, factor) };
 });
 
+function cambiarPresentacion(id, factor) {
+  const it = ITEMS.find(function (x) { return x.id === id; });
+  estado[id].factor = parseFloat(factor);
+  estado[id].cant = calcularCant(it, estado[id].factor);
+  render();
+}
+
+// Total de la línea en unidades base
 function totalLinea(id) {
   const e = estado[id];
-  return Object.keys(e.cant).reduce(function (s, k) { return s + (parseFloat(e.cant[k]) || 0); }, 0);
+  return e.factor * Object.keys(e.cant).reduce(function (s, k) { return s + (parseFloat(e.cant[k]) || 0); }, 0);
+}
+function nombreBulto(it, factor) {
+  const p = it.pres.find(function (x) { return x.factor === factor; });
+  return p ? p.nombre.toLowerCase() + 's' : 'uds';
 }
 
 function render() {
@@ -96,15 +116,22 @@ function render() {
       '<div class="flex items-start gap-3 mb-2">' +
         '<input type="checkbox" ' + (e.incluir ? 'checked' : '') + ' onchange="alternar(' + it.id + ')" class="mt-1" style="width:18px;height:18px">' +
         '<div class="flex-1 min-w-0"><p class="text-sm font-medium">' + esc(it.nombre) + '</p>' +
-        '<p class="text-xs" style="color:var(--ink-soft)">' + esc(it.codigo || '') + ' · costo ' + dinero(it.costo) + '</p></div>' +
-        '<p class="font-mono text-sm font-semibold" id="tot-' + it.id + '">' + numero(totalLinea(it.id)) + '</p>' +
-      '</div>' +
-      '<div class="grid gap-2" style="grid-template-columns:repeat(' + TIENDAS.length + ', 1fr)">';
+        '<p class="text-xs" style="color:var(--ink-soft)">' + esc(it.codigo || '') + ' · costo ' + dinero(it.costo) + ' c/u</p></div>' +
+        '<p class="font-mono text-sm font-semibold text-right"><span id="tot-' + it.id + '">' + numero(totalLinea(it.id)) + '</span><span class="block text-[10px] font-normal" style="color:var(--ink-soft)">uds</span></p>' +
+      '</div>';
+    if (it.pres.length) {
+      html += '<select onchange="cambiarPresentacion(' + it.id + ', this.value)" class="field-input mb-2" style="font-family:\'Inter\'; padding:6px 8px" ' + (e.incluir ? '' : 'disabled') + '>' +
+        '<option value="1"' + (e.factor === 1 ? ' selected' : '') + '>Pedir por unidad</option>' +
+        it.pres.map(function (p) { return '<option value="' + p.factor + '"' + (e.factor === p.factor ? ' selected' : '') + '>Pedir por ' + esc(p.nombre.toLowerCase()) + ' (trae ' + numero(p.factor) + ')</option>'; }).join('') +
+      '</select>';
+    }
+    html += '<div class="grid gap-2" style="grid-template-columns:repeat(' + TIENDAS.length + ', 1fr)">';
     TIENDAS.forEach(function (t) {
       const d = it.tiendas[t.deposito_id] || { existencia: 0, minimo: 0, demanda: 0 };
       html += '<div><p class="text-[10px] truncate" style="color:var(--ink-soft)">' + esc(t.nombre.replace(/^Tienda /, '')) + ' · hay ' + numero(d.existencia) + (d.demanda ? ' · ' + numero(d.demanda) + '/día' : '') + '</p>' +
-        '<input type="number" inputmode="decimal" min="0" step="1" value="' + e.cant[t.deposito_id] + '" ' + (e.incluir ? '' : 'disabled') +
-        ' onchange="cambiar(' + it.id + ',' + t.deposito_id + ', this.value)" class="field-input" style="padding:6px 8px"></div>';
+        '<div class="flex items-center gap-1"><input type="number" inputmode="decimal" min="0" step="1" value="' + e.cant[t.deposito_id] + '" ' + (e.incluir ? '' : 'disabled') +
+        ' onchange="cambiar(' + it.id + ',' + t.deposito_id + ', this.value)" class="field-input" style="padding:6px 8px">' +
+        '<span class="text-[10px] flex-shrink-0" style="color:var(--ink-soft)">' + esc(e.factor > 1 ? nombreBulto(it, e.factor) : 'uds') + '</span></div></div>';
     });
     html += '</div></div>';
   });
@@ -133,7 +160,12 @@ function resumen() {
 
 async function crearPedido() {
   const lineas = ITEMS.filter(function (it) { return estado[it.id].incluir && totalLinea(it.id) > 0; })
-    .map(function (it) { return { producto_id: it.id, cantidades: estado[it.id].cant }; });
+    .map(function (it) {
+      // El servidor trabaja en unidades base: bultos × unidades por bulto
+      const base = {};
+      Object.keys(estado[it.id].cant).forEach(function (dep) { base[dep] = (parseFloat(estado[it.id].cant[dep]) || 0) * estado[it.id].factor; });
+      return { producto_id: it.id, cantidades: base };
+    });
   if (!lineas.length) { toast('No hay nada que pedir.', 'error'); return; }
   const boton = document.getElementById('btn-pedido');
   boton.disabled = true; boton.textContent = 'Creando…';

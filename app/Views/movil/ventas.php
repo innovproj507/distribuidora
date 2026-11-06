@@ -83,7 +83,7 @@ async function verVenta(id) {
     document.getElementById('v-meta').textContent = (v.cliente_nombre || 'Consumidor final') + ' · ' + v.fecha + (v.estado === 'anulada' ? ' · ANULADA' : '');
     document.getElementById('v-items').innerHTML = v.items.map(function (i) {
       return '<div class="card !p-3 flex justify-between gap-3"><div class="min-w-0"><p class="text-sm truncate">' + esc(i.nombre) + '</p>' +
-        '<p class="text-xs font-mono" style="color:var(--ink-soft)">' + numero(i.cantidad) + ' × ' + dinero(i.precio) + '</p></div>' +
+        '<p class="text-xs font-mono" style="color:var(--ink-soft)">' + numero(i.cantidad) + (i.unidad_nombre ? ' ' + esc(i.unidad_nombre.toLowerCase()) : '') + ' × ' + dinero(i.precio) + '</p></div>' +
         '<p class="font-mono text-sm font-semibold">' + dinero(i.total_linea) + '</p></div>';
     }).join('');
     document.getElementById('v-sub').textContent = dinero(v.subtotal);

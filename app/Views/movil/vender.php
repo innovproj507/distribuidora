@@ -118,6 +118,17 @@ $clientesJs = array_map(fn ($c) => [
 </div>
 <?php endif; ?>
 
+<!-- Sheet: elegir presentación (unidad, docena, caja…) -->
+<div id="sheet-pres" class="sheet" style="transform:translateY(110%)">
+  <div class="sheet-handle"></div>
+  <div class="flex items-center justify-between mb-1">
+    <h2 class="font-head text-lg font-semibold truncate pr-2" id="pres-nombre">Producto</h2>
+    <button type="button" onclick="cerrarSheet('sheet-pres')" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:var(--navy-light); color:var(--navy)">✕</button>
+  </div>
+  <p class="text-xs mb-3" id="pres-stock" style="color:var(--ink-soft)"></p>
+  <div id="pres-opciones" class="flex flex-col gap-2"></div>
+</div>
+
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
@@ -126,98 +137,145 @@ const ITBMS_RATE  = <?= json_encode($itbmsRate) ?>;
 const DEPOSITO_ID = <?= json_encode((int) ($deposito_actual['deposito_id'] ?? 0)) ?>;
 const CLIENTES    = <?= json_encode($clientesJs, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;
 
-const carrito = {};          // producto_id → { p, cantidad }
-let tierPrecio = 'a';
-let formaPago  = 'EFECTIVO';
+// carrito: clave "producto|presentación" → { p, u, cantidad }. u = presentación (caja, docena…) o null = unidad.
+// cantidad va en la presentación vendida (admite decimales, p. ej. 2.5 lb); el stock se compara en unidades base.
+const carrito = {};
+let formaPago = 'EFECTIVO';
+
+const clave = function (id, u) { return id + '|' + (u ? u.unidad_id : 0); };
+const precioItem = function (it) { return it.u ? it.u.precio : it.p.precio_a; };
+const factorItem = function (it) { return it.u ? it.u.factor : 1; };
+
+function baseEnCarrito(productoId) {
+  let total = 0;
+  Object.keys(carrito).forEach(function (k) {
+    const it = carrito[k];
+    if (it.p.producto_id === productoId) total += it.cantidad * factorItem(it);
+  });
+  return total;
+}
+
+function textoStock(p) {
+  // "141 uds (5 cajas de 24 + 21)" con la presentación más grande
+  const grande = (p.unidades || []).slice().sort(function (a, b) { return b.factor - a.factor; })[0];
+  if (!grande || grande.factor <= 1 || p.existencia < grande.factor) return numero(p.existencia) + ' uds';
+  const n = Math.floor(p.existencia / grande.factor);
+  const resto = Math.round((p.existencia - n * grande.factor) * 100) / 100;
+  return numero(p.existencia) + ' uds (' + n + ' ' + grande.nombre.toLowerCase() + (n === 1 ? '' : 's') + ' de ' + numero(grande.factor) + (resto > 0 ? ' + ' + numero(resto) : '') + ')';
+}
 
 const lista = new ListaProductos({
   contenedor: 'lista-productos',
   filtros: function () { return { q: document.getElementById('input-busqueda').value.trim() }; },
   renderItem: function (p) {
     const agotado = p.existencia <= 0;
-    return '<button type="button" onclick="agregarAlCarrito(' + p.producto_id + ')" ' +
+    const pres = (p.unidades || []).map(function (u) { return esc(u.nombre) + ' ×' + numero(u.factor); }).join(' · ');
+    return '<button type="button" onclick="tocarProducto(' + p.producto_id + ')" ' +
       'class="card flex gap-3 !p-3 text-left' + (agotado ? ' opacity-50' : '') + '">' +
       htmlAvatarProducto(p, 'w-12 h-12') +
       '<div class="flex-1 min-w-0">' +
         '<p class="text-sm font-medium truncate">' + esc(p.nombre) + '</p>' +
         '<p class="text-xs" style="color:var(--ink-soft)">' + esc(p.codigo || '') + ' · ' + (agotado ? 'Agotado' : numero(p.existencia) + ' uds') + '</p>' +
+        (pres ? '<p class="text-[10px] truncate" style="color:var(--navy)">' + pres + '</p>' : '') +
       '</div>' +
-      '<p class="font-mono text-sm font-semibold flex-shrink-0 self-center">' + dinero(precioDe(p)) + '</p>' +
+      '<p class="font-mono text-sm font-semibold flex-shrink-0 self-center">' + dinero(p.precio_a) + '</p>' +
     '</button>';
   },
 });
 
-function precioDe(p) {
-  return p['precio_' + tierPrecio] || p.precio_a;
-}
-
 // ── Carrito ──────────────────────────────────────────────────────────────────
 
-function agregarAlCarrito(id) {
-  const p = lista.get(id) || (carrito[id] && carrito[id].p);
+function tocarProducto(id) {
+  const p = lista.get(id);
   if (!p) return;
-  if (precioDe(p) <= 0) {
+  if (p.unidades && p.unidades.length) {
+    document.getElementById('pres-nombre').textContent = p.nombre;
+    document.getElementById('pres-stock').textContent = 'Hay ' + textoStock(p);
+    const opciones = [{ id: 0, nombre: 'Unidad', factor: 1, precio: p.precio_a }].concat(
+      p.unidades.map(function (u) { return { id: u.unidad_id, nombre: u.nombre, factor: u.factor, precio: u.precio }; })
+    );
+    document.getElementById('pres-opciones').innerHTML = opciones.map(function (o) {
+      return '<button type="button" onclick="agregarAlCarrito(' + id + ', ' + o.id + '); cerrarSheet(\'sheet-pres\')" class="card !p-3 flex items-center justify-between text-left">' +
+        '<span><span class="text-sm font-medium">' + esc(o.nombre) + '</span>' + (o.factor !== 1 ? '<span class="text-xs" style="color:var(--ink-soft)"> · trae ' + numero(o.factor) + '</span>' : '') + '</span>' +
+        '<span class="font-mono text-sm font-semibold">' + dinero(o.precio) + '</span></button>';
+    }).join('');
+    abrirSheet('sheet-pres');
+    return;
+  }
+  agregarAlCarrito(id, 0);
+}
+
+function agregarAlCarrito(id, unidadId) {
+  const p = lista.get(id) || Object.keys(carrito).map(function (k) { return carrito[k].p; }).find(function (x) { return x.producto_id === id; });
+  if (!p) return;
+  const u = unidadId ? ((p.unidades || []).find(function (x) { return x.unidad_id === unidadId; }) || null) : null;
+  const k = clave(id, u);
+  const item = carrito[k] || { p: p, u: u, cantidad: 0 };
+  if (precioItem(item) <= 0) {
     toast('"' + p.nombre + '" no tiene precio. Asígnalo en la versión web.', 'error');
     return;
   }
-  const actual = carrito[id] ? carrito[id].cantidad : 0;
-  if (actual + 1 > p.existencia) {
-    toast(p.existencia <= 0 ? 'Producto agotado.' : 'Solo hay ' + numero(p.existencia) + ' en existencia.', 'error');
+  if (baseEnCarrito(id) + factorItem(item) > p.existencia + 0.0001) {
+    toast(p.existencia <= 0 ? 'Producto agotado.' : 'Solo hay ' + textoStock(p) + '.', 'error');
     return;
   }
-  carrito[id] = { p: p, cantidad: actual + 1 };
+  item.cantidad += 1;
+  carrito[k] = item;
   if (navigator.vibrate) navigator.vibrate(15);
   actualizarCarrito();
 }
 
-function cambiarCantidad(id, delta) {
-  const item = carrito[id];
+function cambiarCantidad(k, delta) {
+  const item = carrito[k];
+  if (item) fijarCantidad(k, Math.round((item.cantidad + delta) * 100) / 100);
+}
+
+// Cantidad escrita a mano (admite decimales: peso, medias cajas…)
+function fijarCantidad(k, valor) {
+  const item = carrito[k];
   if (!item) return;
-  const nueva = item.cantidad + delta;
-  if (nueva <= 0) {
-    delete carrito[id];
-  } else if (nueva > item.p.existencia) {
-    toast('Solo hay ' + numero(item.p.existencia) + ' en existencia.', 'error');
+  const n = parseFloat(valor);
+  if (!(n > 0)) { delete carrito[k]; actualizarCarrito(); return; }
+  const otros = baseEnCarrito(item.p.producto_id) - item.cantidad * factorItem(item);
+  if (otros + n * factorItem(item) > item.p.existencia + 0.0001) {
+    toast('Solo hay ' + textoStock(item.p) + '.', 'error');
+    actualizarCarrito();
     return;
-  } else {
-    item.cantidad = nueva;
   }
+  item.cantidad = Math.round(n * 100) / 100;
   actualizarCarrito();
 }
 
 function totales() {
   let subtotal = 0;
-  Object.keys(carrito).forEach(function (id) {
-    subtotal += carrito[id].cantidad * precioDe(carrito[id].p);
-  });
+  Object.keys(carrito).forEach(function (k) { subtotal += carrito[k].cantidad * precioItem(carrito[k]); });
   const itbms = subtotal * ITBMS_RATE;
-  // Mismo redondeo que VentaController::procesarVentaNormal()
+  // Mismo redondeo que VentaService
   return { subtotal: subtotal, itbms: itbms, total: Math.round((subtotal + itbms) * 100) / 100 };
 }
 
 function actualizarCarrito() {
-  const ids = Object.keys(carrito);
-  let unidades = 0;
-  ids.forEach(function (id) { unidades += carrito[id].cantidad; });
-
-  document.getElementById('carrito-barra').style.display = ids.length ? 'block' : 'none';
-  document.getElementById('carrito-cantidad').textContent = numero(unidades);
+  const claves = Object.keys(carrito);
+  document.getElementById('carrito-barra').style.display = claves.length ? 'block' : 'none';
+  document.getElementById('carrito-cantidad').textContent = claves.length;
   document.getElementById('carrito-total').textContent = dinero(totales().total);
-  document.getElementById('carrito-vacio').style.display = ids.length ? 'none' : 'block';
+  document.getElementById('carrito-vacio').style.display = claves.length ? 'none' : 'block';
 
   let html = '';
-  ids.forEach(function (id) {
-    const item = carrito[id];
-    const precio = precioDe(item.p);
+  claves.forEach(function (k) {
+    const item = carrito[k];
+    const precio = precioItem(item);
+    const nombrePres = item.u ? item.u.nombre + ' ×' + numero(item.u.factor) : 'Unidad';
     html += '<div class="card !p-3 flex items-center gap-3">' +
       '<div class="flex-1 min-w-0">' +
         '<p class="text-sm font-medium truncate">' + esc(item.p.nombre) + '</p>' +
+        '<p class="text-xs" style="color:var(--ink-soft)">' + esc(nombrePres) + '</p>' +
         '<p class="text-xs font-mono" style="color:var(--ink-soft)">' + dinero(precio) + ' × ' + numero(item.cantidad) + ' = ' + dinero(precio * item.cantidad) + '</p>' +
       '</div>' +
-      '<div class="flex items-center gap-2 flex-shrink-0">' +
-        '<button type="button" onclick="cambiarCantidad(' + id + ', -1)" class="w-8 h-8 rounded-full font-semibold" style="background:var(--navy-light); color:var(--navy)">−</button>' +
-        '<span class="font-mono text-sm w-6 text-center">' + numero(item.cantidad) + '</span>' +
-        '<button type="button" onclick="cambiarCantidad(' + id + ', 1)" class="w-8 h-8 rounded-full font-semibold" style="background:var(--navy-light); color:var(--navy)">+</button>' +
+      '<div class="flex items-center gap-1.5 flex-shrink-0">' +
+        '<button type="button" onclick="cambiarCantidad(\'' + k + '\', -1)" class="w-8 h-8 rounded-full font-semibold" style="background:var(--navy-light); color:var(--navy)">−</button>' +
+        '<input type="number" inputmode="decimal" step="any" min="0" value="' + item.cantidad + '" onchange="fijarCantidad(\'' + k + '\', this.value)" class="field-input" style="width:64px; text-align:center; padding:6px 4px">' +
+        '<button type="button" onclick="cambiarCantidad(\'' + k + '\', 1)" class="w-8 h-8 rounded-full font-semibold" style="background:var(--navy-light); color:var(--navy)">+</button>' +
       '</div>' +
     '</div>';
   });
@@ -238,15 +296,6 @@ function renderTotales() {
 function abrirCarrito() {
   actualizarCarrito();
   abrirSheet('sheet-carrito');
-}
-
-function elegirTier(tier) {
-  tierPrecio = tier;
-  document.querySelectorAll('.chip-tier').forEach(function (b) {
-    b.classList.toggle('activo', b.dataset.tier === tier);
-  });
-  actualizarCarrito();
-  lista.cargar(true); // para que la lista muestre el precio elegido
 }
 
 function elegirForma(forma) {
@@ -278,8 +327,8 @@ function cambiarCliente() {
 // ── Cobro ────────────────────────────────────────────────────────────────────
 
 async function confirmarVenta() {
-  const ids = Object.keys(carrito);
-  if (!ids.length) {
+  const claves = Object.keys(carrito);
+  if (!claves.length) {
     toast('El carrito está vacío.', 'error');
     return;
   }
@@ -297,8 +346,7 @@ async function confirmarVenta() {
     return;
   }
 
-  // Monto 0 = el servidor registra el pago por el total exacto (modo de un solo pago de
-  // VentaController). El vuelto se calcula aquí para no guardar el efectivo recibido como pagado.
+  // Monto 0 = el servidor registra el pago por el total exacto. El vuelto se calcula aquí.
   const vuelto = formaPago === 'EFECTIVO' && recibido > 0 ? Math.max(0, recibido - t.total) : 0;
 
   const payload = {
@@ -308,11 +356,13 @@ async function confirmarVenta() {
     forma_pago: formaPago,
     notas: 'Venta desde móvil',
     aplicar_itbms: true,
-    items: ids.map(function (id) {
+    items: claves.map(function (k) {
+      const it = carrito[k];
       return {
-        producto_id: parseInt(id, 10),
-        cantidad: carrito[id].cantidad,
-        precio: precioDe(carrito[id].p),
+        producto_id: it.p.producto_id,
+        unidad_id: it.u ? it.u.unidad_id : null,
+        cantidad: it.cantidad,
+        precio: precioItem(it),
         deposito_id: DEPOSITO_ID,
       };
     }),
@@ -340,7 +390,7 @@ async function confirmarVenta() {
 }
 
 function nuevaVenta() {
-  Object.keys(carrito).forEach(function (id) { delete carrito[id]; });
+  Object.keys(carrito).forEach(function (k) { delete carrito[k]; });
   document.getElementById('monto-recibido').value = '';
   document.getElementById('carrito-cliente').value = '';
   elegirForma('EFECTIVO');
@@ -387,7 +437,7 @@ inputBusqueda.addEventListener('keydown', async function (e) {
   await lista.cargar(true);
   const ids = Object.keys(lista.productos);
   if (ids.length === 1) {
-    agregarAlCarrito(parseInt(ids[0], 10));
+    tocarProducto(parseInt(ids[0], 10));
     inputBusqueda.value = '';
     lista.cargar(true);
   }

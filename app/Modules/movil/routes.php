@@ -26,6 +26,16 @@ $routes->group('m', ['filter' => ['movilauth', 'sucursal']], static function ($r
     $routes->get('compras/(:num)', 'MovilController::compra/$1');
     $routes->post('api/compra/(:num)/recibir', 'MovilApiController::recibirCompra/$1');
     $routes->post('api/compra/(:num)/reparto', 'MovilApiController::repartoCompra/$1');
+    $routes->get('api/cliente/(:num)/pendientes', 'MovilApiController::clientePendientes/$1');
+    $routes->post('api/cobro', 'MovilApiController::crearCobro');
+    $routes->post('api/producto/(:num)/presentacion', 'MovilApiController::agregarPresentacion/$1');
+    $routes->post('api/presentacion/(:num)/eliminar', 'MovilApiController::quitarPresentacion/$1');
+    $routes->get('conteos', 'MovilController::conteos');
+    $routes->get('conteos/(:num)', 'MovilController::conteo/$1');
+    $routes->post('api/conteo', 'MovilApiController::crearConteo');
+    $routes->post('api/conteo/(:num)/linea', 'MovilApiController::anotarConteo/$1');
+    $routes->post('api/conteo/(:num)/aplicar', 'MovilApiController::aplicarConteo/$1');
+    $routes->post('api/conteo/(:num)/cancelar', 'MovilApiController::cancelarConteo/$1');
     $routes->get('pedido', 'MovilController::pedido');
     $routes->post('api/pedido', 'MovilApiController::crearPedido');
     $routes->get('traslados', 'MovilController::traslados');

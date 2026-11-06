@@ -75,6 +75,7 @@ $enlace = function (string $href, string $emoji, string $bg, string $titulo, str
 </button>
 
 <?php if (Auth::can('compras.crear')) $enlace('/m/pedido', '🛒', 'var(--green-light)', 'Pedido a la ciudad', 'Qué comprar en total y cuánto va a cada tienda'); ?>
+<?php if (Auth::can('conteos.ver')) $enlace('/m/conteos', '📋', 'var(--purple-light)', 'Conteo físico', 'Contar estantes, ubicar productos y ajustar faltantes'); ?>
 <?php if (Auth::can('traslados.ver')) $enlace('/m/traslados', '🚤', 'var(--navy-light)', 'Traslados entre tiendas', 'Enviar mercancía y recibirla con conteo'); ?>
 <?php if (Auth::can('compras.ver')) $enlace('/m/compras', '📥', 'var(--teal-light)', 'Compras', 'Registrar facturas de proveedor'); ?>
 <?php if (Auth::can('ventas.ver')) $enlace('/m/ventas', '🧾', 'var(--purple-light)', 'Historial de ventas', 'Consulta facturas y su detalle'); ?>

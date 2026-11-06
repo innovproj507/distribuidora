@@ -52,10 +52,18 @@ $ec = $estadoCompra[$compra['estado']] ?? [ucfirst((string) $compra['estado']), 
     <div class="card !p-3 flex items-center gap-3">
       <div class="flex-1 min-w-0">
         <p class="text-sm truncate"><?= esc($l['nombre']) ?></p>
-        <p class="text-xs font-mono" style="color:var(--ink-soft)">Pedido <?= (float) $l['cantidad'] ?> · recibido <?= (float) $l['cantidad_recibida'] ?> · <?= '$' . number_format((float) $l['costo'], 2) ?></p>
+        <p class="text-xs font-mono" style="color:var(--ink-soft)">Pedido <?= (float) $l['cantidad'] ?> · recibido <?= (float) $l['cantidad_recibida'] ?> uds · <?= '$' . number_format((float) $l['costo'], 2) ?> c/u</p>
       </div>
       <?php if ($puedeRecibir && $pend > 0): ?>
-        <input type="number" inputmode="decimal" min="0" max="<?= $pend ?>" step="0.01" value="<?= $pend ?>" data-detalle="<?= (int) $l['detalle_id'] ?>" class="field-input rec-linea" style="width:84px; text-align:right; padding:6px 8px">
+        <div class="flex flex-col items-end gap-1 flex-shrink-0">
+          <input type="number" inputmode="decimal" min="0" step="any" value="<?= $pend ?>" data-detalle="<?= (int) $l['detalle_id'] ?>" data-pend="<?= $pend ?>" data-factor="1" class="field-input rec-linea" style="width:84px; text-align:right; padding:6px 8px">
+          <?php if (!empty($l['pres'])): ?>
+            <select onchange="cambiarUnidadRecepcion(this)" class="text-[11px] rounded-lg border bg-white px-1 py-1" style="border-color:var(--line); max-width:96px">
+              <option value="1">uds</option>
+              <?php foreach ($l['pres'] as $p): ?><option value="<?= (float) $p['factor'] ?>"><?= esc(mb_strtolower($p['nombre'])) ?> ×<?= (float) $p['factor'] ?></option><?php endforeach; ?>
+            </select>
+          <?php endif; ?>
+        </div>
       <?php endif; ?>
     </div>
   <?php endforeach; ?>
@@ -72,9 +80,20 @@ $ec = $estadoCompra[$compra['estado']] ?? [ucfirst((string) $compra['estado']), 
 <script>
 const COMPRA_ID = <?= (int) $compra['compra_id'] ?>;
 
+// Cambia la unidad en que se cuenta una línea: el campo muestra lo pendiente en esa unidad (ej. 48 uds = 2 cajas)
+function cambiarUnidadRecepcion(select) {
+  const input = select.parentElement.querySelector('.rec-linea');
+  const factor = parseFloat(select.value);
+  input.dataset.factor = factor;
+  input.value = Math.round(parseFloat(input.dataset.pend) / factor * 100) / 100;
+}
+
 async function recibirCompra() {
   const recibidas = {};
-  document.querySelectorAll('.rec-linea').forEach(function (el) { recibidas[el.dataset.detalle] = parseFloat(el.value) || 0; });
+  // Lo escrito puede estar en bultos (cajas, docenas…): se envía en unidades base
+  document.querySelectorAll('.rec-linea').forEach(function (el) {
+    recibidas[el.dataset.detalle] = Math.round((parseFloat(el.value) || 0) * parseFloat(el.dataset.factor) * 100) / 100;
+  });
   const boton = document.getElementById('btn-recibir');
   boton.disabled = true; boton.textContent = 'Guardando…';
   try {

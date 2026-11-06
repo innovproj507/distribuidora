@@ -56,7 +56,7 @@ class MovilApiController extends BaseController
         $filas  = Db::all(
             "SELECT p.producto_id, p.codigo, p.codigo_barras, p.nombre, p.costo, p.maneja_lotes,
                     p.imagen_principal, c.nombre AS categoria_nombre,
-                    COALESCE(i.existencia, 0) AS existencia, COALESCE(i.minimo, 0) AS minimo,
+                    COALESCE(i.existencia, 0) AS existencia, COALESCE(i.minimo, 0) AS minimo, COALESCE(i.ubicacion, '') AS ubicacion,
                     COALESCE(pa.precio, 0) AS precio_a,
                     COALESCE(pb.precio, 0) AS precio_b,
                     COALESCE(pc.precio, 0) AS precio_c
@@ -75,8 +75,30 @@ class MovilApiController extends BaseController
         $hayMas = count($filas) > self::POR_PAGINA;
         $filas  = array_slice($filas, 0, self::POR_PAGINA);
 
+        // Presentaciones (docena, caja…) de los productos de la página; precio de la presentación
+        // = el propio de la presentación, o precio unitario × factor si no tiene.
+        $presentaciones = [];
+        if ($filas) {
+            $ids = array_map(fn ($f) => (int) $f['producto_id'], $filas);
+            $mapaPrecio = array_column($filas, 'precio_a', 'producto_id');
+            foreach (Db::all(
+                "SELECT unidad_id, producto_id, nombre, factor_conversion, precio_a FROM productos_unidades
+                 WHERE producto_id IN (" . implode(',', array_fill(0, count($ids), '?')) . ") ORDER BY factor_conversion",
+                $ids
+            ) as $u) {
+                $factor = (float) $u['factor_conversion'];
+                $propio = (float) $u['precio_a'];
+                $presentaciones[(int) $u['producto_id']][] = [
+                    'unidad_id' => (int) $u['unidad_id'],
+                    'nombre'    => $u['nombre'],
+                    'factor'    => $factor,
+                    'precio'    => $propio > 0 ? $propio : round((float) ($mapaPrecio[$u['producto_id']] ?? 0) * $factor, 2),
+                ];
+            }
+        }
+
         $verCosto  = Auth::can('productos.editar') || Auth::can('compras.crear');
-        $productos = array_map(function (array $p) use ($verCosto): array {
+        $productos = array_map(function (array $p) use ($verCosto, $presentaciones): array {
             $item = [
                 'producto_id'      => (int) $p['producto_id'],
                 'codigo'           => $p['codigo'],
@@ -87,9 +109,11 @@ class MovilApiController extends BaseController
                 'maneja_lotes'     => (bool) $p['maneja_lotes'],
                 'existencia'       => (float) $p['existencia'],
                 'minimo'           => (float) $p['minimo'],
+                'ubicacion'        => (string) $p['ubicacion'],
                 'precio_a'         => (float) $p['precio_a'],
                 'precio_b'         => (float) $p['precio_b'],
                 'precio_c'         => (float) $p['precio_c'],
+                'unidades'         => $presentaciones[(int) $p['producto_id']] ?? [],
             ];
             if ($verCosto) {
                 $item['costo'] = (float) $p['costo'];
@@ -179,7 +203,7 @@ class MovilApiController extends BaseController
         );
         if (!$v) return $this->json(['error' => 'Venta no encontrada.'], 404);
         $v['items'] = Db::all(
-            "SELECT p.nombre, d.cantidad, d.precio, d.total_linea FROM ventas_detalle d JOIN productos p ON p.producto_id = d.producto_id WHERE d.venta_id = ?",
+            "SELECT p.nombre, d.cantidad, d.unidad_nombre, d.precio, d.total_linea FROM ventas_detalle d JOIN productos p ON p.producto_id = d.producto_id WHERE d.venta_id = ?",
             [$id]
         );
         $v['pagos'] = Db::all("SELECT forma_pago, monto FROM ventas_pagos WHERE venta_id = ?", [$id]);
@@ -232,6 +256,170 @@ class MovilApiController extends BaseController
         }
         AuditService::log('inventario.traslado', "Traslado #{$trasladoId} enviado desde la compra #{$id} (móvil)", $trasladoId, 'traslado', [], $this->empresaId());
         return $this->json(['success' => true, 'traslado_id' => $trasladoId]);
+    }
+
+    /** Presentaciones de un producto con el mismo formato que /m/api/productos. */
+    private function presentacionesDe(int $productoId): array
+    {
+        $precioUnidad = (float) Db::value("SELECT precio FROM precios_productos WHERE producto_id = ? AND tipo_precio = 'a'", [$productoId]);
+        return array_map(function (array $u) use ($precioUnidad): array {
+            $factor = (float) $u['factor_conversion'];
+            $propio = (float) $u['precio_a'];
+            return [
+                'unidad_id' => (int) $u['unidad_id'], 'nombre' => $u['nombre'], 'factor' => $factor,
+                'precio'    => $propio > 0 ? $propio : round($precioUnidad * $factor, 2),
+            ];
+        }, Db::all("SELECT unidad_id, nombre, factor_conversion, precio_a FROM productos_unidades WHERE producto_id = ? ORDER BY factor_conversion", [$productoId]));
+    }
+
+    /** POST /m/api/producto/{id}/presentacion {nombre, factor, precio?} */
+    public function agregarPresentacion(int $id)
+    {
+        if (!Auth::can('productos.editar')) return $this->json(['error' => 'Sin permiso.'], 403);
+        if (!Db::value("SELECT 1 FROM productos WHERE producto_id = ? AND empresa_id = ?", [$id, $this->empresaId()])) {
+            return $this->json(['error' => 'Producto no encontrado.'], 404);
+        }
+        $d      = $this->jsonInput();
+        $nombre = trim((string) ($d['nombre'] ?? ''));
+        $factor = round((float) ($d['factor'] ?? 0), 2);
+        if ($nombre === '' || mb_strlen($nombre) > 50 || $factor <= 0) {
+            return $this->json(['error' => 'Indica el nombre y cuántas unidades trae (mayor que cero).'], 422);
+        }
+        if (Db::value("SELECT 1 FROM productos_unidades WHERE producto_id = ? AND LOWER(nombre) = LOWER(?)", [$id, $nombre])) {
+            return $this->json(['error' => "Ya existe una presentación \"{$nombre}\" para este producto."], 422);
+        }
+        Db::insert('productos_unidades', [
+            'producto_id' => $id, 'nombre' => $nombre, 'factor_conversion' => $factor,
+            'precio_a' => max(0, round((float) ($d['precio'] ?? 0), 2)), 'precio_b' => 0, 'precio_c' => 0, 'codigo_barras' => '',
+        ]);
+        AuditService::log('productos.editar', "Presentación \"{$nombre}\" (×{$factor}) agregada (móvil)", $id, 'producto', [], $this->empresaId());
+        return $this->json(['success' => true, 'unidades' => $this->presentacionesDe($id)]);
+    }
+
+    /** POST /m/api/presentacion/{id}/eliminar */
+    public function quitarPresentacion(int $id)
+    {
+        if (!Auth::can('productos.editar')) return $this->json(['error' => 'Sin permiso.'], 403);
+        $u = Db::row(
+            "SELECT u.unidad_id, u.producto_id, u.nombre FROM productos_unidades u JOIN productos p ON p.producto_id = u.producto_id
+             WHERE u.unidad_id = ? AND p.empresa_id = ?", [$id, $this->empresaId()]
+        );
+        if (!$u) return $this->json(['error' => 'Presentación no encontrada.'], 404);
+        Db::query("DELETE FROM productos_unidades WHERE unidad_id = ?", [$id]);
+        AuditService::log('productos.editar', "Presentación \"{$u['nombre']}\" quitada (móvil)", (int) $u['producto_id'], 'producto', [], $this->empresaId());
+        return $this->json(['success' => true, 'unidades' => $this->presentacionesDe((int) $u['producto_id'])]);
+    }
+
+    /** POST /m/api/conteo {alcance: todo|ubicacion|categoria, ubicacion?, categoria_id?, descripcion?} — sobre el depósito activo. */
+    public function crearConteo()
+    {
+        if (!Auth::can('conteos.crear')) return $this->json(['error' => 'Sin permiso.'], 403);
+        $d       = $this->jsonInput();
+        $alcance = (string) ($d['alcance'] ?? 'todo');
+        $filtro  = [];
+        $texto   = 'Conteo completo';
+        if ($alcance === 'ubicacion') {
+            $filtro['ubicacion'] = (string) ($d['ubicacion'] ?? '');
+            $texto = 'Conteo de ' . ($filtro['ubicacion'] !== '' ? $filtro['ubicacion'] : 'productos sin ubicación');
+        } elseif ($alcance === 'categoria') {
+            $cat = Db::row("SELECT categoria_id, nombre FROM categorias_productos WHERE categoria_id = ? AND empresa_id = ?", [(int) ($d['categoria_id'] ?? 0), $this->empresaId()]);
+            if (!$cat) return $this->json(['error' => 'Categoría no encontrada.'], 422);
+            $filtro['categoria_id'] = (int) $cat['categoria_id'];
+            $texto = 'Conteo de ' . $cat['nombre'];
+        }
+        $descripcion = trim((string) ($d['descripcion'] ?? '')) ?: $texto . ' · ' . date('d/m/Y');
+
+        try {
+            Db::begin();
+            $id = \App\Libraries\ConteoService::crear($this->empresaId(), $this->sucursalId(), $this->depositoId(), $alcance === 'todo' ? 'completo' : 'ciclico', $descripcion, $filtro);
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            return $this->json(['error' => $e instanceof \RuntimeException ? $e->getMessage() : 'No se pudo abrir el conteo.'], 422);
+        }
+        AuditService::log('inventario.conteo', "Conteo #{$id} abierto (móvil): {$descripcion}", $id, 'conteo', [], $this->empresaId());
+        return $this->json(['success' => true, 'conteo_id' => $id]);
+    }
+
+    /** POST /m/api/conteo/{id}/linea {producto_id, cantidad|null, ubicacion?} */
+    public function anotarConteo(int $id)
+    {
+        if (!Auth::can('conteos.crear')) return $this->json(['error' => 'Sin permiso.'], 403);
+        if (!\App\Libraries\ConteoService::buscar($id, $this->empresaId(), $this->sucursalId())) return $this->json(['error' => 'Conteo no encontrado.'], 404);
+        $d        = $this->jsonInput();
+        $cantidad = array_key_exists('cantidad', $d) && $d['cantidad'] !== null && $d['cantidad'] !== '' ? (float) $d['cantidad'] : null;
+        try {
+            Db::begin();
+            $linea = \App\Libraries\ConteoService::anotar($id, (int) ($d['producto_id'] ?? 0), $cantidad, isset($d['ubicacion']) ? (string) $d['ubicacion'] : null);
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            return $this->json(['error' => $e instanceof \RuntimeException ? $e->getMessage() : 'No se pudo guardar.'], 422);
+        }
+        return $this->json(['success' => true, 'linea' => $linea, 'resumen' => \App\Libraries\ConteoService::resumen($id)]);
+    }
+
+    /** POST /m/api/conteo/{id}/aplicar — lleva el stock a lo contado y cierra. */
+    public function aplicarConteo(int $id)
+    {
+        if (!Auth::can('conteos.reconciliar')) return $this->json(['error' => 'Sin permiso para aplicar ajustes.'], 403);
+        try {
+            Db::begin();
+            $n = \App\Libraries\ConteoService::aplicarAjustes($id, $this->empresaId(), $this->sucursalId());
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            return $this->json(['error' => $e instanceof \RuntimeException ? $e->getMessage() : 'No se pudieron aplicar los ajustes.'], 422);
+        }
+        AuditService::log('inventario.ajustar', "Ajuste de inventario por conteo #{$id}: {$n} líneas ajustadas (móvil)", $id, 'conteo', ['diferencias' => $n], $this->empresaId());
+        return $this->json(['success' => true, 'ajustadas' => $n]);
+    }
+
+    /** POST /m/api/conteo/{id}/cancelar */
+    public function cancelarConteo(int $id)
+    {
+        if (!Auth::can('conteos.crear')) return $this->json(['error' => 'Sin permiso.'], 403);
+        try {
+            \App\Libraries\ConteoService::cancelar($id, $this->empresaId(), $this->sucursalId());
+        } catch (\RuntimeException $e) {
+            return $this->json(['error' => $e->getMessage()], 422);
+        }
+        return $this->json(['success' => true]);
+    }
+
+    /** GET /m/api/cliente/{id}/pendientes — facturas a crédito por cobrar y últimos recibos. */
+    public function clientePendientes(int $id)
+    {
+        if (!Auth::can('clientes.ver')) return $this->json(['error' => 'Sin permiso.'], 403);
+        $cliente = Db::row("SELECT cliente_id, nombre, telefono, saldo_pendiente FROM clientes WHERE cliente_id = ? AND empresa_id = ?", [$id, $this->empresaId()]);
+        if (!$cliente) return $this->json(['error' => 'Cliente no encontrado.'], 404);
+        return $this->json([
+            'cliente'  => $cliente,
+            'facturas' => \App\Libraries\CobroService::pendientes($id, $this->empresaId()),
+            'recibos'  => Db::all("SELECT numero, monto, forma_pago, fecha FROM cobros WHERE cliente_id = ? ORDER BY cobro_id DESC LIMIT 5", [$id]),
+        ]);
+    }
+
+    /** POST /m/api/cobro {cliente_id, monto, forma_pago, referencia?, venta_id?} */
+    public function crearCobro()
+    {
+        if (!Auth::can('ventas.crear') && !Auth::can('pos.usar')) return $this->json(['error' => 'Sin permiso para registrar cobros.'], 403);
+        $d = $this->jsonInput();
+        try {
+            Db::begin();
+            $res = \App\Libraries\CobroService::registrar(
+                (int) ($d['cliente_id'] ?? 0), (float) ($d['monto'] ?? 0), (string) ($d['forma_pago'] ?? 'EFECTIVO'),
+                isset($d['referencia']) ? (string) $d['referencia'] : null, null,
+                ['empresa_id' => $this->empresaId(), 'sucursal_id' => $this->sucursalId()],
+                !empty($d['venta_id']) ? (int) $d['venta_id'] : null
+            );
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            return $this->json(['error' => $e instanceof \RuntimeException ? $e->getMessage() : 'No se pudo registrar el cobro.'], 422);
+        }
+        AuditService::log('ventas.cobro', "Cobro {$res['numero']} de \${$res['monto']} (móvil)", $res['cobro_id'], 'cobro', ['cliente_id' => (int) ($d['cliente_id'] ?? 0)], $this->empresaId());
+        return $this->json(['success' => true] + $res);
     }
 
     /** POST /m/api/pedido {lineas: [{producto_id, cantidades: {deposito_id: cantidad}}]} */

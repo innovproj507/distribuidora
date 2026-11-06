@@ -117,7 +117,7 @@ $bc = match($venta['estado']) {
                     <?php endif; ?>
                 </td>
                 <td class="px-6 py-3 text-right text-gray-600">$<?= number_format((float)$d['precio'], 2) ?></td>
-                <td class="px-6 py-3 text-right font-medium"><?= $d['cantidad'] ?></td>
+                <td class="px-6 py-3 text-right font-medium"><?= $d['cantidad'] ?><?= !empty($d['unidad_nombre']) ? ' <span class="text-xs text-gray-500">' . esc($d['unidad_nombre']) . '</span>' : '' ?></td>
                 <td class="px-6 py-3 text-right text-gray-500">$<?= number_format((float)$d['descuento'], 2) ?></td>
                 <td class="px-6 py-3 text-right text-gray-500">$<?= number_format((float)$d['itbms'], 2) ?></td>
                 <td class="px-6 py-3 text-right font-semibold text-gray-800">$<?= number_format((float)$d['total_linea'], 2) ?></td>

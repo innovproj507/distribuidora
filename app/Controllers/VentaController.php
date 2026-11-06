@@ -279,13 +279,27 @@ class VentaController extends BaseController
         }
 
         try {
-            Db::begin();
-            Db::update('ventas', ['estado' => 'pagada'], ['venta_id' => $ventaId]);
-            if ($venta['cliente_id']) {
-                Db::query("UPDATE clientes SET saldo_pendiente = GREATEST(0, saldo_pendiente - ?) WHERE cliente_id = ?", [$venta['total'], $venta['cliente_id']]);
+            if (!$venta['cliente_id']) {
+                throw new \RuntimeException('La venta no tiene cliente.');
             }
+            // Cobra lo que falta de esta factura (descontando abonos previos) y deja recibo
+            $pendiente = array_values(array_filter(
+                \App\Libraries\CobroService::pendientes((int) $venta['cliente_id'], (int) $this->empresaId()),
+                fn ($p) => (int) $p['venta_id'] === $ventaId
+            ));
+            $falta = $pendiente ? (float) $pendiente[0]['pendiente'] : 0.0;
+            if ($falta <= 0) {
+                throw new \RuntimeException('Esta factura no tiene saldo pendiente.');
+            }
+            $forma = (string) ($this->request->getPost('forma_pago') ?? 'EFECTIVO');
+
+            Db::begin();
+            $recibo = \App\Libraries\CobroService::registrar(
+                (int) $venta['cliente_id'], $falta, $forma, null, 'Pago total desde detalle de venta',
+                ['empresa_id' => $this->empresaId(), 'sucursal_id' => $this->sucursalId()], $ventaId
+            );
             Db::commit();
-            $this->success('Pago registrado correctamente. Venta marcada como pagada.');
+            $this->success('Pago registrado (recibo ' . $recibo['numero'] . '). Venta marcada como pagada.');
         } catch (\Throwable $e) {
             Db::rollback();
             $this->error('Error al registrar el pago: ' . $e->getMessage());
