@@ -18,9 +18,32 @@ use CodeIgniter\Database\BaseResult;
  */
 final class Db
 {
+    private static bool $zonaFijada = false;
+
     public static function conn(): BaseConnection
     {
-        return db_connect();
+        $conexion = db_connect();
+
+        if (!self::$zonaFijada) {
+            // PHP trabaja en la zona de la app (America/Panama) pero MySQL en UTC: NOW(), CURDATE() y las columnas
+            // TIMESTAMP (fecha_registro del kardex…) salían 5 h adelantadas respecto a las ventas, y "hoy" cambiaba
+            // a las 7 pm. La sesión de MySQL usa el mismo desplazamiento que la app.
+            $conexion->simpleQuery("SET time_zone = '" . self::desplazamientoApp() . "'");
+            self::$zonaFijada = true;
+        }
+
+        return $conexion;
+    }
+
+    /** Desplazamiento actual de la zona de la app respecto a UTC, en formato MySQL ("-05:00"). */
+    public static function desplazamientoApp(): string
+    {
+        $zona    = new \DateTimeZone(config('App')->appTimezone);
+        $segundos = $zona->getOffset(new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
+        $signo   = $segundos < 0 ? '-' : '+';
+        $abs     = abs($segundos);
+
+        return sprintf('%s%02d:%02d', $signo, intdiv($abs, 3600), intdiv($abs % 3600, 60));
     }
 
     /** @return BaseResult|bool */
