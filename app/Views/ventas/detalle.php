@@ -127,7 +127,7 @@ $bc = match($venta['estado']) {
         <tfoot class="bg-gray-50 border-t-2 border-gray-100">
             <tr><td colspan="5" class="px-6 py-2 text-right text-xs text-gray-500">Subtotal</td><td class="px-6 py-2 text-right font-medium text-sm">$<?= number_format((float)$venta['subtotal'], 2) ?></td></tr>
             <tr><td colspan="5" class="px-6 py-2 text-right text-xs text-gray-500">Descuento</td><td class="px-6 py-2 text-right font-medium text-sm text-red-600">-$<?= number_format((float)$venta['descuento'], 2) ?></td></tr>
-            <tr><td colspan="5" class="px-6 py-2 text-right text-xs text-gray-500">ITBMS (7%)</td><td class="px-6 py-2 text-right font-medium text-sm">$<?= number_format((float)$venta['itbms'], 2) ?></td></tr>
+            <?php if ((float) $venta["itbms"] > 0): ?><tr><td colspan="5" class="px-6 py-2 text-right text-xs text-gray-500">ITBMS</td><td class="px-6 py-2 text-right font-medium text-sm">$<?= number_format((float)$venta['itbms'], 2) ?></td></tr><?php endif; ?>
             <tr><td colspan="5" class="px-6 py-3 text-right font-bold text-gray-800">Total</td><td class="px-6 py-3 text-right font-bold text-xl text-gray-900">$<?= number_format((float)$venta['total'], 2) ?></td></tr>
         </tfoot>
     </table>

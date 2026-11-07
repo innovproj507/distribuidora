@@ -362,8 +362,8 @@
                             <span id="descuento" class="text-sm font-bold">- $0.00</span>
                         </div>
 
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-600">ITBMS (7%)</span>
+                        <div class="flex justify-between items-center"<?= tasa_itbms() > 0 ? "" : " style=\"display:none\"" ?>>
+                            <span class="text-sm text-gray-600">ITBMS (<?= rtrim(rtrim(number_format(tasa_itbms() * 100, 2), "0"), ".") ?>%)</span>
                             <span id="itbms" class="text-sm font-bold text-green-600">$0.00</span>
                         </div>
 
@@ -567,7 +567,7 @@
         let resultadosBusqueda = [];
         let paginaActual = 1;
         const resultadosPorPagina = 5;
-        const TASA_ITBMS = 0.07;
+        const TASA_ITBMS = <?= json_encode(tasa_itbms()) ?>;
         const MAX_DESCUENTO_PCT = <?= (int)($max_descuento_pct ?? 10) ?>;
         let elementosDOM = {};
         let pagos = [{ forma_pago: 'EFECTIVO', monto: 0 }];

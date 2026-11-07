@@ -71,7 +71,7 @@ $clientesJs = array_map(fn ($c) => [
 
   <div class="rounded-xl p-3 mb-4" style="background:var(--teal-light); color:var(--teal-dark)">
     <div class="flex justify-between text-xs mb-1"><span>Subtotal</span><span class="font-mono" id="tot-subtotal">$0.00</span></div>
-    <div class="flex justify-between text-xs mb-2"><span>ITBMS (<?= rtrim(rtrim(number_format($itbmsRate * 100, 2), '0'), '.') ?>%)</span><span class="font-mono" id="tot-itbms">$0.00</span></div>
+    <div class="flex justify-between text-xs mb-2"<?= $itbmsRate > 0 ? "" : " style=\"display:none\"" ?>><span>ITBMS (<?= rtrim(rtrim(number_format($itbmsRate * 100, 2), '0'), '.') ?>%)</span><span class="font-mono" id="tot-itbms">$0.00</span></div>
     <div class="flex justify-between items-center"><span class="text-sm font-medium">Total</span><span class="font-mono text-xl font-semibold" id="tot-total">$0.00</span></div>
   </div>
 

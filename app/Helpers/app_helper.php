@@ -55,3 +55,11 @@ if (!function_exists('is_active')) {
         return str_starts_with($actual, rtrim($patron, '*'));
     }
 }
+
+if (!function_exists('tasa_itbms')) {
+    /** Tasa de ITBMS de las ventas (variable ITBMS_RATE del .env; 0 = el negocio no cobra ITBMS). */
+    function tasa_itbms(): float
+    {
+        return max(0.0, (float) env('ITBMS_RATE', 0.07));
+    }
+}

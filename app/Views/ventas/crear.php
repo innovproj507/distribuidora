@@ -381,8 +381,8 @@
                                class="w-20 text-right py-0.5 px-2 text-sm bg-gray-50 rounded border border-gray-200 focus:border-sky-400 focus:ring-0">
                     </div>
                 </div>
-                <div class="flex items-center justify-between gap-16 text-sm text-gray-500">
-                    <span>ITBMS (7%):</span>
+                <div class="flex items-center justify-between gap-16 text-sm text-gray-500"<?= tasa_itbms() > 0 ? "" : " style=\"display:none\"" ?>>
+                    <span>ITBMS (<?= rtrim(rtrim(number_format(tasa_itbms() * 100, 2), "0"), ".") ?>%):</span>
                     <span class="font-semibold text-gray-700" x-text="'$' + itbms.toFixed(2)"></span>
                 </div>
                 <div class="flex items-center justify-between gap-16 pt-2 border-t border-gray-100 text-sm">
@@ -538,7 +538,7 @@
                 let gravable = this.items.reduce((sum, item) => {
                     return item.applica_itbms ? sum + this.calcularTotalLinea(item) : sum;
                 }, 0);
-                this.itbms = (gravable - (this.descuentoGlobal * (gravable / this.subtotal || 0))) * 0.07;
+                this.itbms = (gravable - (this.descuentoGlobal * (gravable / this.subtotal || 0))) * <?= json_encode(tasa_itbms()) ?>;
                 if (this.itbms < 0) this.itbms = 0;
                 this.total = this.subtotal - this.descuentoGlobal + this.itbms;
             },

@@ -337,7 +337,7 @@ $itbmsPct = (int) round(((float)($_ENV['ITBMS_RATE'] ?? 0.07)) * 100);
             <div class="w-56 shrink-0 text-sm">
                 <div class="flex justify-between py-1"><span class="text-gray-600">Sub-Total =</span><span>$<?= number_format((float)($cotizacion['subtotal'] ?? 0), 2) ?></span></div>
                 <div class="flex justify-between py-1"><span class="text-gray-600">Descuento -</span><span>$<?= number_format((float)($cotizacion['descuento'] ?? 0), 2) ?></span></div>
-                <div class="flex justify-between py-1"><span class="text-gray-600">ITBMS <?= $itbmsPct ?>% +</span><span>$<?= number_format((float)($cotizacion['itbms'] ?? 0), 2) ?></span></div>
+                <?php if ($itbmsPct > 0): ?><div class="flex justify-between py-1"><span class="text-gray-600">ITBMS <?= $itbmsPct ?>% +</span><span>$<?= number_format((float)($cotizacion['itbms'] ?? 0), 2) ?></span></div><?php endif; ?>
                 <div class="flex justify-between py-1"><span class="text-gray-600">Manejo +</span><span>$0.00</span></div>
                 <div class="flex justify-between py-2 border-t-2 border-gray-800 mt-1 font-bold text-base"><span>Total =</span><span>$<?= number_format((float)($cotizacion['total'] ?? 0), 2) ?></span></div>
             </div>

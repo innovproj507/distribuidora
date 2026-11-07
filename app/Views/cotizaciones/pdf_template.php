@@ -147,7 +147,7 @@ $itbmsPct = (int) round(((float)($_ENV['ITBMS_RATE'] ?? 0.07)) * 100);
                 <table>
                     <tr><td>Sub-Total =</td><td class="valor">$<?= number_format((float)($cotizacion['subtotal'] ?? 0), 2) ?></td></tr>
                     <tr><td>Descuento -</td><td class="valor">$<?= number_format((float)($cotizacion['descuento'] ?? 0), 2) ?></td></tr>
-                    <tr><td>ITBMS <?= $itbmsPct ?>% +</td><td class="valor">$<?= number_format((float)($cotizacion['itbms'] ?? 0), 2) ?></td></tr>
+                    <?php if ($itbmsPct > 0): ?><tr><td>ITBMS <?= $itbmsPct ?>% +</td><td class="valor">$<?= number_format((float)($cotizacion['itbms'] ?? 0), 2) ?></td></tr><?php endif; ?>
                     <tr><td>Manejo +</td><td class="valor">$0.00</td></tr>
                     <tr class="total"><td>Total =</td><td class="valor">$<?= number_format((float)($cotizacion['total'] ?? 0), 2) ?></td></tr>
                 </table>
