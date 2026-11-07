@@ -292,6 +292,35 @@ class MovilController extends BaseController
         return redirect()->to("/m/productos/{$id}");
     }
 
+    /** POST multipart {imagen} desde la ficha: cambia solo la foto. Responde JSON. */
+    public function subirFoto(int $id)
+    {
+        if (!Auth::can('productos.editar')) {
+            return $this->json(['error' => 'No tienes permiso para editar productos.'], 403);
+        }
+        $p = $this->productoDeEmpresa($id);
+        if (!$p) {
+            return $this->json(['error' => 'Producto no encontrado.'], 404);
+        }
+
+        $ruta = $this->subirImagen('imagen', 'productos');
+        if (!$ruta) {
+            flash_consumir(); // subirImagen deja un flash si el tipo no es válido; aquí se responde en JSON
+            return $this->json(['error' => 'No se recibió una imagen válida (JPG, PNG, WEBP o GIF).'], 422);
+        }
+
+        Db::update('productos', ['imagen_principal' => $ruta, 'fecha_modificacion' => date('Y-m-d H:i:s')], ['producto_id' => $id]);
+
+        // La foto anterior ya no se usa
+        $anterior = (string) ($p['imagen_principal'] ?? '');
+        if ($anterior !== '' && str_starts_with($anterior, 'productos/') && !str_contains($anterior, '..')) {
+            @unlink(FCPATH . 'assets/uploads/' . $anterior);
+        }
+
+        \App\Libraries\AuditService::log('productos.editar', "Foto actualizada desde móvil: {$p['nombre']}", $id, 'producto', [], $this->empresaId());
+        return $this->json(['ok' => true, 'imagen' => '/assets/uploads/' . $ruta]);
+    }
+
     private function productoDeEmpresa(int $id): ?array
     {
         return Db::row(

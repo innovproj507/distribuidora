@@ -31,7 +31,10 @@
     <!-- Document card -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm">
         <div class="p-6 border-b border-gray-100">
-            <h2 class="text-3xl font-bold text-gray-900 mb-6">Nuevo Producto</h2>
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <h2 class="text-3xl font-bold text-gray-900">Nuevo Producto</h2>
+                <?= view('partials/foto_producto', ['imagen' => '']) ?>
+            </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-16">
                 <!-- Columna izquierda -->
@@ -251,11 +254,6 @@
                     <span class="text-sm font-semibold text-gray-700">Maneja Lotes por Fecha de Vencimiento</span>
                 </label>
                 <p class="text-xs text-gray-400 mt-1 ml-7">El sistema pedirá lote y fecha de vencimiento al registrar compras y usará FEFO al descontar en ventas.</p>
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Imagen del Producto</label>
-                <input type="file" name="imagen_principal" accept="image/*"
-                       class="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-sky-500 file:bg-opacity-10 file:text-sky-600 file:font-medium hover:file:bg-opacity-20">
             </div>
         </div>
     </div>

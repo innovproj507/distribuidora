@@ -104,6 +104,7 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
+<script src="/assets/js/foto-producto.js?v=1"></script>
 <script>
 function margen() {
   const precio = parseFloat(document.getElementById('f-precio').value) || 0;
@@ -112,10 +113,15 @@ function margen() {
     ? 'Ganancia ' + dinero(precio - costo) + ' por unidad (' + ((precio - costo) * 100 / precio).toFixed(1) + '% del precio)'
     : '';
 }
-function previa(input) {
+async function previa(input) {
   if (!input.files || !input.files[0]) return;
+  // Se reduce antes de enviar (una foto de celular pasa de varios MB a ~200 KB)
+  const reducido = await FotoProducto.reducir(input.files[0]);
+  const dt = new DataTransfer();
+  dt.items.add(reducido);
+  input.files = dt.files;
   const img = document.getElementById('f-foto-prev');
-  img.src = URL.createObjectURL(input.files[0]);
+  img.src = URL.createObjectURL(reducido);
   img.classList.remove('hidden');
 }
 margen();

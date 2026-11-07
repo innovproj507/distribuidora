@@ -21,11 +21,15 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
 
 <div class="card mb-4">
   <div class="flex gap-3">
-    <?php if (!empty($p['imagen_principal'])): ?>
-      <img src="/assets/uploads/<?= esc($p['imagen_principal'], 'attr') ?>" alt="" class="w-20 h-20 rounded-xl object-cover flex-shrink-0" onerror="this.style.display='none'">
-    <?php else: ?>
-      <div class="w-20 h-20 rounded-xl flex items-center justify-center text-3xl flex-shrink-0" style="background:var(--navy-light)">📦</div>
-    <?php endif; ?>
+    <?php $tieneFoto = !empty($p['imagen_principal']); ?>
+    <?php if ($puedeEditar): ?><label class="relative flex-shrink-0 cursor-pointer" title="Tomar foto"><?php else: ?><div class="relative flex-shrink-0"><?php endif; ?>
+      <img id="foto-prod" src="<?= $tieneFoto ? '/assets/uploads/' . esc($p['imagen_principal'], 'attr') : '' ?>" alt="" class="w-20 h-20 rounded-xl object-cover <?= $tieneFoto ? '' : 'hidden' ?>">
+      <div id="foto-vacia" class="w-20 h-20 rounded-xl flex flex-col items-center justify-center text-3xl <?= $tieneFoto ? 'hidden' : '' ?>" style="background:var(--navy-light)">📦<?php if ($puedeEditar): ?><span class="text-[10px] mt-0.5" style="color:var(--navy)">Tomar foto</span><?php endif; ?></div>
+      <?php if ($puedeEditar): ?>
+        <span id="foto-badge" class="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center text-sm shadow" style="background:var(--navy); color:white">📷</span>
+        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="subirFoto(this)">
+      <?php endif; ?>
+    <?php if ($puedeEditar): ?></label><?php else: ?></div><?php endif; ?>
     <div class="min-w-0 flex-1">
       <p class="font-head text-base font-semibold leading-tight"><?= esc($p['nombre']) ?></p>
       <p class="text-xs mt-1 font-mono" style="color:var(--ink-soft)"><?= esc($p['codigo']) ?><?= $p['codigo_barras'] ? ' · ' . esc($p['codigo_barras']) : '' ?></p>
@@ -160,6 +164,38 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
+<?php if ($puedeEditar): ?>
+<script src="/assets/js/foto-producto.js?v=1"></script>
+<script>
+async function subirFoto(input) {
+  const original = input.files && input.files[0];
+  input.value = '';
+  if (!original) return;
+  const badge = document.getElementById('foto-badge');
+  badge.textContent = '⏳';
+  try {
+    const archivo = await FotoProducto.reducir(original);
+    const datos = new FormData();
+    datos.append('imagen', archivo);
+    const r = await fetch('/m/productos/<?= (int) $p['producto_id'] ?>/foto', {
+      method: 'POST', body: datos, credentials: 'same-origin',
+      headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    const res = await r.json().catch(function () { return {}; });
+    if (!r.ok || !res.imagen) throw new Error(res.error || 'No se pudo guardar la foto.');
+    const img = document.getElementById('foto-prod');
+    img.src = res.imagen;
+    img.classList.remove('hidden');
+    document.getElementById('foto-vacia').classList.add('hidden');
+    toast('Foto guardada.');
+  } catch (e) {
+    toast(e.message, 'error');
+  } finally {
+    badge.textContent = '📷';
+  }
+}
+</script>
+<?php endif; ?>
 <?php if ($puedeAjustar && !$p['maneja_lotes']): ?>
 <script>
 let movTipo = 'entrada';
