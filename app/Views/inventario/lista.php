@@ -321,7 +321,7 @@ function posCatFilter() {
             const spinner = document.getElementById('search-spinner');
             if (e.target.value.length >= 2 || e.target.value.length === 0) {
                 spinner.classList.remove('hidden');
-                searchTimeout = setTimeout(() => { document.getElementById('search-form').submit(); }, 500);
+                searchTimeout = setTimeout(() => { buscarSinRecargar(document.getElementById('search-form')); }, 500);
             }
         });
     }

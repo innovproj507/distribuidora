@@ -307,6 +307,52 @@ $breadcrumbLabel = $page_title ?? 'Sistema POS';
             });
         });
     </script>
+    <script>
+        /**
+         * Búsqueda en vivo sin recargar la página: pide la misma URL con los campos del
+         * formulario y reemplaza solo el contenido que está antes y después del bloque del
+         * formulario (tarjetas, tabla, paginación). El cuadro de búsqueda no se toca, así que
+         * conserva el foco y lo que se siga escribiendo.
+         */
+        (function () {
+            let pendiente = null;
+            window.buscarSinRecargar = function (form) {
+                const url = new URL(form.getAttribute('action') || location.pathname, location.href);
+                url.search = new URLSearchParams(new FormData(form)).toString();
+
+                if (pendiente) pendiente.abort();
+                pendiente = new AbortController();
+                const spinner = form.querySelector('#search-spinner');
+
+                fetch(url, { signal: pendiente.signal, credentials: 'same-origin' })
+                    .then(function (r) {
+                        if (r.redirected && !r.url.startsWith(url.origin + url.pathname)) { location.href = r.url; throw new Error('redirect'); }
+                        return r.text();
+                    })
+                    .then(function (html) {
+                        const nuevo = new DOMParser().parseFromString(html, 'text/html');
+                        const main = document.querySelector('main');
+                        const mainNuevo = nuevo.querySelector('main');
+                        const formNuevo = form.id ? nuevo.getElementById(form.id) : null;
+                        if (!main || !mainNuevo || !formNuevo) { form.submit(); return; }
+
+                        const bloque = Array.from(main.children).find(function (c) { return c.contains(form); });
+                        const bloqueNuevo = Array.from(mainNuevo.children).find(function (c) { return c.contains(formNuevo); });
+                        const hijosNuevos = Array.from(mainNuevo.children);
+                        const iNuevo = hijosNuevos.indexOf(bloqueNuevo);
+
+                        // Quita lo que rodea al bloque del formulario y pone lo nuevo en su lugar
+                        Array.from(main.children).forEach(function (c) { if (c !== bloque) c.remove(); });
+                        hijosNuevos.slice(0, iNuevo).forEach(function (c) { main.insertBefore(document.importNode(c, true), bloque); });
+                        hijosNuevos.slice(iNuevo + 1).forEach(function (c) { main.appendChild(document.importNode(c, true)); });
+
+                        history.replaceState(null, '', url);
+                    })
+                    .catch(function (e) { if (e.name !== 'AbortError' && e.message !== 'redirect') form.submit(); })
+                    .finally(function () { if (spinner) spinner.classList.add('hidden'); });
+            };
+        })();
+    </script>
     <?= $this->renderSection('extra_js') ?>
 </body>
 </html>

@@ -205,7 +205,7 @@
             if (e.target.value.length >= 2 || e.target.value.length === 0) {
                 spinner.classList.remove('hidden');
                 searchTimeout = setTimeout(function() {
-                    document.getElementById('search-form').submit();
+                    buscarSinRecargar(document.getElementById('search-form'));
                 }, 500);
             }
         });
