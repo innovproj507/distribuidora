@@ -94,5 +94,11 @@ async function verVenta(id) {
     abrirSheet('sheet-venta');
   } catch (e) { toast(e.message, 'error'); }
 }
+
+// /m/ventas?venta=ID abre directamente el detalle (enlaces del inicio y del ticket de venta)
+(function () {
+  const id = parseInt(new URLSearchParams(location.search).get('venta'), 10);
+  if (id > 0) verVenta(id);
+})();
 </script>
 <?php $this->endSection(); ?>

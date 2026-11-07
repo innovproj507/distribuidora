@@ -171,10 +171,8 @@ const lista = new ListaProductos({
         '</div>' +
       '</div>';
 
-    // Editar el producto (precios, datos) se hace en la versión web
-    const cuerpo = PUEDE_EDITAR
-      ? '<a href="/inventario/' + p.producto_id + '/editar" class="text-left flex gap-3 flex-1 min-w-0">' + contenido + '</a>'
-      : '<div class="text-left flex gap-3 flex-1 min-w-0">' + contenido + '</div>';
+    // Ficha del producto (detalle, stock por tienda, kardex; editar si tiene permiso)
+    const cuerpo = '<a href="/m/productos/' + p.producto_id + '" class="text-left flex gap-3 flex-1 min-w-0">' + contenido + '</a>';
 
     const botonMov = PUEDE_AJUSTAR
       ? '<button type="button" onclick="abrirMovimiento(' + p.producto_id + ')" class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 self-center" style="background:var(--navy-light); color:var(--navy)" title="Registrar entrada/salida">' +

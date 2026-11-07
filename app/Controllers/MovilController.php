@@ -156,6 +156,154 @@ class MovilController extends BaseController
         ]);
     }
 
+    /** Ficha del producto: precio, stock por depósito, kardex y lotes del depósito activo. */
+    public function producto(int $id)
+    {
+        if (!Auth::can('productos.ver') && !Auth::can('inventario.ver')) {
+            return $this->exigir('productos.ver', '/m/mas');
+        }
+        $p = $this->productoDeEmpresa($id);
+        if (!$p) {
+            $this->error('Producto no encontrado.');
+            return redirect()->to('/m/inventario');
+        }
+
+        $depositoId = $this->depositoId();
+        $inv        = Db::row("SELECT * FROM inventario WHERE producto_id = ? AND deposito_id = ?", [$id, $depositoId]);
+        $sucursales = array_map('intval', array_column($this->session->get('sucursales_disponibles') ?? [], 'sucursal_id')) ?: [0];
+
+        return $this->render('movil.producto', [
+            'page_title'  => $p['nombre'],
+            'headerTitle' => 'Producto',
+            'activeTab'   => 'inventario',
+            'p'           => $p,
+            'precio'      => (float) (Db::value("SELECT precio FROM precios_productos WHERE producto_id = ? AND tipo_precio = 'a'", [$id]) ?? 0),
+            'inv'         => $inv,
+            'unidades'    => Db::all("SELECT nombre, factor_conversion, precio_a FROM productos_unidades WHERE producto_id = ? ORDER BY factor_conversion", [$id]),
+            // Stock en todas las tiendas que el usuario puede ver
+            'stocks'      => Db::all(
+                "SELECT d.deposito_id, d.nombre AS deposito, b.nombre AS sucursal, i.existencia, i.minimo, i.ubicacion
+                 FROM inventario i JOIN depositos d ON d.deposito_id = i.deposito_id JOIN branches b ON b.sucursal_id = d.sucursal_id
+                 WHERE i.producto_id = ? AND d.estado = 'activo' AND b.sucursal_id IN (" . implode(',', array_fill(0, count($sucursales), '?')) . ")
+                 ORDER BY b.es_principal DESC, b.nombre, d.es_principal DESC",
+                array_merge([$id], $sucursales)
+            ),
+            'movimientos' => $inv ? Db::all(
+                "SELECT m.tipo, m.cantidad, m.saldo_nuevo, m.motivo, m.fecha_registro, u.username
+                 FROM inventario_movimientos m LEFT JOIN users u ON u.id = m.usuario_id
+                 WHERE m.inventario_id = ? ORDER BY m.movimiento_id DESC LIMIT 15",
+                [$inv['inventario_id']]
+            ) : [],
+            'lotes' => $p['maneja_lotes'] ? Db::all(
+                "SELECT numero_lote, cantidad_actual, fecha_vencimiento, DATEDIFF(fecha_vencimiento, CURDATE()) AS dias
+                 FROM lotes WHERE producto_id = ? AND deposito_id = ? AND cantidad_actual > 0 ORDER BY fecha_vencimiento",
+                [$id, $depositoId]
+            ) : [],
+            'vendido30' => (float) Db::value(
+                "SELECT COALESCE(SUM(d.cantidad * COALESCE(NULLIF(d.factor, 0), 1)), 0)
+                 FROM ventas_detalle d JOIN ventas v ON v.venta_id = d.venta_id
+                 WHERE d.producto_id = ? AND v.sucursal_id = ? AND v.estado <> 'anulada' AND v.fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)",
+                [$id, $this->sucursalId()]
+            ),
+            'verCosto'     => Auth::can('productos.editar') || Auth::can('compras.crear'),
+            'puedeEditar'  => Auth::can('productos.editar'),
+            'puedeAjustar' => Auth::can('inventario.ajustar'),
+        ]);
+    }
+
+    public function editarProducto(int $id)
+    {
+        if ($r = $this->exigir('productos.editar', "/m/productos/{$id}")) return $r;
+        $p = $this->productoDeEmpresa($id);
+        if (!$p) {
+            $this->error('Producto no encontrado.');
+            return redirect()->to('/m/inventario');
+        }
+
+        $empresaId = $this->empresaId();
+        return $this->render('movil.producto_editar', [
+            'page_title'  => 'Editar producto',
+            'headerTitle' => 'Editar producto',
+            'activeTab'   => 'inventario',
+            'p'           => $p,
+            'precio'      => (float) (Db::value("SELECT precio FROM precios_productos WHERE producto_id = ? AND tipo_precio = 'a'", [$id]) ?? 0),
+            'inv'         => Db::row("SELECT minimo, ubicacion FROM inventario WHERE producto_id = ? AND deposito_id = ?", [$id, $this->depositoId()]),
+            'categorias'  => Db::all("SELECT categoria_id, nombre FROM categorias_productos WHERE empresa_id = ? ORDER BY nombre", [$empresaId]),
+            'proveedores' => Db::all("SELECT proveedor_id, nombre FROM proveedores WHERE empresa_id = ? AND estado = 'activo' ORDER BY nombre", [$empresaId]),
+            'marcas'      => array_column(Db::all("SELECT DISTINCT nombre FROM marcas WHERE empresa_id = ? ORDER BY nombre", [$empresaId]), 'nombre'),
+        ]);
+    }
+
+    /**
+     * POST: guarda solo los campos del formulario móvil (no toca maneja_lotes, unidades, precios
+     * B/C ni la descripción), con las mismas reglas de ProductoService que la web.
+     */
+    public function guardarProducto(int $id)
+    {
+        if ($r = $this->exigir('productos.editar', "/m/productos/{$id}")) return $r;
+        $p = $this->productoDeEmpresa($id);
+        if (!$p) {
+            $this->error('Producto no encontrado.');
+            return redirect()->to('/m/inventario');
+        }
+
+        $post   = fn (string $k) => trim((string) ($this->request->getPost($k) ?? ''));
+        $nombre = $post('nombre');
+        $codigo = $post('codigo');
+        if ($nombre === '' || $codigo === '') {
+            $this->error('El nombre y el código son obligatorios.');
+            return redirect()->to("/m/productos/{$id}/editar")->withInput();
+        }
+
+        $categoriaId = (int) $post('categoria_id');
+        $proveedorId = (int) $post('proveedor_id');
+        $datos = [
+            'nombre'        => mb_substr($nombre, 0, 200),
+            'codigo'        => mb_substr($codigo, 0, 50),
+            'codigo_barras' => $post('codigo_barras') ?: null,
+            'marca'         => $post('marca') ?: null,
+            'categoria_id'  => $categoriaId && Db::value("SELECT 1 FROM categorias_productos WHERE categoria_id = ? AND empresa_id = ?", [$categoriaId, $this->empresaId()]) ? $categoriaId : null,
+            'proveedor_id'  => $proveedorId && Db::value("SELECT 1 FROM proveedores WHERE proveedor_id = ? AND empresa_id = ?", [$proveedorId, $this->empresaId()]) ? $proveedorId : null,
+            'costo'         => max(0, (float) $post('costo')),
+            'estado'        => $post('estado') === 'inactivo' ? 'inactivo' : 'activo',
+        ];
+        if ($imagen = $this->subirImagen('imagen', 'productos')) {
+            $datos['imagen_principal'] = $imagen;
+        }
+        $precio = $post('precio');
+
+        try {
+            Db::begin();
+            \App\Libraries\ProductoService::actualizar($id, (int) $this->empresaId(), $datos, $precio !== '' ? ['a' => max(0, (float) $precio)] : []);
+
+            // Mínimo y ubicación son por depósito: los del depósito activo
+            if ($inventarioId = \App\Libraries\InventarioService::inventarioId($id, $this->depositoId())) {
+                Db::update('inventario', ['minimo' => max(0, (float) $post('minimo')), 'ubicacion' => $post('ubicacion') ?: null], ['inventario_id' => $inventarioId]);
+            }
+            Db::commit();
+        } catch (\DomainException $e) {
+            Db::rollback();
+            $this->error($e->getMessage());
+            return redirect()->to("/m/productos/{$id}/editar")->withInput();
+        }
+
+        \App\Libraries\AuditService::log('productos.editar', "Producto actualizado desde móvil: {$datos['nombre']} (SKU: {$datos['codigo']})", $id, 'producto', [], $this->empresaId());
+        $this->success('Producto actualizado.');
+        return redirect()->to("/m/productos/{$id}");
+    }
+
+    private function productoDeEmpresa(int $id): ?array
+    {
+        return Db::row(
+            "SELECT p.*, c.nombre AS categoria_nombre, pr.nombre AS proveedor_nombre
+             FROM productos p
+             LEFT JOIN categorias_productos c ON c.categoria_id = p.categoria_id
+             LEFT JOIN proveedores pr ON pr.proveedor_id = p.proveedor_id
+             WHERE p.producto_id = ? AND p.empresa_id = ?",
+            [$id, $this->empresaId()]
+        );
+    }
+
     public function clientes()
     {
         if ($r = $this->exigir('clientes.ver', '/m/mas')) return $r;

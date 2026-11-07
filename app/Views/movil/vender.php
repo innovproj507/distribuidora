@@ -379,7 +379,7 @@ async function confirmarVenta() {
     document.getElementById('exito-total').textContent = dinero(res.total);
     document.getElementById('exito-vuelto').textContent = dinero(vuelto);
     document.getElementById('exito-vuelto-fila').style.display = vuelto > 0.005 ? 'flex' : 'none';
-    document.getElementById('exito-ticket').href = '/ventas/venta/' + res.venta_id;
+    document.getElementById('exito-ticket').href = '/m/ventas?venta=' + res.venta_id;
     abrirSheet('sheet-exito');
   } catch (e) {
     toast(e.message, 'error');

@@ -118,10 +118,10 @@ $estadoVenta = [
     </a>
   <?php endif; ?>
   <?php if (Auth::can('ventas.ver')): ?>
-    <a href="/ventas" class="card text-left block">
+    <a href="/m/ventas" class="card text-left block">
       <div class="icon-tile mb-3" style="background:var(--purple-light)"><span class="text-xl">🧾</span></div>
       <p class="font-semibold text-sm">Historial</p>
-      <p class="text-xs mt-1" style="color:var(--ink-soft)">Ventas (versión web)</p>
+      <p class="text-xs mt-1" style="color:var(--ink-soft)">Ventas y su detalle</p>
     </a>
   <?php endif; ?>
 </div>
@@ -132,7 +132,7 @@ $estadoVenta = [
     <p class="text-sm" style="color:var(--ink-soft)">Todavía no hay ventas registradas.</p>
   <?php endif; ?>
   <?php foreach ($ultimasVentas as $v): $ev = $estadoVenta[$v['estado']] ?? [ucfirst((string) $v['estado']), 'var(--line)', 'var(--ink-soft)']; ?>
-    <a href="/ventas/venta/<?= (int) $v['venta_id'] ?>" class="card !p-3 flex items-center gap-3">
+    <a href="/m/ventas?venta=<?= (int) $v['venta_id'] ?>" class="card !p-3 flex items-center gap-3">
       <div class="badge-icon font-semibold" style="background:<?= $ev[1] ?>; color:<?= $ev[2] ?>">$</div>
       <div class="flex-1 min-w-0">
         <p class="text-sm font-medium truncate"><?= esc($v['cliente_nombre'] ?: 'Consumidor final') ?></p>
