@@ -108,6 +108,24 @@ final class ConteoService
             throw new \RuntimeException('Ese producto no está en este conteo.');
         }
 
+        $previa = Db::row("SELECT cantidad_contada, estado FROM conteo_detalle WHERE conteo_id = ? AND producto_id = ?", [$conteoId, $productoId]);
+        $cambio = $previa['estado'] === 'pendiente' || $previa['cantidad_contada'] === null || abs((float) $previa['cantidad_contada'] - (float) $cantidad) > 0.0001;
+        if ($cantidad !== null && $cambio) {
+            // El "sistema" que se compara es el stock AL MOMENTO DE CONTAR este producto, no el de cuando se abrió
+            // el conteo: si entre la foto y el conteo hubo compras, ventas o altas, esas ya están reflejadas en lo
+            // que se cuenta. (Con la foto vieja, una entrada hecha después de abrir el conteo se sumaba dos veces
+            // al aplicar los ajustes.) Los movimientos posteriores a contar sí se respetan al aplicar.
+            $inv = Db::row(
+                "SELECT existencia, costo_promedio FROM inventario WHERE producto_id = ? AND deposito_id = ?",
+                [$productoId, (int) $conteo['deposito_id']]
+            );
+            if ($inv) {
+                Db::query(
+                    "UPDATE conteo_detalle SET cantidad_sistema = ?, costo_unitario = ? WHERE conteo_id = ? AND producto_id = ?",
+                    [$inv['existencia'], $inv['costo_promedio'], $conteoId, $productoId]
+                );
+            }
+        }
         Db::query(
             "UPDATE conteo_detalle SET cantidad_contada = ?, estado = ? WHERE conteo_id = ? AND producto_id = ?",
             [$cantidad, $cantidad === null ? 'pendiente' : 'contado', $conteoId, $productoId]

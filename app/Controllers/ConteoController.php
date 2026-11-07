@@ -117,17 +117,18 @@ class ConteoController extends BaseController
             return redirect()->to('/inventario/conteos');
         }
 
-        Db::begin();
-        foreach ((array) ($this->request->getPost('cantidad') ?? []) as $productoId => $cantidad) {
-            $qty = $cantidad === '' ? null : (float) $cantidad;
-            Db::query(
-                "UPDATE conteo_detalle SET cantidad_contada = ?, estado = ? WHERE conteo_id = ? AND producto_id = ?",
-                [$qty, $qty === null ? 'pendiente' : 'contado', $conteoId, (int) $productoId]
-            );
+        try {
+            Db::begin();
+            foreach ((array) ($this->request->getPost('cantidad') ?? []) as $productoId => $cantidad) {
+                $qty = $cantidad === '' ? null : (float) $cantidad;
+                \App\Libraries\ConteoService::anotar($conteoId, (int) $productoId, $qty);
+            }
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            $this->error($e instanceof \RuntimeException ? $e->getMessage() : 'No se pudo guardar el conteo.');
+            return redirect()->to("/inventario/conteos/{$conteoId}/contar");
         }
-        $diferencias = (int) Db::value("SELECT COUNT(*) FROM conteo_detalle WHERE conteo_id = ? AND diferencia <> 0 AND estado = 'contado'", [$conteoId]);
-        Db::update('inventario_conteos', ['total_diferencias' => $diferencias], ['conteo_id' => $conteoId]);
-        Db::commit();
 
         $this->success('Conteo guardado.');
         return redirect()->to("/inventario/conteos/{$conteoId}/contar");
