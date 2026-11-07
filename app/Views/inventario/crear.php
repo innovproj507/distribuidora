@@ -38,8 +38,15 @@
                 <div>
                     <div class="flex items-baseline gap-4 py-2 border-b border-gray-50">
                         <label class="text-sm font-semibold text-gray-600 w-40 shrink-0">Código *</label>
-                        <input type="text" name="codigo" required
-                               class="flex-1 py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none">
+                        <div class="flex-1 flex items-center gap-2">
+                            <input type="text" name="codigo" x-model="codigo" @input="codigoManual = codigo.trim() !== ''"
+                                   placeholder="Se genera según la categoría"
+                                   class="flex-1 py-1.5 px-0 text-sm font-mono bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none">
+                            <button type="button" @click="codigoManual = false; generarCodigo()"
+                                    class="shrink-0 text-sky-500 hover:text-sky-700 transition-colors" title="Generar código según la categoría">
+                                <i class="fas fa-rotate" :class="generandoCodigo && 'fa-spin'"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="flex items-baseline gap-4 py-2">
                         <label class="text-sm font-semibold text-gray-600 w-40 shrink-0">Nombre *</label>
@@ -386,6 +393,25 @@ function productoForm() {
         selCategoria: '',
         selMarca: '',
         selProveedor: '',
+
+        // Código automático según la categoría (ALI158, ESC073...). Si el usuario lo escribe
+        // a mano se respeta; el botón ↻ lo vuelve a generar.
+        codigo: '',
+        codigoManual: false,
+        generandoCodigo: false,
+        init() {
+            this.generarCodigo();
+            this.$watch('selCategoria', () => { if (!this.codigoManual) this.generarCodigo(); });
+        },
+        async generarCodigo() {
+            this.generandoCodigo = true;
+            try {
+                const r = await fetch('/api/inventario/siguiente-codigo?categoria_id=' + encodeURIComponent(this.selCategoria || ''), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const d = await r.json();
+                if (d.codigo && !this.codigoManual) this.codigo = d.codigo;
+            } catch (e) { /* sin red: el servidor lo genera al guardar si queda vacío */ }
+            this.generandoCodigo = false;
+        },
 
         // Estado modales
         modalCat: false,   nuevaCat:   { nombre: '' },         creandoCat: false,

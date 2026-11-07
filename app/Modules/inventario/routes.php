@@ -59,6 +59,7 @@ $routes->group('', ['filter' => ['auth', 'sucursal']], static function ($routes)
     $routes->get('api/compras/siguiente-codigo', 'CompraController::siguienteCodigoProducto', ['filter' => 'permiso:productos.crear,compras.crear']);
     $routes->post('api/compras/producto-rapido', 'CompraController::crearProductoRapido', ['filter' => 'permiso:productos.crear,compras.crear']);
     $routes->post('api/compras/proveedor-rapido', 'CompraController::crearProveedorRapido', ['filter' => 'permiso:compras.crear,proveedores.crear']);
+    $routes->get('api/inventario/siguiente-codigo', 'ProductoController::siguienteCodigo', ['filter' => 'permiso:productos.crear']);
     $routes->post('api/inventario/categoria-rapida', 'ProductoController::crearCategoriaRapida', ['filter' => 'permiso:categorias.crear,productos.crear']);
     $routes->post('api/inventario/marca-rapida', 'ProductoController::crearMarcaRapida', ['filter' => 'permiso:productos.crear,productos.editar']);
 

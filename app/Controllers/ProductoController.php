@@ -156,6 +156,10 @@ class ProductoController extends BaseController
         $datos = $this->datosProducto();
         $datos['costo'] = (float) ($this->request->getPost('costo_inicial') ?? 0);
         $datos['imagen_principal'] = $this->subirImagen('imagen_principal', 'productos');
+        // Sin código: se genera según la categoría (ALI158, ESC073...)
+        if ($datos['codigo'] === '') {
+            $datos['codigo'] = ProductoService::siguienteCodigo((int) $this->empresaId(), $datos['categoria_id']);
+        }
 
         try {
             Db::begin();
@@ -171,6 +175,17 @@ class ProductoController extends BaseController
         AuditService::log('productos.crear', "Producto creado: {$datos['nombre']} (SKU: {$datos['codigo']})", $productoId, 'producto', [], $this->empresaId());
         $this->success('Producto creado exitosamente.');
         return redirect()->to('/inventario');
+    }
+
+    /** GET ?categoria_id= → {codigo, prefijo}: siguiente código libre para esa categoría. */
+    public function siguienteCodigo()
+    {
+        $categoriaId = (int) ($this->request->getGet('categoria_id') ?? 0) ?: null;
+        $empresaId   = (int) $this->empresaId();
+        return $this->json([
+            'codigo'  => ProductoService::siguienteCodigo($empresaId, $categoriaId),
+            'prefijo' => ProductoService::prefijoCategoria($empresaId, $categoriaId),
+        ]);
     }
 
     public function editar(int $productoId)

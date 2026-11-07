@@ -193,6 +193,68 @@ final class ProductoService
         }
     }
 
+    // ── Código automático por categoría ──────────────────────────────────────
+
+    /**
+     * Siguiente código libre según la categoría: prefijo de la categoría + consecutivo de 3
+     * dígitos (ALI158, ASE084...). El consecutivo es el mayor ya usado con ese prefijo + 1.
+     */
+    public static function siguienteCodigo(int $empresaId, ?int $categoriaId): string
+    {
+        $prefijo = self::prefijoCategoria($empresaId, $categoriaId);
+        $largo   = strlen($prefijo);
+
+        $max = (int) Db::value(
+            "SELECT COALESCE(MAX(CAST(SUBSTRING(codigo, ?) AS UNSIGNED)), 0) FROM productos
+             WHERE empresa_id = ? AND codigo REGEXP ?",
+            [$largo + 1, $empresaId, '^' . $prefijo . '[0-9]+$']
+        );
+
+        do {
+            $codigo = $prefijo . str_pad((string) ++$max, 3, '0', STR_PAD_LEFT);
+        } while (self::codigoEnUso($empresaId, $codigo));
+
+        return $codigo;
+    }
+
+    /**
+     * Prefijo de la categoría: el que ya usan la mayoría de sus productos (ALI, ESC, PRO en
+     * "Otros"...), o si no hay uno claro, las 3 primeras letras del nombre (REP, LUB).
+     * Sin categoría: PRO.
+     */
+    public static function prefijoCategoria(int $empresaId, ?int $categoriaId): string
+    {
+        if (!$categoriaId) {
+            return 'PRO';
+        }
+        $nombre = Db::value("SELECT nombre FROM categorias_productos WHERE categoria_id = ? AND empresa_id = ?", [$categoriaId, $empresaId]);
+        if ($nombre === null) {
+            return 'PRO';
+        }
+
+        $total  = 0;
+        $conteo = [];
+        foreach (Db::all("SELECT codigo FROM productos WHERE empresa_id = ? AND categoria_id = ?", [$empresaId, $categoriaId]) as $p) {
+            $total++;
+            if (preg_match('/^([A-Za-z]{2,5})[0-9]+$/', (string) $p['codigo'], $m)) {
+                $pref = strtoupper($m[1]);
+                $conteo[$pref] = ($conteo[$pref] ?? 0) + 1;
+            }
+        }
+        if ($conteo) {
+            arsort($conteo);
+            $pref = (string) array_key_first($conteo);
+            if ($conteo[$pref] >= 5 && $conteo[$pref] * 2 >= $total) {
+                return $pref;
+            }
+        }
+
+        $limpio = strtoupper(strtr((string) $nombre, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N']));
+        $letras = preg_replace('/[^A-Z]/', '', $limpio) ?? '';
+        return strlen($letras) >= 2 ? substr($letras, 0, 3) : 'PRO';
+    }
+
     private static function codigoEnUso(int $empresaId, string $codigo, ?int $exceptoId = null): bool
     {
         return (bool) Db::value(
