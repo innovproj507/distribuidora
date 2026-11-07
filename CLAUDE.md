@@ -90,6 +90,8 @@ When converting with a script: **never use `sed` for patterns with backslashes**
 
 Same design as the sibling `arango` app. Static files in `public/movil/` (not `public/m/`, a real folder would shadow the route on Nginx). `sw.js` and the manifest are served by `MovilController` at `/m/sw.js` and `/m/manifest.webmanifest` so the service-worker scope is `/m/`. Bump `CACHE_NAME` in `public/movil/sw.js` and `?v=` in `app/Views/layouts/movil.php` when `app.css`/`app.js` change. Login posts to `/login` with `_origen=movil`.
 
+Product sheet `/m/productos/{id}` (`MovilController::producto`): price, presentations, stock per depot of the user's branches, last 15 kardex rows and lots of the active depot, 30-day sales, entrada/salida sheet. Edit `/m/productos/{id}/editar` is a **partial** update (`guardarProducto`): nombre, códigos, categoría, marca, proveedor, costo, precio A, estado, photo (camera), plus `minimo`/`ubicacion` of the active depot — it never sends `maneja_lotes`, unidades, precios B/C or descripción (the web `actualizar` rewrites all fields, so don't reuse it from mobile). `/m/ventas?venta=ID` opens the sale detail sheet (used by Inicio and the post-sale ticket). Still sending users to the web: sale cancel/print, client detail/credit limit, stock movements and purchases of lot-managed products.
+
 ## Deployment (Plesk/VPS)
 
 PHP 8.2+, document root → `public/`, `writable/` writable by the web user, `.env` created on the server (not in git), `composer install --no-dev`, `CI_ENVIRONMENT = production`, set `app.baseURL`. User uploads live in `public/assets/uploads/` (gitignored). PWA install needs HTTPS.
