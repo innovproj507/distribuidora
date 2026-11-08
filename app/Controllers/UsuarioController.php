@@ -172,14 +172,26 @@ class UsuarioController extends BaseController
             $rol = $usuario['rol']; // rol inválido, no permitido o propio: se conserva
         }
 
+        // Nombre de usuario (con el que se inicia sesión): se puede cambiar, sin repetir
+        $username = trim((string) ($this->request->getPost('username') ?? $usuario['username']));
+        if (!preg_match('/^[A-Za-z0-9._\-]{3,50}$/', $username)) {
+            $this->error('El usuario debe tener de 3 a 50 caracteres: letras, números, punto, guion o guion bajo (sin espacios).');
+            return redirect()->to("/usuarios/{$userId}/editar");
+        }
+        if ($username !== $usuario['username'] && Db::value("SELECT 1 FROM users WHERE username = ? AND id <> ?", [$username, $userId])) {
+            $this->error("El nombre de usuario '{$username}' ya está en uso.");
+            return redirect()->to("/usuarios/{$userId}/editar");
+        }
+
         $password = (string) ($this->request->getPost('password') ?? '');
-        if ($password !== '' && ($msg = Auth::errorPassword($password, (string) $usuario['username']))) {
+        if ($password !== '' && ($msg = Auth::errorPassword($password, $username))) {
             $this->error($msg);
             return redirect()->to("/usuarios/{$userId}/editar");
         }
 
         $post = fn (string $k) => trim((string) ($this->request->getPost($k) ?? ''));
         Db::update('users', [
+            'username'     => $username,
             'first_name'   => $post('first_name'),
             'last_name'    => $post('last_name'),
             'email'        => $post('email') ?: null,

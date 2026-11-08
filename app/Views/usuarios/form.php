@@ -42,13 +42,10 @@ $title = $isEdit ? esc(trim(($usuario->first_name ?? '') . ' ' . ($usuario->last
             <div>
                 <div class="flex items-baseline gap-4 py-2">
                     <label class="text-sm font-semibold text-gray-600 w-40 shrink-0">Usuario *</label>
-                    <?php if ($isEdit): ?>
-                    <input type="text" value="<?= esc($usuario->username ?? '') ?>" readonly
-                           class="flex-1 py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-100 text-gray-400 cursor-not-allowed outline-none">
-                    <?php else: ?>
                     <input type="text" name="username" value="<?= esc($usuario->username ?? '') ?>" required
+                           maxlength="50" pattern="[A-Za-z0-9._\-]{3,50}" title="De 3 a 50 caracteres: letras, números, punto, guion o guion bajo (sin espacios)"
+                           autocomplete="off" autocapitalize="none"
                            class="flex-1 py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none">
-                    <?php endif; ?>
                 </div>
                 <div class="flex items-baseline gap-4 py-2">
                     <label class="text-sm font-semibold text-gray-600 w-40 shrink-0">Nombre</label>
