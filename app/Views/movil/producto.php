@@ -15,6 +15,7 @@ $tipos = [
 ];
 $vence = \App\Libraries\InventarioService::estadoVencimiento($inv['fecha_vencimiento'] ?? null);
 $colorVence = fn (?array $v) => !$v ? 'var(--ink-soft)' : ($v['nivel'] === 'vencido' ? 'var(--red)' : ($v['nivel'] === 'pronto' ? 'var(--orange)' : 'var(--ink)'));
+$um = \App\Libraries\ProductoService::abreviatura($p['unidad_medida'] ?? 'und');
 $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.');
 ?>
 <?php $this->section('content'); ?>
@@ -46,11 +47,11 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
   <div class="grid grid-cols-3 gap-2 mt-4 text-center">
     <div class="rounded-xl py-2" style="background:var(--navy-light)">
       <p class="text-[10px]" style="color:var(--ink-soft)">Precio</p>
-      <p class="font-mono text-sm font-semibold"><?= $precio > 0 ? '$' . number_format($precio, 2) : '—' ?></p>
+      <p class="font-mono text-sm font-semibold"><?= $precio > 0 ? '$' . number_format($precio, 2) . ($um !== 'uds' ? '<span class="text-[10px] font-normal">/' . $um . '</span>' : '') : '—' ?></p>
     </div>
     <div class="rounded-xl py-2" style="background:var(--navy-light)">
       <p class="text-[10px]" style="color:var(--ink-soft)">Aquí hay</p>
-      <p class="font-mono text-sm font-semibold"><?= $num($existencia) ?></p>
+      <p class="font-mono text-sm font-semibold"><?= $num($existencia) ?> <span class="text-[10px] font-normal"><?= $um ?></span></p>
     </div>
     <div class="rounded-xl py-2" style="background:var(--navy-light)">
       <p class="text-[10px]" style="color:var(--ink-soft)">Vendido 30 días</p>
@@ -87,9 +88,9 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
 <?php if ($unidades): ?>
 <h2 class="font-head text-sm font-semibold mb-2">Presentaciones</h2>
 <div class="card !p-3 mb-4 flex flex-col gap-1.5">
-  <div class="flex justify-between text-sm"><span>Unidad</span><span class="font-mono"><?= $precio > 0 ? '$' . number_format($precio, 2) : '—' ?></span></div>
+  <div class="flex justify-between text-sm"><span><?= $um === 'uds' ? 'Unidad' : 'Por ' . $um ?></span><span class="font-mono"><?= $precio > 0 ? '$' . number_format($precio, 2) : '—' ?></span></div>
   <?php foreach ($unidades as $u): $pu = (float) $u['precio_a'] > 0 ? (float) $u['precio_a'] : $precio * (float) $u['factor_conversion']; ?>
-    <div class="flex justify-between text-sm"><span><?= esc($u['nombre']) ?> <span class="text-xs" style="color:var(--ink-soft)">(<?= $num($u['factor_conversion']) ?> uds)</span></span><span class="font-mono">$<?= number_format($pu, 2) ?></span></div>
+    <div class="flex justify-between text-sm"><span><?= esc($u['nombre']) ?> <span class="text-xs" style="color:var(--ink-soft)">(<?= $num($u['factor_conversion']) ?> <?= $um ?>)</span></span><span class="font-mono">$<?= number_format($pu, 2) ?></span></div>
   <?php endforeach; ?>
 </div>
 <?php endif; ?>
@@ -103,7 +104,7 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
         <p class="text-xs truncate" style="color:var(--ink-soft)"><?= esc($s['deposito']) ?><?= $s['ubicacion'] ? ' · 📍 ' . esc($s['ubicacion']) : '' ?></p>
         <?php if ($sv = \App\Libraries\InventarioService::estadoVencimiento($s['fecha_vencimiento'])): ?><p class="text-[11px]" style="color:<?= $colorVence($sv) ?>">⏳ <?= esc($sv['texto']) ?></p><?php endif; ?>
       </div>
-      <p class="font-mono text-sm font-semibold flex-shrink-0" style="color:<?= (float) $s['existencia'] <= 0 ? 'var(--red)' : 'var(--ink)' ?>"><?= $num($s['existencia']) ?></p>
+      <p class="font-mono text-sm font-semibold flex-shrink-0" style="color:<?= (float) $s['existencia'] <= 0 ? 'var(--red)' : 'var(--ink)' ?>"><?= $num($s['existencia']) ?> <span class="text-[10px] font-normal"><?= $um ?></span></p>
     </div>
   <?php endforeach; ?>
 </div>
@@ -151,7 +152,7 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
     <h2 class="font-head text-lg font-semibold">Registrar movimiento</h2>
     <button type="button" onclick="cerrarSheet('sheet-movimiento')" class="w-8 h-8 rounded-full flex items-center justify-center" style="background:var(--navy-light); color:var(--navy)">✕</button>
   </div>
-  <p class="text-sm mb-4" style="color:var(--ink-soft)">Stock actual: <span class="font-mono"><?= $num($existencia) ?></span></p>
+  <p class="text-sm mb-4" style="color:var(--ink-soft)">Stock actual: <span class="font-mono"><?= $num($existencia) ?> <?= $um ?></span></p>
   <form onsubmit="return guardarMovimiento(event)">
     <div class="flex gap-2 mb-4">
       <button type="button" id="mov-btn-entrada" onclick="elegirTipo('entrada')" class="flex-1 py-2.5 rounded-xl text-sm font-medium border">+ Entrada</button>

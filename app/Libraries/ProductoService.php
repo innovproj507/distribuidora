@@ -15,8 +15,37 @@ final class ProductoService
     private const CAMPOS = [
         'codigo', 'nombre', 'descripcion', 'categoria_id', 'costo', 'itbms', 'estado',
         'maneja_lotes', 'stock_minimo', 'codigo_barras', 'marca', 'proveedor_id',
-        'supplier_part_no', 'imagen_principal',
+        'supplier_part_no', 'imagen_principal', 'unidad_medida',
     ];
+
+    /**
+     * Unidad en que se vende y se cuenta el producto (unidad base del inventario).
+     * clave => [nombre, abreviatura para mostrar, se vende con decimales]
+     */
+    public const UNIDADES_MEDIDA = [
+        'und' => ['Unidad', 'uds', false],
+        'lb'  => ['Libra', 'lb', true],
+        'kg'  => ['Kilo', 'kg', true],
+        'oz'  => ['Onza', 'oz', true],
+        'gal' => ['Galón', 'gal', true],
+        'lt'  => ['Litro', 'lt', true],
+        'm'   => ['Metro', 'm', true],
+        'pie' => ['Pie', 'pie', true],
+        'yd'  => ['Yarda', 'yd', true],
+    ];
+
+    /** Clave válida de unidad de medida ('und' si no es una conocida). */
+    public static function unidadMedida(?string $valor): string
+    {
+        $valor = strtolower(trim((string) $valor));
+        return isset(self::UNIDADES_MEDIDA[$valor]) ? $valor : 'und';
+    }
+
+    /** Abreviatura para mostrar: "uds", "lb"… */
+    public static function abreviatura(?string $unidad): string
+    {
+        return self::UNIDADES_MEDIDA[self::unidadMedida($unidad)][1];
+    }
 
     /**
      * Crea el producto, sus precios y su registro de inventario en cada depósito.
@@ -31,6 +60,7 @@ final class ProductoService
             throw new \DomainException("Ya existe un producto con el código: {$datos['codigo']}");
         }
         $datos['itbms'] = 0; // ningún producto lleva ITBMS
+        $datos['unidad_medida'] = self::unidadMedida($datos['unidad_medida'] ?? 'und');
 
         $productoId = Db::insert('productos', array_intersect_key($datos, array_flip(self::CAMPOS)) + [
             'empresa_id'         => $empresaId,
@@ -88,6 +118,9 @@ final class ProductoService
             unset($datos['imagen_principal']);
         }
         $datos['itbms'] = 0; // ningún producto lleva ITBMS (se cobra por tasa global, hoy 0)
+        if (array_key_exists('unidad_medida', $datos)) {
+            $datos['unidad_medida'] = self::unidadMedida($datos['unidad_medida']);
+        }
 
         Db::update('productos', array_intersect_key($datos, array_flip(self::CAMPOS)) + [
             'fecha_modificacion' => date('Y-m-d H:i:s'),

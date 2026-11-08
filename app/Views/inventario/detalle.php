@@ -141,7 +141,7 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
             <div class="px-4 py-2.5 text-center font-extrabold text-gray-800 sm:px-6">Presentaciones</div>
             <?php foreach ($unidades as $u): $pu = (float) $u['precio_a'] > 0 ? (float) $u['precio_a'] : $precio * (float) $u['factor_conversion']; ?>
             <div class="px-4 py-2.5 flex justify-between gap-4 sm:px-6 text-sm">
-                <span class="font-medium text-gray-700"><?= esc($u['nombre']) ?> <span class="text-xs text-gray-400">(<?= $num($u['factor_conversion']) ?> unid.)</span></span>
+                <span class="font-medium text-gray-700"><?= esc($u['nombre']) ?> <span class="text-xs text-gray-400">(<?= $num($u['factor_conversion']) ?> <?= esc(\App\Libraries\ProductoService::abreviatura($producto->unidad_medida ?? 'und')) ?>)</span></span>
                 <span class="font-semibold"><?= $dinero($pu) ?></span>
             </div>
             <?php endforeach; ?>
@@ -181,7 +181,7 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
         </div>
         <div>
             <label class="block text-xs font-semibold text-gray-500 mb-1">Cantidad *</label>
-            <input type="number" name="cantidad" min="1" step="any" required placeholder="0" class="<?= $campo ?> font-bold">
+            <input type="number" name="cantidad" min="0.01" step="any" required placeholder="0" class="<?= $campo ?> font-bold">
         </div>
         <?php if (ver_costos()): ?>
         <div>

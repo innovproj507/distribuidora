@@ -128,6 +128,15 @@ class MovilController extends BaseController
             ),
             'itbmsRate'         => (float) env('ITBMS_RATE', 0.07),
             'puedeCrearCliente' => Auth::can('clientes.crear'),
+            // Descuento al total: solo con descuentos.aplicar, hasta el % de la empresa (el servidor lo vuelve a validar)
+            'maxDescuentoPct'   => Auth::can('descuentos.aplicar') ? \App\Controllers\VentaController::maxDescuentoPct((int) $this->empresaId()) : 0,
+            'usuarioId'         => (int) Auth::id(),
+            'categorias'        => Db::all(
+                "SELECT c.categoria_id, c.nombre FROM categorias_productos c
+                 JOIN productos p ON p.categoria_id = c.categoria_id AND p.estado = 'activo'
+                 WHERE c.empresa_id = ? GROUP BY c.categoria_id, c.nombre ORDER BY c.nombre",
+                [$this->empresaId()]
+            ),
         ]);
     }
 
@@ -296,6 +305,7 @@ class MovilController extends BaseController
             'codigo'        => mb_substr($codigo, 0, 50),
             'codigo_barras' => $post('codigo_barras') ?: null,
             'marca'         => $post('marca') ?: null,
+            'unidad_medida' => \App\Libraries\ProductoService::unidadMedida($post('unidad_medida')),
             'categoria_id'  => $categoriaId && Db::value("SELECT 1 FROM categorias_productos WHERE categoria_id = ? AND empresa_id = ?", [$categoriaId, $this->empresaId()]) ? $categoriaId : null,
             'proveedor_id'  => $proveedorId && Db::value("SELECT 1 FROM proveedores WHERE proveedor_id = ? AND empresa_id = ?", [$proveedorId, $this->empresaId()]) ? $proveedorId : null,
             'costo'         => ver_costos() ? max(0, (float) $post('costo')) : null,
@@ -421,6 +431,7 @@ class MovilController extends BaseController
             'categoria_id'  => $categoriaId,
             'codigo_barras' => $post('codigo_barras') ?: null,
             'marca'         => $post('marca') ?: null,
+            'unidad_medida' => \App\Libraries\ProductoService::unidadMedida($post('unidad_medida')),
             'proveedor_id'  => $proveedorId && Db::value("SELECT 1 FROM proveedores WHERE proveedor_id = ? AND empresa_id = ?", [$proveedorId, $empresaId]) ? $proveedorId : null,
             'costo'         => ver_costos() ? max(0, (float) $post('costo')) : 0.0, // el encargado crea sin costo
             'itbms'         => 0.0,

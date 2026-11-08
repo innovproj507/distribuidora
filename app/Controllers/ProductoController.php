@@ -425,6 +425,7 @@ class ProductoController extends BaseController
             'marca'            => $post('marca') ?: null,
             'proveedor_id'     => $post('proveedor_id') ? (int) $post('proveedor_id') : null,
             'supplier_part_no' => $post('supplier_part_no') ?: null,
+            'unidad_medida'    => ProductoService::unidadMedida($post('unidad_medida', 'und')),
         ];
     }
 

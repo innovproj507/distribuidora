@@ -95,6 +95,13 @@ final class VentaService
                 $unidadId     = (int) $u['unidad_id'];
                 $unidadNombre = $u['nombre'];
             }
+            if ($unidadId === null) {
+                // Venta en la unidad base: si no es "unidad" (lb, kg, gal…) la línea lo dice en la factura
+                $um = (string) (Db::value("SELECT unidad_medida FROM productos WHERE producto_id = ?", [$productoId]) ?? 'und');
+                if ($um !== 'und') {
+                    $unidadNombre = ProductoService::abreviatura($um);
+                }
+            }
             $cantidadBase = $cantidad * $factor;
 
             $precio     = (float) $item['precio'];

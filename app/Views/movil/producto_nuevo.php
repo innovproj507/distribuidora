@@ -55,9 +55,15 @@ $v = fn (string $campo, $def = '') => old($campo, $def);
   </div>
 
   <div class="card mb-4">
+    <label class="field-label">Se vende por</label>
+    <select class="field-input mb-3" style="font-family:'Inter'" name="unidad_medida" id="f-um" onchange="cambiarUm()">
+      <?php $umActual = $v('unidad_medida', 'und'); foreach (\App\Libraries\ProductoService::UNIDADES_MEDIDA as $clave => [$nombreUm, $abrev]): ?>
+        <option value="<?= $clave ?>" data-abrev="<?= $abrev ?>" <?= $umActual === $clave ? 'selected' : '' ?>><?= $nombreUm ?><?= $clave !== 'und' ? " ($abrev)" : '' ?></option>
+      <?php endforeach; ?>
+    </select>
     <div class="grid <?= ver_costos() ? 'grid-cols-2' : 'grid-cols-1' ?> gap-2">
       <div>
-        <label class="field-label">Precio de venta</label>
+        <label class="field-label">Precio de venta <span class="um-txt"></span></label>
         <input class="field-input mb-1" type="number" inputmode="decimal" step="0.01" min="0" name="precio" id="f-precio" value="<?= esc((string) $v('precio'), 'attr') ?>" oninput="margen()">
       </div>
       <?php if (ver_costos()): ?>
@@ -120,12 +126,22 @@ async function generarCodigo() {
   } catch (e) { /* sin red: el servidor genera el código si queda vacío */ }
 }
 
+function umTexto() {
+  const s = document.getElementById('f-um');
+  const a = s ? s.selectedOptions[0].dataset.abrev : 'uds';
+  return a === 'uds' ? 'unidad' : a;
+}
+function cambiarUm() {
+  const u = umTexto();
+  document.querySelectorAll('.um-txt').forEach(function (e) { e.textContent = u === 'unidad' ? '' : '(por ' + u + ')'; });
+  margen();
+}
 function margen() {
   const precio = parseFloat(document.getElementById('f-precio').value) || 0;
   const campoCosto = document.getElementById('f-costo');
   const costo = campoCosto ? (parseFloat(campoCosto.value) || 0) : 0;
   document.getElementById('f-margen').textContent = precio > 0 && costo > 0
-    ? 'Ganancia ' + dinero(precio - costo) + ' por unidad (' + ((precio - costo) * 100 / precio).toFixed(1) + '%)'
+    ? 'Ganancia ' + dinero(precio - costo) + ' por ' + umTexto() + ' (' + ((precio - costo) * 100 / precio).toFixed(1) + '%)'
     : (precio <= 0 ? 'Sin precio no se puede vender.' : '');
 }
 
@@ -145,6 +161,6 @@ function escanear() {
   Escaner.abrir(function (codigo) { document.getElementById('f-barras').value = codigo; });
 }
 
-margen();
+cambiarUm();
 </script>
 <?php $this->endSection(); ?>

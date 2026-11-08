@@ -57,14 +57,20 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
 
   <?php if ($completo): ?>
   <div class="card mb-4">
+    <label class="field-label">Se vende por</label>
+    <select class="field-input mb-3" style="font-family:'Inter'" name="unidad_medida" id="f-um" onchange="cambiarUm()">
+      <?php $umActual = $v('unidad_medida', $p['unidad_medida'] ?? 'und'); foreach (\App\Libraries\ProductoService::UNIDADES_MEDIDA as $clave => [$nombreUm, $abrev]): ?>
+        <option value="<?= $clave ?>" data-abrev="<?= $abrev ?>" <?= $umActual === $clave ? 'selected' : '' ?>><?= $nombreUm ?><?= $clave !== 'und' ? " ($abrev)" : '' ?></option>
+      <?php endforeach; ?>
+    </select>
     <div class="grid <?= ver_costos() ? 'grid-cols-2' : 'grid-cols-1' ?> gap-2">
       <div>
-        <label class="field-label">Precio de venta</label>
+        <label class="field-label">Precio de venta <span class="um-txt"></span></label>
         <input class="field-input mb-1" type="number" inputmode="decimal" step="0.01" min="0" name="precio" id="f-precio" value="<?= esc((string) $v('precio', $precio > 0 ? number_format($precio, 2, '.', '') : ''), 'attr') ?>" oninput="margen()">
       </div>
       <?php if (ver_costos()): ?>
       <div>
-        <label class="field-label">Costo</label>
+        <label class="field-label">Costo <span class="um-txt"></span></label>
         <input class="field-input mb-1" type="number" inputmode="decimal" step="0.0001" min="0" name="costo" id="f-costo" value="<?= esc((string) $v('costo', (float) $p['costo']), 'attr') ?>" oninput="margen()">
       </div>
       <?php endif; ?>
@@ -75,7 +81,7 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
 
   <div class="card mb-4">
     <p class="font-head text-sm font-semibold">¿También lo vendes por caja, bulto, paca…?</p>
-    <p class="text-[11px] mb-3" style="color:var(--ink-soft)">El precio de arriba es por unidad. Aquí cada presentación dice cuántas unidades trae y a cuánto se vende. El stock siempre se cuenta en unidades.</p>
+    <p class="text-[11px] mb-3" style="color:var(--ink-soft)">El precio de arriba es por <span class="um-nombre">unidad</span>. Aquí cada presentación dice cuántas <span class="um-nombre">unidad</span>(es) trae (ej. Saco = 50 lb) y a cuánto se vende. El stock siempre se cuenta en <span class="um-nombre">unidad</span>.</p>
     <input type="hidden" name="pres_enviado" value="1">
     <div id="pres-lista" class="flex flex-col gap-2"></div>
     <button type="button" onclick="agregarPres()" class="w-full mt-2 py-2.5 rounded-xl text-sm font-medium" style="background:var(--navy-light); color:var(--navy)">+ Agregar presentación</button>
@@ -129,12 +135,25 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
 <?php $this->section('extra_js'); ?>
 <script src="/assets/js/foto-producto.js?v=1"></script>
 <script>
+// Unidad de venta elegida: "lb", "kg"… ("unidad" si es por unidad)
+function umTexto() {
+  const s = document.getElementById('f-um');
+  const a = s ? s.selectedOptions[0].dataset.abrev : 'uds';
+  return a === 'uds' ? 'unidad' : a;
+}
+function cambiarUm() {
+  const u = umTexto();
+  document.querySelectorAll('.um-txt').forEach(function (e) { e.textContent = u === 'unidad' ? '' : '(por ' + u + ')'; });
+  document.querySelectorAll('.um-nombre').forEach(function (e) { e.textContent = u; });
+  margen();
+  document.querySelectorAll('#pres-lista input[type=number]').forEach(function (el) { if (typeof pintarPres === 'function') pintarPres(el); });
+}
 function margen() {
   if (!document.getElementById('f-precio') || !document.getElementById('f-costo')) return; // sin precio o sin costo visible
   const precio = parseFloat(document.getElementById('f-precio').value) || 0;
   const costo = parseFloat(document.getElementById('f-costo').value) || 0;
   document.getElementById('f-margen').textContent = precio > 0 && costo > 0
-    ? 'Ganancia ' + dinero(precio - costo) + ' por unidad (' + ((precio - costo) * 100 / precio).toFixed(1) + '% del precio)'
+    ? 'Ganancia ' + dinero(precio - costo) + ' por ' + umTexto() + ' (' + ((precio - costo) * 100 / precio).toFixed(1) + '% del precio)'
     : '';
 }
 async function previa(input) {
@@ -180,10 +199,11 @@ function pintarPres(el) {
   const factor = parseFloat(nums[0].value) || 0, precio = parseFloat(nums[1].value) || 0;
   const unidad = parseFloat((document.getElementById('f-precio') || {}).value) || 0;
   fila.querySelector('.pres-info').textContent = factor > 0
-    ? (precio > 0 ? 'Sale a ' + dinero(precio / factor) + ' cada unidad' : 'Sin precio: se cobra ' + dinero(unidad * factor) + ' (' + factor + ' × ' + dinero(unidad) + ')')
+    ? (precio > 0 ? 'Sale a ' + dinero(precio / factor) + ' cada ' + umTexto() : 'Sin precio: se cobra ' + dinero(unidad * factor) + ' (' + factor + ' × ' + dinero(unidad) + ')')
     : '';
 }
 <?= json_encode(array_map(fn ($u) => ['unidad_id' => (int) $u['unidad_id'], 'nombre' => $u['nombre'], 'factor' => (float) $u['factor_conversion'], 'precio' => (float) $u['precio_a'] > 0 ? (float) $u['precio_a'] : ''], $unidades), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>.forEach(agregarPres);
 <?php endif; ?>
+cambiarUm();
 </script>
 <?php $this->endSection(); ?>

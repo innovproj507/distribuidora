@@ -162,7 +162,7 @@ const lista = new ListaProductos({
   renderItem: function (p) {
     const estado = estadoStock(p);
     const colores = coloresStock(estado);
-    const etiqueta = estado === 'agotado' ? 'Agotado' : numero(p.existencia) + ' uds';
+    const etiqueta = estado === 'agotado' ? 'Agotado' : numero(p.existencia) + ' ' + (p.um || 'uds');
     let detalle = esc(p.codigo || '') + (p.ubicacion ? ' · 📍 ' + esc(p.ubicacion) : '');
     if (PUEDE_EDITAR && p.costo !== undefined) detalle += ' · Costo ' + dinero(p.costo);
     const vence = p.vence

@@ -928,6 +928,7 @@
                     descuento_pct: 0,
                     unidad_id: unidadId,
                     presentacion: presentacion,
+                    um: unidadId ? 'und' : (p.unidad_medida || 'und'),
                     aplica_itbms: p.itbms == 1
                 });
             }
@@ -973,6 +974,7 @@
                 tipo: tipo,
                 unidad_id: unidadId,
                 presentacion: presentacion,
+                um: unidadId ? 'und' : (p.unidad_medida || 'und'),
                 aplica_itbms: p.itbms == 1
             };
             filaEditando = null;
@@ -995,10 +997,10 @@
                     <td class="px-4 py-3 text-sm font-mono text-gray-600 cursor-pointer" ondblclick="editarProductoFila(${i})" title="Doble clic para cambiar el producto">${escHtml(item.codigo)}</td>
                     <td class="px-4 py-3 cursor-pointer" ondblclick="editarProductoFila(${i})" title="Doble clic para cambiar el producto">
                         <div class="text-sm font-medium text-gray-900 line-clamp-1">${escHtml(item.nombre)}</div>
-                        <div class="text-xs text-gray-400 mt-0.5">${escHtml(item.presentacion || 'Unid.')}</div>
+                        <div class="text-xs text-gray-400 mt-0.5">${escHtml(item.presentacion && item.presentacion !== 'Unid.' ? item.presentacion : (item.um && item.um !== 'und' ? 'Por ' + item.um : 'Unid.'))}</div>
                     </td>
                     <td class="px-4 py-3 text-center">
-                        <input type="number" min="1" step="1" value="${item.cantidad}" class="w-16 text-center border border-gray-300 rounded text-sm py-1 focus:outline-none focus:border-pos" onchange="cambiarCantidad(${i}, this.value)" onkeyup="if(event.key==='Enter') this.blur();">
+                        <input type="number" min="0.01" step="any" value="${item.cantidad}" class="w-16 text-center border border-gray-300 rounded text-sm py-1 focus:outline-none focus:border-pos" onchange="cambiarCantidad(${i}, this.value)" onkeyup="if(event.key==='Enter') this.blur();">
                     </td>
                     <td class="px-4 py-3 text-right text-sm">
                         <input type="number" step="0.01" min="0" value="${item.precio.toFixed(2)}" class="w-20 text-right border border-gray-300 rounded text-sm py-1 focus:outline-none focus:border-pos bg-gray-50" onchange="cambiarPrecio(${i}, this.value)" onkeyup="if(event.key==='Enter') this.blur();">
@@ -1138,7 +1140,7 @@
         }
 
         function cambiarCantidad(i, v) {
-            carrito[i].cantidad = parseFloat(v) || 0;
+            carrito[i].cantidad = Math.round((parseFloat(v) || 0) * 100) / 100;
             if (carrito[i].cantidad <= 0) eliminar(i);
             else actualizarTabla();
         }

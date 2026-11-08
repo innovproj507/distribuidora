@@ -120,6 +120,14 @@
                         <input type="text" name="supplier_part_no" placeholder="Ej: REF-123"
                                class="flex-1 py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none">
                     </div>
+                    <div class="flex items-baseline gap-4 py-2">
+                        <label class="text-sm font-semibold text-gray-600 w-40 shrink-0">Se vende por</label>
+                        <select name="unidad_medida" class="flex-1 py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none">
+                            <?php foreach (\App\Libraries\ProductoService::UNIDADES_MEDIDA as $clave => [$nombreUm, $abrev]): ?>
+                                <option value="<?= $clave ?>"><?= $nombreUm ?><?= $clave !== 'und' ? " ({$abrev})" : '' ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                     <?php if (ver_costos()): ?>
                     <div class="flex items-baseline gap-4 py-2">
                         <label class="text-sm font-semibold text-gray-600 w-40 shrink-0">Costo ($) *</label>
@@ -131,7 +139,7 @@
                     <?php endif; ?>
                     <div class="flex items-baseline gap-4 py-2">
                         <label class="text-sm font-semibold text-gray-600 w-40 shrink-0">Stock Mínimo</label>
-                        <input type="number" name="stock_minimo" value="0" min="0"
+                        <input type="number" name="stock_minimo" value="0" min="0" step="any"
                                class="flex-1 py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none">
                     </div>
                 </div>
@@ -228,7 +236,7 @@
                             </td>
                             <td class="px-6 py-4">
                                 <div class="relative w-32">
-                                    <input type="number" name="stocks[]" value="0" min="0"
+                                    <input type="number" name="stocks[]" value="0" min="0" step="any"
                                            class="w-full pl-3 pr-10 py-2 border border-gray-200 rounded-lg text-sm font-black text-slate-800 focus:ring-2 focus:ring-sky-500 bg-white focus:outline-none">
                                     <span class="absolute right-3 top-2.5 text-[9px] font-black text-slate-400 uppercase">UNDS</span>
                                 </div>

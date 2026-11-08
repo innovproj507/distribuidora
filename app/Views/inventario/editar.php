@@ -84,6 +84,15 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <div>
+                    <label class="<?= $label ?>">Se vende por</label>
+                    <select name="unidad_medida" class="<?= $campo ?>">
+                        <?php foreach (\App\Libraries\ProductoService::UNIDADES_MEDIDA as $clave => [$nombreUm, $abrev]): ?>
+                            <option value="<?= $clave ?>" <?= ($producto->unidad_medida ?? 'und') === $clave ? 'selected' : '' ?>><?= $nombreUm ?><?= $clave !== 'und' ? " ({$abrev})" : '' ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">Libra, kilo, galón…: el precio y el stock van en esa unidad y se vende con decimales (2.5 lb).</p>
+                </div>
             </div>
         </div>
     </div>
@@ -172,7 +181,7 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
                 $editable = \App\Libraries\SucursalService::puedeUsarDeposito((int) $inv['deposito_id'], (int) ($sucursal_actual['sucursal_id'] ?? 0)); ?>
                 <div class="bg-gray-50 border border-gray-100 px-4 py-2 rounded-xl">
                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider"><?= esc($inv['deposito_nombre']) ?></p>
-                    <p class="text-lg font-black text-slate-800"><?= number_format((float) $inv['existencia'], 0) ?> <span class="text-xs font-normal text-gray-400">unidades</span></p>
+                    <p class="text-lg font-black text-slate-800"><?= rtrim(rtrim(number_format((float) $inv['existencia'], 2), '0'), '.') ?> <span class="text-xs font-normal text-gray-400"><?= esc(\App\Libraries\ProductoService::abreviatura($producto->unidad_medida ?? 'und')) ?></span></p>
                     <?php if ($editable): ?>
                         <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-1">Vence</label>
                         <input type="date" name="vence[<?= (int) $inv['deposito_id'] ?>]" value="<?= esc($inv['fecha_vencimiento'] ?? '', 'attr') ?>" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white">
@@ -214,7 +223,7 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
             </div>
             <div>
                 <label class="<?= $label ?>">Stock mínimo (avisa cuando baje de aquí)</label>
-                <input type="number" name="stock_minimo" value="<?= $producto->stock_minimo ?>" min="0" class="<?= $campo ?>">
+                <input type="number" name="stock_minimo" value="<?= $producto->stock_minimo ?>" min="0" step="any" class="<?= $campo ?>">
             </div>
             <div>
                 <label class="<?= $label ?>">Estado</label>

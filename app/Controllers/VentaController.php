@@ -179,6 +179,18 @@ class VentaController extends BaseController
         ]);
     }
 
+    /**
+     * Descuento máximo (% del subtotal) que puede dar el usuario: el de gerente de la empresa con
+     * descuentos.aplicar, si no el de cajero (companies.pos_desc_gerente / pos_desc_cajero).
+     */
+    public static function maxDescuentoPct(int $empresaId): int
+    {
+        $empresa = Db::row("SELECT pos_desc_cajero, pos_desc_gerente FROM companies WHERE empresa_id = ? LIMIT 1", [$empresaId]);
+        return Auth::can('descuentos.aplicar')
+            ? (int) ($empresa['pos_desc_gerente'] ?? 50)
+            : (int) ($empresa['pos_desc_cajero'] ?? 10);
+    }
+
     /** POST JSON — usado por el POS web, el formulario de venta y la PWA móvil. */
     public function procesar()
     {
@@ -186,6 +198,20 @@ class VentaController extends BaseController
 
         if (($data['tipo'] ?? 'venta') !== 'venta') {
             return $this->json(['error' => 'Use /ventas/cotizaciones/guardar para cotizaciones'], 422);
+        }
+
+        // Los descuentos (por línea + al total) no pueden pasar del máximo del usuario
+        $bruto = 0.0;
+        $desc  = max(0, (float) ($data['descuento'] ?? 0));
+        foreach ((array) ($data['items'] ?? []) as $it) {
+            $bruto += (float) ($it['cantidad'] ?? 0) * (float) ($it['precio'] ?? 0);
+            $desc  += max(0, (float) ($it['descuento'] ?? 0));
+        }
+        if ($desc > 0.005) {
+            $max = self::maxDescuentoPct((int) $this->empresaId());
+            if ($bruto <= 0 || $desc * 100 / $bruto > $max + 0.01) {
+                return $this->json(['error' => "El descuento pasa del máximo permitido ({$max}%)."], 422);
+            }
         }
 
         try {
@@ -319,7 +345,7 @@ class VentaController extends BaseController
         $q          = trim((string) ($this->request->getGet('q') ?? ''));
         $sucursalId = $this->sucursalId();
 
-        $base = "SELECT p.producto_id, p.codigo, p.nombre, p.codigo_barras, p.itbms,
+        $base = "SELECT p.producto_id, p.codigo, p.nombre, p.codigo_barras, p.itbms, p.unidad_medida,
                         p.maneja_lotes, p.imagen_principal, p.marca AS lugar2,
                         (SELECT d.nombre FROM inventario i
                            JOIN depositos d ON i.deposito_id = d.deposito_id

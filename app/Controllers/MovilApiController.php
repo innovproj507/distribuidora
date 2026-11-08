@@ -30,20 +30,40 @@ class MovilApiController extends BaseController
         $soloBajo    = $this->request->getGet('stock_bajo') === '1';
         $porVencer   = $this->request->getGet('por_vencer') === '1';
         $offset      = max(0, (int) ($this->request->getGet('offset') ?? 0));
+        $vendidos    = $this->request->getGet('orden') === 'vendidos';
+        // ids=1,2,3: productos puntuales (refrescar un carrito guardado o en espera)
+        $ids = array_slice(array_values(array_unique(array_filter(array_map('intval', explode(',', (string) ($this->request->getGet('ids') ?? '')))))), 0, 200);
 
         $where  = ["p.estado = 'activo'", 'p.empresa_id = ?'];
-        $params = [$this->depositoId(), $this->empresaId()];
+        $params = [$this->depositoId()];
+        // Más vendidos de la tienda en 30 días primero (POS)
+        $joinVendidos = '';
+        if ($vendidos) {
+            $joinVendidos = "LEFT JOIN (SELECT d.producto_id, SUM(d.cantidad * COALESCE(NULLIF(d.factor, 0), 1)) AS vendidos
+                                        FROM ventas_detalle d JOIN ventas v ON v.venta_id = d.venta_id
+                                        WHERE v.sucursal_id = ? AND v.estado <> 'anulada' AND v.fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                                        GROUP BY d.producto_id) vv ON vv.producto_id = p.producto_id";
+            $params[] = $this->sucursalId();
+        }
+        $params[] = $this->empresaId();
+        if ($ids) {
+            $where[] = 'p.producto_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')';
+            array_push($params, ...$ids);
+        }
 
         if ($q !== '') {
             // Código / código de barras con la frase completa, o nombre con todas las palabras
             $terminos   = preg_split('/\s+/', $q, -1, PREG_SPLIT_NO_EMPTY) ?: [$q];
             $condNombre = implode(' AND ', array_fill(0, count($terminos), 'p.nombre LIKE ?'));
-            $where[]    = "(p.codigo LIKE ? OR p.codigo_barras LIKE ? OR ({$condNombre}))";
+            // …o el código de barras exacto de una presentación (la caja tiene su propio código)
+            $where[]    = "(p.codigo LIKE ? OR p.codigo_barras LIKE ? OR ({$condNombre})
+                            OR EXISTS (SELECT 1 FROM productos_unidades pu WHERE pu.producto_id = p.producto_id AND pu.codigo_barras = ? AND pu.codigo_barras <> ''))";
             $params[]   = "%{$q}%";
             $params[]   = "%{$q}%";
             foreach ($terminos as $t) {
                 $params[] = "%{$t}%";
             }
+            $params[] = $q;
         }
         if ($categoriaId > 0) {
             $where[]  = 'p.categoria_id = ?';
@@ -58,9 +78,11 @@ class MovilApiController extends BaseController
             $params[] = InventarioService::DIAS_AVISO_VENCIMIENTO;
         }
 
-        $limite = self::POR_PAGINA + 1; // uno extra para saber si hay más
+        $porPagina = $ids ? count($ids) : self::POR_PAGINA;
+        $limite    = $porPagina + 1; // uno extra para saber si hay más
+        $orden     = $porVencer ? 'i.fecha_vencimiento, p.nombre' : ($vendidos ? 'COALESCE(vv.vendidos, 0) DESC, p.nombre' : 'p.nombre');
         $filas  = Db::all(
-            "SELECT p.producto_id, p.codigo, p.codigo_barras, p.nombre, p.costo, p.maneja_lotes,
+            "SELECT p.producto_id, p.codigo, p.codigo_barras, p.nombre, p.costo, p.maneja_lotes, p.unidad_medida,
                     p.imagen_principal, c.nombre AS categoria_nombre,
                     COALESCE(i.existencia, 0) AS existencia, COALESCE(i.minimo, 0) AS minimo, COALESCE(i.ubicacion, '') AS ubicacion, i.fecha_vencimiento,
                     COALESCE(pa.precio, 0) AS precio_a,
@@ -72,25 +94,26 @@ class MovilApiController extends BaseController
              LEFT JOIN precios_productos pa ON pa.producto_id = p.producto_id AND pa.tipo_precio = 'a'
              LEFT JOIN precios_productos pb ON pb.producto_id = p.producto_id AND pb.tipo_precio = 'b'
              LEFT JOIN precios_productos pc ON pc.producto_id = p.producto_id AND pc.tipo_precio = 'c'
+             {$joinVendidos}
              WHERE " . implode(' AND ', $where) . "
-             ORDER BY " . ($porVencer ? 'i.fecha_vencimiento, ' : '') . "p.nombre
+             ORDER BY {$orden}
              LIMIT {$limite} OFFSET {$offset}",
             $params
         );
 
-        $hayMas = count($filas) > self::POR_PAGINA;
-        $filas  = array_slice($filas, 0, self::POR_PAGINA);
+        $hayMas = count($filas) > $porPagina;
+        $filas  = array_slice($filas, 0, $porPagina);
 
         // Presentaciones (docena, caja…) de los productos de la página; precio de la presentación
         // = el propio de la presentación, o precio unitario × factor si no tiene.
         $presentaciones = [];
         if ($filas) {
-            $ids = array_map(fn ($f) => (int) $f['producto_id'], $filas);
+            $idsPagina = array_map(fn ($f) => (int) $f['producto_id'], $filas);
             $mapaPrecio = array_column($filas, 'precio_a', 'producto_id');
             foreach (Db::all(
-                "SELECT unidad_id, producto_id, nombre, factor_conversion, precio_a FROM productos_unidades
-                 WHERE producto_id IN (" . implode(',', array_fill(0, count($ids), '?')) . ") ORDER BY factor_conversion",
-                $ids
+                "SELECT unidad_id, producto_id, nombre, factor_conversion, precio_a, codigo_barras FROM productos_unidades
+                 WHERE producto_id IN (" . implode(',', array_fill(0, count($idsPagina), '?')) . ") ORDER BY factor_conversion",
+                $idsPagina
             ) as $u) {
                 $factor = (float) $u['factor_conversion'];
                 $propio = (float) $u['precio_a'];
@@ -99,6 +122,7 @@ class MovilApiController extends BaseController
                     'nombre'    => $u['nombre'],
                     'factor'    => $factor,
                     'precio'    => $propio > 0 ? $propio : round((float) ($mapaPrecio[$u['producto_id']] ?? 0) * $factor, 2),
+                    'codigo_barras' => (string) ($u['codigo_barras'] ?? ''),
                 ];
             }
         }
@@ -110,6 +134,10 @@ class MovilApiController extends BaseController
                 'codigo'           => $p['codigo'],
                 'codigo_barras'    => $p['codigo_barras'],
                 'nombre'           => $p['nombre'],
+                // Unidad de venta: 'und' o lb, kg… (um = abreviatura para mostrar; fraccion = se vende con decimales)
+                'unidad_medida'    => \App\Libraries\ProductoService::unidadMedida($p['unidad_medida']),
+                'um'               => \App\Libraries\ProductoService::abreviatura($p['unidad_medida']),
+                'fraccion'         => \App\Libraries\ProductoService::UNIDADES_MEDIDA[\App\Libraries\ProductoService::unidadMedida($p['unidad_medida'])][2],
                 'categoria_nombre' => $p['categoria_nombre'],
                 'imagen'           => $p['imagen_principal'] ? '/assets/uploads/' . $p['imagen_principal'] : null,
                 'maneja_lotes'     => (bool) $p['maneja_lotes'],
