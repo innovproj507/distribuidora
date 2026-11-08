@@ -27,6 +27,32 @@ class Permisos extends BaseConfig
             'lotes.ver',
         ],
     
+        // Vendedor de tienda: trabaja solo desde la PWA (/m), fijo en su sucursal. Vende, cobra,
+        // abre/cierra su caja, cuenta inventario (el ajuste lo aplica el administrador), recibe
+        // traslados y compras, y edita nombre/foto/ubicación de productos. No elimina ni anula nada.
+        'vendedor' => [
+            'dashboard.ver',
+            'pos.usar',
+            'caja.usar',
+            'ventas.crear',
+            'ventas.ver',
+            'cotizaciones.ver',
+            'cotizaciones.crear',
+            'clientes.ver',
+            'clientes.crear',
+            'productos.ver',
+            'productos.editar_basico',
+            'inventario.ver',
+            'lotes.ver',
+            'alertas.ver',
+            'conteos.ver',
+            'conteos.crear',
+            'traslados.ver',
+            'traslados.recibir',
+            'compras.ver',
+            'compras.recibir',
+        ],
+
         'supervisor' => [
             'dashboard.ver',
             'pos.usar',

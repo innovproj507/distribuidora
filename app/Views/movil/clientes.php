@@ -81,7 +81,9 @@ $totalPorCobrar = array_sum(array_map(fn ($c) => (float) $c['saldo_pendiente'], 
     <div class="card !p-3"><p class="text-xs" style="color:var(--ink-soft)">Saldo pendiente</p><p class="font-mono font-semibold" id="det-saldo"></p></div>
     <div class="card !p-3"><p class="text-xs" style="color:var(--ink-soft)">Crédito disponible</p><p class="font-mono font-semibold" id="det-disponible"></p></div>
   </div>
+  <?php if (!in_array(\App\Libraries\Auth::rol(), \App\Filters\SoloMovilFilter::ROLES, true)): ?>
   <a id="det-web" href="#" class="block w-full py-3 rounded-xl font-medium text-center" style="background:var(--navy-light); color:var(--navy)">Ver historial completo (web)</a>
+  <?php endif; ?>
 </div>
 
 <?php if ($puedeCrear): ?>
@@ -127,7 +129,8 @@ function verCliente(c) {
   document.getElementById('det-email').textContent = c.email || '—';
   document.getElementById('det-saldo').textContent = dinero(c.saldo);
   document.getElementById('det-disponible').textContent = c.limite > 0 ? dinero(Math.max(0, c.limite - c.saldo)) : 'Sin crédito';
-  document.getElementById('det-web').href = '/clientes/' + c.id;
+  const web = document.getElementById('det-web');
+  if (web) web.href = '/clientes/' + c.id;
   abrirSheet('sheet-detalle');
 }
 

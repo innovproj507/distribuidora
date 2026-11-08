@@ -206,14 +206,14 @@ class MovilController extends BaseController
                 [$id, $this->sucursalId()]
             ),
             'verCosto'     => Auth::can('productos.editar') || Auth::can('compras.crear'),
-            'puedeEditar'  => Auth::can('productos.editar'),
+            'puedeEditar'  => self::puedeEditarProducto(),
             'puedeAjustar' => Auth::can('inventario.ajustar'),
         ]);
     }
 
     public function editarProducto(int $id)
     {
-        if ($r = $this->exigir('productos.editar', "/m/productos/{$id}")) return $r;
+        if (!self::puedeEditarProducto()) return $this->exigir('productos.editar', "/m/productos/{$id}");
         $p = $this->productoDeEmpresa($id);
         if (!$p) {
             $this->error('Producto no encontrado.');
@@ -222,6 +222,8 @@ class MovilController extends BaseController
 
         $empresaId = $this->empresaId();
         return $this->render('movil.producto_editar', [
+            // Sin productos.editar (vendedor): solo nombre, foto y ubicación
+            'completo'    => Auth::can('productos.editar'),
             'page_title'  => 'Editar producto',
             'headerTitle' => 'Editar producto',
             'activeTab'   => 'inventario',
@@ -240,14 +242,37 @@ class MovilController extends BaseController
      */
     public function guardarProducto(int $id)
     {
-        if ($r = $this->exigir('productos.editar', "/m/productos/{$id}")) return $r;
+        if (!self::puedeEditarProducto()) return $this->exigir('productos.editar', "/m/productos/{$id}");
         $p = $this->productoDeEmpresa($id);
         if (!$p) {
             $this->error('Producto no encontrado.');
             return redirect()->to('/m/inventario');
         }
 
-        $post   = fn (string $k) => trim((string) ($this->request->getPost($k) ?? ''));
+        $post = fn (string $k) => trim((string) ($this->request->getPost($k) ?? ''));
+
+        // Edición básica (vendedor): solo nombre, foto y ubicación en su depósito; lo demás se ignora
+        if (!Auth::can('productos.editar')) {
+            $nombre = $post('nombre');
+            if ($nombre === '') {
+                $this->error('El nombre es obligatorio.');
+                return redirect()->to("/m/productos/{$id}/editar")->withInput();
+            }
+            $datos = ['nombre' => mb_substr($nombre, 0, 200)];
+            if ($imagen = $this->subirImagen('imagen', 'productos')) {
+                $datos['imagen_principal'] = $imagen;
+            }
+            Db::begin();
+            \App\Libraries\ProductoService::actualizar($id, (int) $this->empresaId(), $datos, []);
+            if ($inventarioId = \App\Libraries\InventarioService::inventarioId($id, $this->depositoId())) {
+                Db::update('inventario', ['ubicacion' => $post('ubicacion') ?: null], ['inventario_id' => $inventarioId]);
+            }
+            Db::commit();
+            \App\Libraries\AuditService::log('productos.editar', "Producto actualizado desde móvil (básico): {$p['nombre']} → {$datos['nombre']}", $id, 'producto', [], $this->empresaId());
+            $this->success('Producto actualizado.');
+            return redirect()->to("/m/productos/{$id}");
+        }
+
         $nombre = $post('nombre');
         $codigo = $post('codigo');
         if ($nombre === '' || $codigo === '') {
@@ -295,7 +320,7 @@ class MovilController extends BaseController
     /** POST multipart {imagen} desde la ficha: cambia solo la foto. Responde JSON. */
     public function subirFoto(int $id)
     {
-        if (!Auth::can('productos.editar')) {
+        if (!self::puedeEditarProducto()) {
             return $this->json(['error' => 'No tienes permiso para editar productos.'], 403);
         }
         $p = $this->productoDeEmpresa($id);
@@ -319,6 +344,12 @@ class MovilController extends BaseController
 
         \App\Libraries\AuditService::log('productos.editar', "Foto actualizada desde móvil: {$p['nombre']}", $id, 'producto', [], $this->empresaId());
         return $this->json(['ok' => true, 'imagen' => '/assets/uploads/' . $ruta]);
+    }
+
+    /** Edición completa (productos.editar) o básica: nombre, foto y ubicación (productos.editar_basico). */
+    public static function puedeEditarProducto(): bool
+    {
+        return Auth::can('productos.editar') || Auth::can('productos.editar_basico');
     }
 
     private function productoDeEmpresa(int $id): ?array
@@ -647,7 +678,7 @@ class MovilController extends BaseController
                 [$this->empresaId(), $this->sucursalId()]
             ),
             'puedeEnviar'  => Auth::can('traslados.crear'),
-            'puedeRecibir' => Auth::can('traslados.crear') || Auth::can('traslados.aprobar'),
+            'puedeRecibir' => Auth::can('traslados.crear') || Auth::can('traslados.aprobar') || Auth::can('traslados.recibir'),
         ]);
     }
 

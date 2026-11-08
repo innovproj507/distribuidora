@@ -7,6 +7,7 @@ $etiquetaRol = [
     'gerente'    => 'Gerente',
     'supervisor' => 'Supervisor',
     'cajero'     => 'Cajero',
+    'vendedor'   => 'Vendedor',
     'auditor'    => 'Auditor',
 ][$rol] ?? ucfirst($rol);
 
@@ -83,8 +84,10 @@ $enlace = function (string $href, string $emoji, string $bg, string $titulo, str
 <?php if (Auth::can('cotizaciones.ver')) $enlace('/m/cotizaciones', '📝', 'var(--amber-light)', 'Cotizaciones', 'Estado y enlace para compartir'); ?>
 <?php if (Auth::can('clientes.ver')) $enlace('/m/cobrar', '💳', 'var(--orange-light)', 'Cuentas por cobrar', 'Saldos de clientes, llamar y WhatsApp'); ?>
 <?php if (Auth::can('alertas.ver')) $enlace('/m/alertas', '🔔', 'var(--red-light)', 'Alertas de inventario', 'Stock mínimo, vencimientos y más'); ?>
+<?php if (!in_array(Auth::rol(), \App\Filters\SoloMovilFilter::ROLES, true)): ?>
 <?php if (Auth::can('reportes.ver')) $enlace('/reportes', '📊', 'var(--green-light)', 'Reportes', 'Versión web'); ?>
 <?php $enlace('/', '🖥️', 'var(--navy-light)', 'Versión web completa', 'Todo el sistema, optimizado para computadora'); ?>
+<?php endif; ?>
 
 <form method="POST" action="/m/logout">
   <?= csrf_field() ?>

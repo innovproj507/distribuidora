@@ -489,7 +489,7 @@ class MovilApiController extends BaseController
     /** POST /m/api/traslado/{id}/recibir {recibidas: {producto_id: cantidad}} — solo la sucursal destino. */
     public function recibirTraslado(int $id)
     {
-        if (!Auth::can('traslados.crear') && !Auth::can('traslados.aprobar')) return $this->json(['error' => 'Sin permiso.'], 403);
+        if (!Auth::can('traslados.crear') && !Auth::can('traslados.aprobar') && !Auth::can('traslados.recibir')) return $this->json(['error' => 'Sin permiso.'], 403);
         $esDestino = Db::value(
             "SELECT 1 FROM traslados t JOIN depositos dd ON t.deposito_destino_id = dd.deposito_id WHERE t.traslado_id = ? AND dd.sucursal_id = ?",
             [$id, $this->sucursalId()]

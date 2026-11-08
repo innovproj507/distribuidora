@@ -22,6 +22,7 @@
         'supervisor' => 'bg-emerald-500 text-white',
         'auditor'    => 'bg-amber-500 text-white',
         'cajero'     => 'bg-slate-500 text-white',
+        'vendedor'   => 'bg-teal-500 text-white',
     ];
     $rolLabels = [
         'superadmin' => 'Super Admin',
@@ -29,6 +30,7 @@
         'supervisor' => 'Supervisor',
         'auditor'    => 'Auditor',
         'cajero'     => 'Cajero',
+        'vendedor'   => 'Vendedor (celular)',
     ];
     ?>
 

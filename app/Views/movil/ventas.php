@@ -58,7 +58,10 @@ foreach ($ventas as $v) {
     <div class="flex justify-between items-center"><span class="text-sm font-medium">Total</span><span class="font-mono text-xl font-semibold" id="v-total"></span></div>
   </div>
   <p class="text-xs mb-3" id="v-pagos" style="color:var(--ink-soft)"></p>
+  <button type="button" onclick="compartirTicket()" class="block w-full py-3 rounded-xl font-medium text-center text-white mb-2" style="background:var(--green)">📤 Compartir ticket (WhatsApp…)</button>
+  <?php if (!in_array(\App\Libraries\Auth::rol(), \App\Filters\SoloMovilFilter::ROLES, true)): ?>
   <a id="v-web" href="#" class="block w-full py-3 rounded-xl font-medium text-center" style="background:var(--navy-light); color:var(--navy)">Imprimir / anular (versión web)</a>
+  <?php endif; ?>
 </div>
 
 <?php $this->endSection(); ?>
@@ -76,6 +79,33 @@ document.getElementById('input-busqueda').addEventListener('input', function () 
   document.getElementById('msg-vacio').style.display = visibles ? 'none' : 'block';
 });
 
+let ventaActual = null;
+
+/** Ticket en texto para enviarlo por WhatsApp u otra app (sin impresora). */
+function compartirTicket() {
+  const v = ventaActual;
+  if (!v) return;
+  const lineas = [
+    <?= json_encode($empresa_actual['nombre_comercial'] ?? 'Distribuidora') ?> + ' — ' + <?= json_encode($sucursal_actual['nombre'] ?? '') ?>,
+    'Factura ' + v.numero_factura + ' · ' + v.fecha,
+    'Cliente: ' + (v.cliente_nombre || 'Consumidor final'),
+    '',
+  ];
+  v.items.forEach(function (i) {
+    lineas.push(numero(i.cantidad) + (i.unidad_nombre ? ' ' + i.unidad_nombre.toLowerCase() : '') + ' x ' + i.nombre + '  ' + dinero(i.total_linea));
+  });
+  lineas.push('', 'Subtotal: ' + dinero(v.subtotal), 'ITBMS: ' + dinero(v.itbms), 'TOTAL: ' + dinero(v.total));
+  if (v.pagos && v.pagos.length) lineas.push('Pago: ' + v.pagos.map(function (p) { return p.forma_pago + ' ' + dinero(p.monto); }).join(', '));
+  if (v.estado === 'anulada') lineas.push('*** ANULADA ***');
+  lineas.push('', '¡Gracias por su compra!');
+  const texto = lineas.join('\n');
+  if (navigator.share) {
+    navigator.share({ title: 'Factura ' + v.numero_factura, text: texto }).catch(function () {});
+  } else {
+    window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank');
+  }
+}
+
 async function verVenta(id) {
   try {
     const v = await api('/m/api/venta/' + id);
@@ -90,7 +120,9 @@ async function verVenta(id) {
     document.getElementById('v-itbms').textContent = dinero(v.itbms);
     document.getElementById('v-total').textContent = dinero(v.total);
     document.getElementById('v-pagos').textContent = 'Pagos: ' + (v.pagos.length ? v.pagos.map(function (p) { return p.forma_pago + ' ' + dinero(p.monto); }).join(' · ') : v.forma_pago);
-    document.getElementById('v-web').href = '/ventas/venta/' + id;
+    const web = document.getElementById('v-web');
+    if (web) web.href = '/ventas/venta/' + id;
+    ventaActual = v;
     abrirSheet('sheet-venta');
   } catch (e) { toast(e.message, 'error'); }
 }

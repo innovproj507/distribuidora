@@ -14,6 +14,7 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
     <label class="field-label">Nombre *</label>
     <input class="field-input mb-3" style="font-family:'Inter'" name="nombre" required maxlength="200" value="<?= esc($v('nombre', $p['nombre']), 'attr') ?>">
 
+    <?php if ($completo): ?>
     <div class="grid grid-cols-2 gap-2">
       <div>
         <label class="field-label">Código *</label>
@@ -49,8 +50,12 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
         </select>
       </div>
     </div>
+    <?php else: ?>
+    <p class="text-xs" style="color:var(--ink-soft)">Código <span class="font-mono"><?= esc($p['codigo']) ?></span>. Precio, costo y demás datos los cambia el administrador.</p>
+    <?php endif; ?>
   </div>
 
+  <?php if ($completo): ?>
   <div class="card mb-4">
     <div class="grid grid-cols-2 gap-2">
       <div>
@@ -65,14 +70,17 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
     <p class="text-xs mb-1" id="f-margen" style="color:var(--ink-soft)"></p>
     <p class="text-[11px]" style="color:var(--ink-soft)">El costo promedio de cada depósito lo calculan las compras; este es el costo de referencia del producto.</p>
   </div>
+  <?php endif; ?>
 
   <div class="card mb-4">
     <p class="text-xs mb-3" style="color:var(--ink-soft)">En <b><?= esc($deposito_actual['nombre'] ?? 'este depósito') ?></b>:</p>
-    <div class="grid grid-cols-2 gap-2">
+    <div class="grid <?= $completo ? 'grid-cols-2' : 'grid-cols-1' ?> gap-2">
+      <?php if ($completo): ?>
       <div>
         <label class="field-label">Stock mínimo</label>
         <input class="field-input mb-3" type="number" inputmode="decimal" step="any" min="0" name="minimo" value="<?= esc((string) $v('minimo', (float) ($inv['minimo'] ?? 0)), 'attr') ?>">
       </div>
+      <?php endif; ?>
       <div>
         <label class="field-label">Ubicación</label>
         <input class="field-input mb-3" style="font-family:'Inter'" name="ubicacion" maxlength="100" placeholder="Estante A-3" value="<?= esc($v('ubicacion', $inv['ubicacion'] ?? ''), 'attr') ?>">
@@ -91,11 +99,13 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
       <input type="file" name="imagen" accept="image/*" capture="environment" class="text-xs flex-1" onchange="previa(this)">
     </div>
 
+    <?php if ($completo): ?>
     <label class="field-label">Estado</label>
     <select class="field-input" style="font-family:'Inter'" name="estado">
       <option value="activo" <?= $v('estado', $p['estado']) === 'activo' ? 'selected' : '' ?>>Activo (se vende)</option>
       <option value="inactivo" <?= $v('estado', $p['estado']) === 'inactivo' ? 'selected' : '' ?>>Inactivo (no aparece para vender)</option>
     </select>
+    <?php endif; ?>
   </div>
 
   <button type="submit" class="btn-primario mb-6">Guardar cambios</button>
@@ -107,6 +117,7 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
 <script src="/assets/js/foto-producto.js?v=1"></script>
 <script>
 function margen() {
+  if (!document.getElementById('f-precio')) return; // edición básica: sin precio ni costo
   const precio = parseFloat(document.getElementById('f-precio').value) || 0;
   const costo = parseFloat(document.getElementById('f-costo').value) || 0;
   document.getElementById('f-margen').textContent = precio > 0 && costo > 0

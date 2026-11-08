@@ -28,6 +28,7 @@ class Filters extends BaseFilters
         'csrf'          => CSRF::class,
         'auth'          => \App\Filters\AuthFilter::class,
         'movilauth'     => \App\Filters\MovilAuthFilter::class,
+        'solomovil'     => \App\Filters\SoloMovilFilter::class,
         'sucursal'      => \App\Filters\SucursalFilter::class,
         'permiso'       => \App\Filters\PermisoFilter::class,
         'apitoken'      => \App\Filters\ApiTokenFilter::class,
@@ -80,6 +81,8 @@ class Filters extends BaseFilters
             // 'honeypot',
             // CSRF en todo POST web; la API v1 usa token Bearer
             'csrf' => ['except' => ['api/v1/*']],
+            // Vendedores: solo la app del celular (/m)
+            'solomovil',
             // 'invalidchars',
         ],
         'after' => [
