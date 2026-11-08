@@ -210,14 +210,7 @@ class MovilController extends BaseController
             'verCosto'     => ver_costos(),
             'puedeEditar'  => self::puedeEditarProducto(),
             'puedeAjustar' => Auth::can('inventario.ajustar'),
-            'puedeVence'   => self::puedeFijarVencimiento(),
         ]);
-    }
-
-    /** Quién puede fijar la fecha de vencimiento (mismo criterio que /m/api/vencimiento). */
-    public static function puedeFijarVencimiento(): bool
-    {
-        return Auth::can('conteos.crear') || Auth::can('productos.editar') || Auth::can('productos.editar_basico') || Auth::can('compras.recibir');
     }
 
     public function editarProducto(int $id)

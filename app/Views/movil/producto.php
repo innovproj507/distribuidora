@@ -64,16 +64,7 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
     <dt style="color:var(--ink-soft)">Proveedor</dt><dd class="text-right truncate"><?= esc($p['proveedor_nombre'] ?? '—') ?></dd>
     <dt style="color:var(--ink-soft)">Ubicación</dt><dd class="text-right truncate"><?= !empty($inv['ubicacion']) ? '📍 ' . esc($inv['ubicacion']) : '—' ?></dd>
     <dt style="color:var(--ink-soft)">Vence</dt>
-    <dd class="text-right">
-      <?php if ($puedeVence && $inv): ?>
-        <label class="inline-flex items-center gap-1 cursor-pointer">
-          <span id="vence-texto" class="text-xs" style="color:<?= $colorVence($vence) ?>"><?= $vence ? esc($vence['texto']) : 'Sin fecha' ?></span>
-          <input type="date" id="vence-input" value="<?= esc($inv['fecha_vencimiento'] ?? '', 'attr') ?>" onchange="guardarVence(this.value)" class="text-xs border rounded-lg px-1 py-0.5" style="border-color:var(--line); max-width:8.5rem">
-        </label>
-      <?php else: ?>
-        <span class="text-xs" style="color:<?= $colorVence($vence) ?>"><?= $vence ? esc($vence['texto']) : '—' ?></span>
-      <?php endif; ?>
-    </dd>
+    <dd class="text-right"><span class="text-xs" style="color:<?= $colorVence($vence) ?>"><?= $vence ? esc($vence['texto']) : '—' ?></span></dd>
     <dt style="color:var(--ink-soft)">Stock mínimo</dt><dd class="text-right font-mono"><?= $num($minimo) ?></dd>
     <?php if ($verCosto): ?>
       <dt style="color:var(--ink-soft)">Costo promedio</dt><dd class="text-right font-mono">$<?= number_format((float) ($inv['costo_promedio'] ?? $p['costo']), 2) ?></dd>
@@ -178,22 +169,6 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
-<?php if ($puedeVence && $inv): ?>
-<script>
-async function guardarVence(fecha) {
-  const texto = document.getElementById('vence-texto');
-  try {
-    const r = await api('/m/api/vencimiento', { method: 'POST', body: { producto_id: <?= (int) $p['producto_id'] ?>, fecha: fecha } });
-    const e = r.estado;
-    texto.textContent = e ? e.texto : 'Sin fecha';
-    texto.style.color = !e ? 'var(--ink-soft)' : (e.nivel === 'vencido' ? 'var(--red)' : (e.nivel === 'pronto' ? 'var(--orange)' : 'var(--ink)'));
-    toast(e ? 'Vencimiento guardado.' : 'Vencimiento quitado.');
-  } catch (err) {
-    toast(err.message, 'error');
-  }
-}
-</script>
-<?php endif; ?>
 <?php if ($tieneFoto): ?>
 <div id="visor-foto" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="background:rgba(0,0,0,.88)" onclick="cerrarFoto()">
   <img src="/assets/uploads/<?= esc($p['imagen_principal'], 'attr') ?>" alt="" class="max-w-full max-h-full rounded-xl object-contain">
