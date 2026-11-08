@@ -34,8 +34,8 @@
                 <th class="px-5 py-3.5 bg-gray-50/80 text-right">Cant. Vendida</th>
                 <th class="px-5 py-3.5 bg-gray-50/80 text-right">N° Ventas</th>
                 <th class="px-5 py-3.5 bg-gray-50/80 text-right">Ingreso</th>
-                <th class="px-5 py-3.5 bg-gray-50/80 text-right">Costo</th>
-                <th class="px-5 py-3.5 bg-gray-50/80 text-right">Ganancia</th>
+                <?php if (ver_costos()): ?><th class="px-5 py-3.5 bg-gray-50/80 text-right">Costo</th><?php endif; ?>
+                <?php if (ver_costos()): ?><th class="px-5 py-3.5 bg-gray-50/80 text-right">Ganancia</th><?php endif; ?>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-50">
@@ -49,8 +49,8 @@
                 <td class="px-5 py-3.5 text-right font-semibold text-gray-700"><?= number_format((float)$p['total_vendido'], 0) ?></td>
                 <td class="px-5 py-3.5 text-right text-gray-500"><?= $p['num_ventas'] ?></td>
                 <td class="px-5 py-3.5 text-right font-bold text-emerald-600">$<?= number_format((float)$p['total_ingreso'], 2) ?></td>
-                <td class="px-5 py-3.5 text-right text-gray-500">$<?= number_format((float)$p['total_costo'], 2) ?></td>
-                <td class="px-5 py-3.5 text-right font-bold text-sky-600">$<?= number_format((float)$p['total_ingreso'] - (float)$p['total_costo'], 2) ?></td>
+                <?php if (ver_costos()): ?><td class="px-5 py-3.5 text-right text-gray-500">$<?= number_format((float)$p['total_costo'], 2) ?></td><?php endif; ?>
+                <?php if (ver_costos()): ?><td class="px-5 py-3.5 text-right font-bold text-sky-600">$<?= number_format((float)$p['total_ingreso'] - (float)$p['total_costo'], 2) ?></td><?php endif; ?>
             </tr>
             <?php endforeach; ?>
             <?php if (empty($productos)): ?>

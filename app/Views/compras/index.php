@@ -36,7 +36,7 @@
         <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
                 <p class="text-xs font-semibold text-white/80">Monto recibido</p>
-                <h3 class="text-xl font-extrabold mt-1 truncate">$<?= number_format((float)($s['monto_recibido'] ?? 0), 2) ?></h3>
+                <h3 class="text-xl font-extrabold mt-1 truncate"><?= ver_costos() ? '$' . number_format((float)($s['monto_recibido'] ?? 0), 2) : '—' ?></h3>
             </div>
             <span class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0"><i class="fas fa-sack-dollar"></i></span>
         </div>
@@ -147,7 +147,7 @@
 
                 <!-- Monto -->
                 <td class="px-5 py-3.5 text-right font-bold text-gray-900">
-                    $<?= number_format((float)$compra['monto_total'], 2) ?>
+                    <?= ver_costos() ? '$' . number_format((float)$compra['monto_total'], 2) : '<span class="text-gray-300">—</span>' ?>
                 </td>
 
                 <!-- Estado -->

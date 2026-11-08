@@ -58,8 +58,8 @@
                 <th class="px-4 py-3 text-right">Sistema</th>
                 <th class="px-4 py-3 text-right">Contado</th>
                 <th class="px-4 py-3 text-right">Diferencia</th>
-                <th class="px-4 py-3 text-right">Costo unit.</th>
-                <th class="px-4 py-3 text-right">Impacto $</th>
+                <?php if (ver_costos()): ?><th class="px-4 py-3 text-right">Costo unit.</th><?php endif; ?>
+                <?php if (ver_costos()): ?><th class="px-4 py-3 text-right">Impacto $</th><?php endif; ?>
                 <th class="px-4 py-3 text-center">Estado</th>
             </tr>
         </thead>
@@ -76,10 +76,12 @@
             <td class="px-4 py-2 text-right font-bold <?= $difColor ?>">
                 <?= ($dif > 0 ? '+' : '') . number_format($dif, 2) ?>
             </td>
-            <td class="px-4 py-2 text-right text-gray-500">$<?= number_format((float)$item['costo_unitario'], 4) ?></td>
+            <?php if (ver_costos()): ?><td class="px-4 py-2 text-right text-gray-500">$<?= number_format((float)$item['costo_unitario'], 4) ?></td><?php endif; ?>
+            <?php if (ver_costos()): ?>
             <td class="px-4 py-2 text-right font-semibold <?= (float)$item['impacto_costo'] < 0 ? 'text-red-600' : 'text-emerald-600' ?>">
                 <?= ($item['impacto_costo'] > 0 ? '+' : '') ?>$<?= number_format((float)$item['impacto_costo'], 2) ?>
             </td>
+            <?php endif; ?>
             <td class="px-4 py-2 text-center">
                 <span class="px-2 py-0.5 rounded-full text-xs font-medium
                     <?= $item['estado'] === 'ajustado' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600' ?>">
@@ -92,7 +94,7 @@
         <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">Aún no hay productos contados. <a href="/inventario/conteos/<?= $conteo['conteo_id'] ?>/contar" class="text-sky-600 hover:underline">Ir a contar</a></td></tr>
         <?php endif; ?>
         </tbody>
-        <?php if (!empty($items)): ?>
+        <?php if (!empty($items) && ver_costos()): ?>
         <tfoot class="bg-gray-50 font-semibold text-sm">
             <tr>
                 <td class="px-4 py-3 text-gray-600" colspan="5">Impacto total en valor de inventario</td>

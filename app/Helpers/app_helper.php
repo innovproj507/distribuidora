@@ -4,6 +4,17 @@
  * Helpers globales de la aplicación (autocargados en Config\Autoload::$helpers).
  */
 
+if (!function_exists('ver_costos')) {
+    /**
+     * ¿El usuario puede ver costos, márgenes, ganancia y valor del inventario a costo?
+     * (costos.ver: superadmin, gerente, supervisor, auditor; nunca encargado/vendedor/cajero).
+     */
+    function ver_costos(): bool
+    {
+        return \App\Libraries\Auth::can('costos.ver');
+    }
+}
+
 if (!function_exists('flash')) {
     /**
      * Agrega un mensaje flash para el siguiente request.

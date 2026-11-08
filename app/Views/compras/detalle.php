@@ -112,8 +112,10 @@ $cancelada = $est === 'cancelada';
                     <?php if ($hayParcial): ?>
                     <th class="px-4 py-3 text-right text-amber-600">Pendiente</th>
                     <?php endif; ?>
+                    <?php if (ver_costos()): ?>
                     <th class="px-4 py-3 text-right">Costo Unit.</th>
                     <th class="px-4 py-3 text-right">Total</th>
+                    <?php endif; ?>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
@@ -132,17 +134,21 @@ $cancelada = $est === 'cancelada';
                         <?= $pendiente > 0 ? number_format($pendiente, 2) : '—' ?>
                     </td>
                     <?php endif; ?>
+                    <?php if (ver_costos()): ?>
                     <td class="px-4 py-3 text-right text-gray-600">$<?= number_format((float)($d['costo'] ?? 0), 2) ?></td>
                     <td class="px-4 py-3 text-right font-semibold text-gray-800">$<?= number_format((float)($d['total_linea'] ?? 0), 2) ?></td>
+                    <?php endif; ?>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
+            <?php if (ver_costos()): ?>
             <tfoot class="bg-gray-50 border-t-2 border-gray-100">
                 <?php $cols = $hayParcial ? 6 : 5; ?>
                 <tr><td colspan="<?= $cols ?>" class="px-4 py-2 text-right text-xs text-gray-500">Subtotal</td><td class="px-4 py-2 text-right font-medium text-sm">$<?= number_format((float)($compra['monto_subtotal'] ?? 0), 2) ?></td></tr>
                 <tr><td colspan="<?= $cols ?>" class="px-4 py-2 text-right text-xs text-gray-500">ITBMS</td><td class="px-4 py-2 text-right font-medium text-sm">$<?= number_format((float)($compra['monto_itbms'] ?? 0), 2) ?></td></tr>
                 <tr><td colspan="<?= $cols ?>" class="px-4 py-3 text-right font-bold text-gray-800">Total</td><td class="px-4 py-3 text-right font-bold text-xl text-gray-900">$<?= number_format((float)($compra['monto_total'] ?? 0), 2) ?></td></tr>
             </tfoot>
+            <?php endif; ?>
         </table>
     </div>
 </div>

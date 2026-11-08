@@ -38,7 +38,7 @@ $proveedoresJs = array_map(fn ($p) => ['id' => (int) $p['proveedor_id'], 'nombre
         </p>
       </div>
       <div class="text-right flex-shrink-0">
-        <p class="font-mono text-sm font-semibold"><?= '$' . number_format((float) $c['monto_total'], 2) ?></p>
+        <?php if (ver_costos()): ?><p class="font-mono text-sm font-semibold"><?= '$' . number_format((float) $c['monto_total'], 2) ?></p><?php endif; ?>
         <span class="text-[10px] px-1.5 py-0.5 rounded" style="background:<?= $ec[1] ?>; color:<?= $ec[2] ?>"><?= esc($ec[0]) ?></span>
       </div>
     </a>

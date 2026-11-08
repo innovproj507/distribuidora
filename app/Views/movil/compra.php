@@ -18,7 +18,7 @@ $ec = $estadoCompra[$compra['estado']] ?? [ucfirst((string) $compra['estado']), 
       <p class="text-xs" style="color:var(--ink-soft)"><?= $compra['fecha_compra'] ? date('d/m/Y', strtotime($compra['fecha_compra'])) : '' ?></p>
     </div>
     <div class="text-right flex-shrink-0">
-      <p class="font-mono text-sm font-semibold"><?= '$' . number_format((float) $compra['monto_total'], 2) ?></p>
+      <?php if (ver_costos()): ?><p class="font-mono text-sm font-semibold"><?= '$' . number_format((float) $compra['monto_total'], 2) ?></p><?php endif; ?>
       <span class="text-[10px] px-1.5 py-0.5 rounded" style="background:<?= $ec[1] ?>; color:<?= $ec[2] ?>"><?= esc($ec[0]) ?></span>
     </div>
   </div>
@@ -52,7 +52,7 @@ $ec = $estadoCompra[$compra['estado']] ?? [ucfirst((string) $compra['estado']), 
     <div class="card !p-3 flex items-center gap-3">
       <div class="flex-1 min-w-0">
         <p class="text-sm truncate"><?= esc($l['nombre']) ?></p>
-        <p class="text-xs font-mono" style="color:var(--ink-soft)">Pedido <?= (float) $l['cantidad'] ?> · recibido <?= (float) $l['cantidad_recibida'] ?> uds · <?= '$' . number_format((float) $l['costo'], 2) ?> c/u</p>
+        <p class="text-xs font-mono" style="color:var(--ink-soft)">Pedido <?= (float) $l['cantidad'] ?> · recibido <?= (float) $l['cantidad_recibida'] ?> uds<?= ver_costos() ? ' · $' . number_format((float) $l['costo'], 2) . ' c/u' : '' ?></p>
       </div>
       <?php if ($puedeRecibir && $pend > 0): ?>
         <div class="flex flex-col items-end gap-1 flex-shrink-0">

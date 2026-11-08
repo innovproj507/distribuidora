@@ -86,20 +86,18 @@ class Permisos extends BaseConfig
             'conteos.crear',
             'conteos.reconciliar',
             'compras.ver',
-            'compras.crear',
             'compras.recibir',
             'proveedores.ver',
-            'proveedores.crear',
             'traslados.ver',
             'traslados.crear',
             'traslados.aprobar',
             'traslados.recibir',
-            'sugerencias.ver',
             'depositos.ver',
             'reportes.ver',
         ],
 
         'supervisor' => [
+            'costos.ver',
             'dashboard.ver',
             'pos.usar',
             'caja.usar',
@@ -129,6 +127,7 @@ class Permisos extends BaseConfig
         ],
     
         'gerente' => [
+            'costos.ver',
             'dashboard.ver',
             'pos.usar',
             'caja.usar',
@@ -185,6 +184,7 @@ class Permisos extends BaseConfig
         ],
 
         'auditor' => [
+            'costos.ver',
             'dashboard.ver',
             'ventas.ver',
             'cajas.ver',

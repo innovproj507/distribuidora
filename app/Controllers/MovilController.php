@@ -206,7 +206,7 @@ class MovilController extends BaseController
                  WHERE d.producto_id = ? AND v.sucursal_id = ? AND v.estado <> 'anulada' AND v.fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)",
                 [$id, $this->sucursalId()]
             ),
-            'verCosto'     => Auth::can('productos.editar') || Auth::can('compras.crear'),
+            'verCosto'     => ver_costos(),
             'puedeEditar'  => self::puedeEditarProducto(),
             'puedeAjustar' => Auth::can('inventario.ajustar'),
         ]);
@@ -290,9 +290,12 @@ class MovilController extends BaseController
             'marca'         => $post('marca') ?: null,
             'categoria_id'  => $categoriaId && Db::value("SELECT 1 FROM categorias_productos WHERE categoria_id = ? AND empresa_id = ?", [$categoriaId, $this->empresaId()]) ? $categoriaId : null,
             'proveedor_id'  => $proveedorId && Db::value("SELECT 1 FROM proveedores WHERE proveedor_id = ? AND empresa_id = ?", [$proveedorId, $this->empresaId()]) ? $proveedorId : null,
-            'costo'         => max(0, (float) $post('costo')),
+            'costo'         => ver_costos() ? max(0, (float) $post('costo')) : null,
             'estado'        => $post('estado') === 'inactivo' ? 'inactivo' : 'activo',
         ];
+        if ($datos['costo'] === null) {
+            unset($datos['costo']); // sin costos.ver se conserva el costo actual
+        }
         if ($imagen = $this->subirImagen('imagen', 'productos')) {
             $datos['imagen_principal'] = $imagen;
         }
@@ -394,7 +397,7 @@ class MovilController extends BaseController
             'codigo_barras' => $post('codigo_barras') ?: null,
             'marca'         => $post('marca') ?: null,
             'proveedor_id'  => $proveedorId && Db::value("SELECT 1 FROM proveedores WHERE proveedor_id = ? AND empresa_id = ?", [$proveedorId, $empresaId]) ? $proveedorId : null,
-            'costo'         => max(0, (float) $post('costo')),
+            'costo'         => ver_costos() ? max(0, (float) $post('costo')) : 0.0, // el encargado crea sin costo
             'itbms'         => 0.0,
             'stock_minimo'  => $minimo,
             'maneja_lotes'  => 0,
@@ -657,7 +660,8 @@ class MovilController extends BaseController
             [$conteo['deposito_id'], $id]
         );
         // Conteo a ciegas: mientras el producto no esté contado no se envía lo que dice el sistema
-        $items = array_map(function (array $i) use ($abierto): array {
+        $verCostos = ver_costos();
+        $items = array_map(function (array $i) use ($abierto, $verCostos): array {
             $contado = $i['estado'] !== 'pendiente';
             return [
                 'id'         => (int) $i['producto_id'],
@@ -665,7 +669,7 @@ class MovilController extends BaseController
                 'codigo'     => $i['codigo'],
                 'barras'     => $i['codigo_barras'],
                 'ubicacion'  => $i['ubicacion'],
-                'costo'      => (float) $i['costo_unitario'],
+                'costo'      => $verCostos ? (float) $i['costo_unitario'] : 0.0,
                 'estado'     => $i['estado'],
                 'contada'    => $i['cantidad_contada'] !== null ? (float) $i['cantidad_contada'] : null,
                 'sistema'    => $contado || !$abierto ? (float) $i['cantidad_sistema'] : null,

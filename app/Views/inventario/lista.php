@@ -196,7 +196,7 @@ function posCatFilter() {
             <tr>
                 <th class="px-4 py-3 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Producto</th>
                 <th class="px-4 py-3 bg-gray-50 text-left text-xs font-semibold text-sky-500 uppercase tracking-wider">Precio</th>
-                <th class="px-4 py-3 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Costo</th>
+                <?php if (ver_costos()): ?><th class="px-4 py-3 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Costo</th><?php endif; ?>
                 <th class="px-4 py-3 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Inventario</th>
                 <th class="px-4 py-3 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Disponibilidad</th>
                 <th class="px-4 py-3 bg-gray-50 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
@@ -244,7 +244,7 @@ function posCatFilter() {
                     <?php $precioA = is_array($producto) ? ($producto['precio_a'] ?? 0) : ($producto->precio_a ?? 0); ?>
                     <?= $precioA ? '$' . number_format((float)$precioA, 2) : '<span class="text-gray-300">—</span>' ?>
                 </td>
-                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">$<?= number_format((float)$costo, 2) ?></td>
+                <?php if (ver_costos()): ?><td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">$<?= number_format((float)$costo, 2) ?></td><?php endif; ?>
                 <td class="px-4 py-3 whitespace-nowrap">
                     <?php
                         $cantDepositos = is_array($producto) ? ($producto['cantidad_depositos'] ?? 1) : ($producto->cantidad_depositos ?? 1);

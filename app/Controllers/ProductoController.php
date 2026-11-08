@@ -154,7 +154,8 @@ class ProductoController extends BaseController
     public function guardar()
     {
         $datos = $this->datosProducto();
-        $datos['costo'] = (float) ($this->request->getPost('costo_inicial') ?? 0);
+        // Sin costos.ver (encargado) el producto nace sin costo: lo pone el dueño/gerente después
+        $datos['costo'] = ver_costos() ? (float) ($this->request->getPost('costo_inicial') ?? 0) : 0.0;
         $datos['imagen_principal'] = $this->subirImagen('imagen_principal', 'productos');
         // Sin código: se genera según la categoría (ALI158, ESC073...)
         if ($datos['codigo'] === '') {
@@ -213,7 +214,9 @@ class ProductoController extends BaseController
     public function actualizar(int $productoId)
     {
         $datos = $this->datosProducto();
-        $datos['costo'] = (float) ($this->request->getPost('costo') ?? 0);
+        if (ver_costos()) {
+            $datos['costo'] = (float) ($this->request->getPost('costo') ?? 0);
+        } // sin costos.ver no se envía 'costo' y ProductoService::actualizar conserva el actual
         $datos['imagen_principal'] = $this->subirImagen('imagen_principal', 'productos');
 
         try {
@@ -275,7 +278,8 @@ class ProductoController extends BaseController
 
         try {
             Db::begin();
-            ProductoService::agregarStock($productoId, $depositoId, $cantidad, (float) ($this->request->getPost('costo') ?? 0));
+            // Sin costos.ver se usa el costo del producto (agregarStock lo toma si viene 0)
+            ProductoService::agregarStock($productoId, $depositoId, $cantidad, ver_costos() ? (float) ($this->request->getPost('costo') ?? 0) : 0.0);
             Db::commit();
             $this->success("Se agregaron {$cantidad} unidades al inventario.");
         } catch (\InvalidArgumentException $e) {
@@ -332,15 +336,16 @@ class ProductoController extends BaseController
             [$this->empresaId()]
         );
 
-        $filas = array_map(fn ($p) => [
-            $p['codigo'] ?? '', $p['nombre'] ?? '', $p['categoria'] ?? '', $p['marca'] ?? '',
-            number_format((float) $p['precio_a'], 2, '.', ''),
-            number_format((float) $p['costo'], 2, '.', ''), (int) $p['stock'], $p['estado'] ?? '',
-        ], $productos);
+        $conCosto = ver_costos();
+        $filas = array_map(fn ($p) => array_merge(
+            [$p['codigo'] ?? '', $p['nombre'] ?? '', $p['categoria'] ?? '', $p['marca'] ?? '', number_format((float) $p['precio_a'], 2, '.', '')],
+            $conCosto ? [number_format((float) $p['costo'], 2, '.', '')] : [],
+            [(int) $p['stock'], $p['estado'] ?? '']
+        ), $productos);
 
         return SimpleXlsxWriter::descarga(
             'inventario_' . date('Y-m-d') . '.xlsx',
-            ['Código', 'Nombre', 'Categoría', 'Marca', 'Precio', 'Costo', 'Stock', 'Estado'],
+            array_merge(['Código', 'Nombre', 'Categoría', 'Marca', 'Precio'], $conCosto ? ['Costo'] : [], ['Stock', 'Estado']),
             $filas
         );
     }

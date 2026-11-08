@@ -55,8 +55,13 @@
     <div class="rounded-2xl p-5 shadow-sm bg-gradient-to-br from-sky-500 to-sky-600 text-white">
         <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
+                <?php if (ver_costos()): ?>
                 <p class="text-xs font-semibold text-white/80">Ganancia</p>
                 <h3 class="text-xl font-extrabold mt-1 truncate">$<?= number_format((float)($totales['total'] ?? 0) - (float)($totales['costo'] ?? 0), 2) ?></h3>
+                <?php else: ?>
+                <p class="text-xs font-semibold text-white/80">Ticket promedio</p>
+                <h3 class="text-xl font-extrabold mt-1 truncate">$<?= number_format((int)($totales['cantidad'] ?? 0) > 0 ? (float)$totales['total'] / (int)$totales['cantidad'] : 0, 2) ?></h3>
+                <?php endif; ?>
             </div>
             <span class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0"><i class="fas fa-chart-line"></i></span>
         </div>
@@ -72,7 +77,7 @@
                 <th class="px-5 py-3 bg-gray-50/80">Sucursal</th>
                 <th class="px-5 py-3 bg-gray-50/80 text-right">Ventas</th>
                 <th class="px-5 py-3 bg-gray-50/80 text-right">Total</th>
-                <th class="px-5 py-3 bg-gray-50/80 text-right">Ganancia</th>
+                <?php if (ver_costos()): ?><th class="px-5 py-3 bg-gray-50/80 text-right">Ganancia</th><?php endif; ?>
                 <th class="px-5 py-3 bg-gray-50/80 text-right">% del total</th>
             </tr>
         </thead>
@@ -83,7 +88,7 @@
                 <td class="px-5 py-3 font-semibold text-gray-800"><i class="fas fa-store text-gray-300 mr-1.5"></i><?= esc($ps['nombre']) ?></td>
                 <td class="px-5 py-3 text-right text-gray-600"><?= number_format((int) $ps['cantidad']) ?></td>
                 <td class="px-5 py-3 text-right font-bold text-gray-800">$<?= number_format((float) $ps['total'], 2) ?></td>
-                <td class="px-5 py-3 text-right text-emerald-600">$<?= number_format((float) $ps['total'] - (float) $ps['costo'], 2) ?></td>
+                <?php if (ver_costos()): ?><td class="px-5 py-3 text-right text-emerald-600">$<?= number_format((float) $ps['total'] - (float) $ps['costo'], 2) ?></td><?php endif; ?>
                 <td class="px-5 py-3 text-right text-gray-500"><?= number_format((float) $ps['total'] * 100 / $granTotal, 1) ?>%</td>
             </tr>
             <?php endforeach; ?>
@@ -102,8 +107,8 @@
                 <th class="px-5 py-3.5 bg-gray-50/80 text-right">Subtotal</th>
                 <th class="px-5 py-3.5 bg-gray-50/80 text-right">ITBMS</th>
                 <th class="px-5 py-3.5 bg-gray-50/80 text-right">Total</th>
-                <th class="px-5 py-3.5 bg-gray-50/80 text-right">Costo</th>
-                <th class="px-5 py-3.5 bg-gray-50/80 text-right">Ganancia</th>
+                <?php if (ver_costos()): ?><th class="px-5 py-3.5 bg-gray-50/80 text-right">Costo</th><?php endif; ?>
+                <?php if (ver_costos()): ?><th class="px-5 py-3.5 bg-gray-50/80 text-right">Ganancia</th><?php endif; ?>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-50">
@@ -114,8 +119,8 @@
                 <td class="px-5 py-3.5 text-right text-gray-600">$<?= number_format((float)$v['subtotal'], 2) ?></td>
                 <td class="px-5 py-3.5 text-right text-gray-500">$<?= number_format((float)$v['itbms'], 2) ?></td>
                 <td class="px-5 py-3.5 text-right font-bold text-emerald-600">$<?= number_format((float)$v['total'], 2) ?></td>
-                <td class="px-5 py-3.5 text-right text-gray-500">$<?= number_format((float)$v['costo'], 2) ?></td>
-                <td class="px-5 py-3.5 text-right font-bold text-sky-600">$<?= number_format((float)$v['total'] - (float)$v['costo'], 2) ?></td>
+                <?php if (ver_costos()): ?><td class="px-5 py-3.5 text-right text-gray-500">$<?= number_format((float)$v['costo'], 2) ?></td><?php endif; ?>
+                <?php if (ver_costos()): ?><td class="px-5 py-3.5 text-right font-bold text-sky-600">$<?= number_format((float)$v['total'] - (float)$v['costo'], 2) ?></td><?php endif; ?>
             </tr>
             <?php endforeach; ?>
             <?php if (empty($ventas)): ?>

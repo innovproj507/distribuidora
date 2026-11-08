@@ -2,6 +2,9 @@
   "permissions": {
     "additionalDirectories": [
       "C:\\laragon\\www\\distribuidora-ci4\\app\\Modules\\reportes"
+    ],
+    "allow": [
+      "Bash(grep -n 'public function crearProducto\\\\|public function guardarProducto\\\\|ProductoService::actualizar\\($id, \\(int\\) $this->empresaId\\(\\), $datos, $precio' app/Controllers/MovilController.php)"
     ]
   }
 }

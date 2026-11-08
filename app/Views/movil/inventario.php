@@ -7,6 +7,7 @@ $this->extend('layouts/movil');
 <div class="mb-1 flex items-center gap-2 bg-white rounded-xl border px-3 py-2" style="border-color:var(--line)">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7794" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
   <input type="search" id="input-busqueda" class="flex-1 text-sm outline-none bg-transparent" placeholder="Buscar producto o código" autocomplete="off">
+  <button type="button" onclick="Escaner.abrir(function (c) { const b = document.getElementById('input-busqueda'); b.value = c; lista.cargar(true); })" class="flex-shrink-0 w-9 h-9 rounded-lg text-base" style="background:var(--navy-light)" title="Escanear código de barras">📷</button>
 </div>
 
 <?php if (!empty($puedeCrear)): ?>
@@ -86,6 +87,7 @@ $this->extend('layouts/movil');
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
+<script src="/assets/js/escaner.js?v=1"></script>
 <script>
 const PUEDE_AJUSTAR = <?= json_encode($puedeAjustar) ?>;
 const PUEDE_EDITAR  = <?= json_encode($puedeEditar) ?>;

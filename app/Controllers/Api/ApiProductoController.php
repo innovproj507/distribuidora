@@ -182,6 +182,9 @@ class ApiProductoController extends ApiController
         foreach (['costo', 'itbms', 'stock_minimo'] as $campo) {
             if (array_key_exists($campo, $data)) $datos[$campo] = (float) $data[$campo];
         }
+        if (!ver_costos()) {
+            unset($datos['costo']); // sin costos.ver no se fija ni cambia el costo
+        }
         foreach (['categoria_id', 'proveedor_id'] as $campo) {
             if (array_key_exists($campo, $data)) $datos[$campo] = (int) $data[$campo] ?: null;
         }

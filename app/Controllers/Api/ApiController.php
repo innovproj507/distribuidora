@@ -26,7 +26,31 @@ abstract class ApiController extends Controller
 
     protected function ok(mixed $data = [], string $mensaje = 'Operación exitosa', int $codigo = 200): ResponseInterface
     {
+        if (!ver_costos()) {
+            $data = self::sinCostos($data);
+        }
         return $this->response->setStatusCode($codigo)->setJSON(['status' => 'success', 'message' => $mensaje, 'data' => $data]);
+    }
+
+    /** Campos que revelan costos o ganancia (se quitan a quien no tiene costos.ver). */
+    private const CAMPOS_COSTO = [
+        'costo', 'costo_promedio', 'ultimo_costo', 'costo_unitario', 'fecha_actualizacion_costo', 'total_costo',
+        'monto_total', 'monto_subtotal', 'monto_itbms', 'ganancia', 'margen_precio_a', 'margen_precio_b', 'margen_precio_c',
+    ];
+
+    private static function sinCostos(mixed $data): mixed
+    {
+        if (!is_array($data)) {
+            return $data;
+        }
+        foreach ($data as $k => $v) {
+            if (is_string($k) && in_array($k, self::CAMPOS_COSTO, true)) {
+                unset($data[$k]);
+            } elseif (is_array($v)) {
+                $data[$k] = self::sinCostos($v);
+            }
+        }
+        return $data;
     }
 
     protected function fallo(string $mensaje, int $codigo = 400, mixed $errores = null): ResponseInterface

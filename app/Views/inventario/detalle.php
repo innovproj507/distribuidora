@@ -91,10 +91,14 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
                 <?= $fila('Código de barras', !empty($producto->codigo_barras) ? '<span class="font-mono">' . esc($producto->codigo_barras) . '</span>' : '') ?>
                 <?= $fila('Marca', esc((string) ($producto->marca ?? ''))) ?>
                 <?= $fila('Categoría', esc((string) ($categoria->nombre ?? ''))) ?>
+                <?php if (ver_costos()): ?>
                 <?= $fila('Costo', $costo > 0 ? $dinero($costo) : '<span class="text-amber-600">Falta</span>') ?>
+                <?php endif; ?>
                 <?= $fila('Precio', $precio > 0 ? '<b class="text-sky-700">' . $dinero($precio) . '</b>' : '<span class="text-amber-600">Sin precio</span>') ?>
+                <?php if (ver_costos()): ?>
                 <?= $fila('Margen', $precio > 0 && $costo > 0
                     ? '<span class="' . ($precio < $costo ? 'text-red-600' : 'text-emerald-600') . '">' . $dinero($precio - $costo) . ' (' . number_format(($precio - $costo) * 100 / $precio, 1) . '%)</span>' : '') ?>
+                <?php endif; ?>
                 <?= $fila('Stock mínimo', $aqui ? $num($aqui['minimo'] ?? 0) . ' <span class="text-xs text-gray-400">en ' . esc($aqui['deposito_nombre'] ?? '') . '</span>' : '') ?>
                 <?= $fila('Ubicación', !empty($aqui['ubicacion']) ? '📍 ' . esc($aqui['ubicacion']) : '') ?>
             </dl>
@@ -166,10 +170,14 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
             <label class="block text-xs font-semibold text-gray-500 mb-1">Cantidad *</label>
             <input type="number" name="cantidad" min="1" step="any" required placeholder="0" class="<?= $campo ?> font-bold">
         </div>
+        <?php if (ver_costos()): ?>
         <div>
             <label class="block text-xs font-semibold text-gray-500 mb-1">Costo <span class="font-normal text-gray-400">(opcional)</span></label>
             <input type="number" name="costo" step="0.01" min="0" placeholder="<?= $costo > 0 ? number_format($costo, 2) : '0.00' ?>" class="<?= $campo ?>">
         </div>
+        <?php else: ?>
+        <div></div>
+        <?php endif; ?>
         <button type="submit" class="inline-flex items-center justify-center gap-1.5 px-5 py-2 bg-sky-500 text-white rounded-lg text-sm font-semibold hover:bg-sky-600 shadow-sm">
             <i class="fas fa-plus"></i> Agregar stock
         </button>

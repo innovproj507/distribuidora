@@ -120,11 +120,15 @@
                         <input type="text" name="supplier_part_no" placeholder="Ej: REF-123"
                                class="flex-1 py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none">
                     </div>
+                    <?php if (ver_costos()): ?>
                     <div class="flex items-baseline gap-4 py-2">
                         <label class="text-sm font-semibold text-gray-600 w-40 shrink-0">Costo ($) *</label>
                         <input type="number" name="costo_inicial" step="0.01" min="0" required
                                class="flex-1 py-1.5 px-0 text-sm font-semibold bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none">
                     </div>
+                    <?php else: ?>
+                    <p class="py-2 text-xs text-gray-400"><i class="fas fa-info-circle mr-1"></i> El costo lo pone el gerente o el dueño después.</p>
+                    <?php endif; ?>
                     <div class="flex items-baseline gap-4 py-2">
                         <label class="text-sm font-semibold text-gray-600 w-40 shrink-0">Stock Mínimo</label>
                         <input type="number" name="stock_minimo" value="0" min="0"

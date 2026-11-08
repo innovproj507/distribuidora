@@ -23,7 +23,8 @@ $edita = $abierto && $puedeContar;
 
 <div class="mb-3 flex items-center gap-2 bg-white rounded-xl border px-3 py-2" style="border-color:var(--line)">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7794" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-  <input type="search" id="input-busqueda" class="flex-1 text-sm outline-none bg-transparent" placeholder="Buscar o escanear código" autocomplete="off">
+  <input type="search" id="input-busqueda" class="flex-1 text-sm outline-none bg-transparent" placeholder="Buscar nombre, código o código de barras" autocomplete="off">
+  <button type="button" onclick="escanearConteo()" class="flex-shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium text-white" style="background:var(--navy)" title="Escanear con la cámara">📷 Escanear</button>
 </div>
 <div class="flex gap-2 mb-3 overflow-x-auto">
   <button type="button" class="chip activo" data-f="todos" onclick="filtrar('todos')">Todos</button>
@@ -49,7 +50,7 @@ $edita = $abierto && $puedeContar;
   <div class="grid grid-cols-3 gap-2 mb-3 text-center">
     <div class="card !p-2"><p class="font-mono text-lg font-semibold" id="c-falt">0</p><p class="text-[10px]" style="color:var(--ink-soft)">Faltantes</p></div>
     <div class="card !p-2"><p class="font-mono text-lg font-semibold" id="c-sobr">0</p><p class="text-[10px]" style="color:var(--ink-soft)">Sobrantes</p></div>
-    <div class="card !p-2"><p class="font-mono text-lg font-semibold" id="c-impacto">$0</p><p class="text-[10px]" style="color:var(--ink-soft)">Impacto</p></div>
+    <?php if (ver_costos()): ?><div class="card !p-2"><p class="font-mono text-lg font-semibold" id="c-impacto">$0</p><p class="text-[10px]" style="color:var(--ink-soft)">Impacto</p></div><?php else: ?><div class="card !p-2"><p class="font-mono text-lg font-semibold" id="c-contados">0</p><p class="text-[10px]" style="color:var(--ink-soft)">Contados</p></div><?php endif; ?>
   </div>
   <p class="text-xs mb-2" id="c-pend" style="color:var(--orange)"></p>
   <div id="c-lista" class="flex flex-col gap-1 mb-4" style="max-height:34vh; overflow-y:auto"></div>
@@ -66,6 +67,7 @@ $edita = $abierto && $puedeContar;
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
+<script src="/assets/js/escaner.js?v=1"></script>
 <script>
 const CONTEO_ID = <?= (int) $conteo['conteo_id'] ?>;
 const ABIERTO   = <?= json_encode($abierto) ?>;
@@ -101,7 +103,7 @@ function pintar() {
     }
     html += '<div class="card !p-3 flex items-center gap-3" id="p-' + i.id + '">' +
       '<div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">' + esc(i.nombre) + '</p>' +
-      '<p class="text-xs truncate" style="color:var(--ink-soft)">' + esc(i.codigo || '') + '</p>' +
+      '<p class="text-xs truncate" style="color:var(--ink-soft)">' + esc(i.codigo || '') + (i.barras ? ' · ▮▯▮ ' + esc(i.barras) : '') + '</p>' +
       '<p class="text-[11px] font-medium" id="d-' + i.id + '" style="color:' + (i.diferencia === null ? 'var(--ink-soft)' : difColor(i)) + '">' + esc(difTexto(i)) + '</p></div>' +
       (EDITA
         ? '<input type="number" inputmode="decimal" step="any" min="0" data-id="' + i.id + '" value="' + (i.contada === null ? '' : i.contada) + '" placeholder="—" onchange="anotar(' + i.id + ', this)" onkeydown="siguiente(event)" class="field-input" style="width:84px; text-align:right; padding:8px">'
@@ -159,6 +161,29 @@ busq.addEventListener('keydown', function (e) {
   if (campos.length === 1) { campos[0].focus(); campos[0].select(); busq.value = ''; consulta = ''; }  // escáner: un resultado → a contar
 });
 
+// ── Escanear con la cámara ──
+function escanearConteo() {
+  Escaner.abrir(function (codigo) {
+    const c = codigo.toLowerCase();
+    const it = ITEMS.find(function (i) { return (i.barras || '').toLowerCase() === c || (i.codigo || '').toLowerCase() === c; });
+    if (!it) {
+      busq.value = codigo; consulta = c; pintar();
+      toast('El código ' + codigo + ' no está en este conteo.', 'error');
+      <?php if (\App\Libraries\Auth::can('productos.crear')): ?>
+      if (confirm('¿Crear un producto nuevo con el código de barras ' + codigo + '?')) location.href = '/m/productos/nuevo?barras=' + encodeURIComponent(codigo);
+      <?php endif; ?>
+      return;
+    }
+    // Deja solo ese producto en la lista y pone el cursor para escribir lo contado
+    filtrar('todos');
+    busq.value = codigo; consulta = c; pintar();
+    const campo = document.querySelector('#lista-conteo input[data-id="' + it.id + '"]');
+    const fila = document.getElementById('p-' + it.id);
+    if (fila) fila.scrollIntoView({ block: 'center' });
+    if (campo) { campo.focus(); campo.select(); }
+  });
+}
+
 // ── Revisión / cierre ──
 async function abrirCierre() {
   const con = ITEMS.filter(function (i) { return i.estado !== 'pendiente' && i.diferencia !== null && i.diferencia !== 0; });
@@ -167,7 +192,8 @@ async function abrirCierre() {
   const pend = ITEMS.filter(function (i) { return i.estado === 'pendiente'; }).length;
   document.getElementById('c-falt').textContent = faltantes.length;
   document.getElementById('c-sobr').textContent = sobrantes.length;
-  document.getElementById('c-impacto').textContent = (impacto < 0 ? '−' : '') + dinero(Math.abs(impacto));
+  if (document.getElementById('c-contados')) document.getElementById('c-contados').textContent = ITEMS.filter(function (i) { return i.estado !== 'pendiente'; }).length;
+  if (document.getElementById('c-impacto')) document.getElementById('c-impacto').textContent = (impacto < 0 ? '−' : '') + dinero(Math.abs(impacto));
   document.getElementById('c-pend').textContent = ABIERTO && pend ? pend + ' producto(s) sin contar: NO se ajustan, quedan como están.' : '';
   document.getElementById('c-lista').innerHTML = con.sort(function (a, b) { return Math.abs(b.diferencia * b.costo) - Math.abs(a.diferencia * a.costo); }).map(function (i) {
     return '<div class="flex justify-between gap-2 text-xs rounded-lg px-3 py-2" style="background:white; border:1px solid var(--line)"><span class="truncate">' + esc(i.nombre) + '</span>' +

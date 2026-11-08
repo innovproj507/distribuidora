@@ -17,8 +17,13 @@
     <div class="rounded-2xl p-5 shadow-sm bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
         <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
+                <?php if (ver_costos()): ?>
                 <p class="text-xs font-semibold text-white/80">Valor de Inventario</p>
                 <h3 class="text-xl font-extrabold mt-1 truncate">$<?= number_format($valorTotal, 2) ?></h3>
+                <?php else: ?>
+                <p class="text-xs font-semibold text-white/80">Unidades en stock</p>
+                <h3 class="text-xl font-extrabold mt-1 truncate"><?= number_format(array_sum(array_map(fn ($x) => (float) $x['stock_total'], $productos ?? []))) ?></h3>
+                <?php endif; ?>
             </div>
             <span class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0"><i class="fas fa-sack-dollar"></i></span>
         </div>
@@ -35,8 +40,8 @@
                 <th class="px-5 py-3.5 bg-gray-50/80">Categoría</th>
                 <th class="px-5 py-3.5 bg-gray-50/80 text-right">Stock</th>
                 <th class="px-5 py-3.5 bg-gray-50/80 text-right">Mín.</th>
-                <th class="px-5 py-3.5 bg-gray-50/80 text-right">Costo Prom.</th>
-                <th class="px-5 py-3.5 bg-gray-50/80 text-right">Valor Total</th>
+                <?php if (ver_costos()): ?><th class="px-5 py-3.5 bg-gray-50/80 text-right">Costo Prom.</th><?php endif; ?>
+                <?php if (ver_costos()): ?><th class="px-5 py-3.5 bg-gray-50/80 text-right">Valor Total</th><?php endif; ?>
                 <th class="px-5 py-3.5 bg-gray-50/80">Estado</th>
             </tr>
         </thead>
@@ -49,8 +54,8 @@
                 <td class="px-5 py-3.5 text-gray-500 text-xs"><?= esc($p['categoria'] ?? '—') ?></td>
                 <td class="px-5 py-3.5 text-right font-semibold text-gray-700"><?= number_format($stock) ?></td>
                 <td class="px-5 py-3.5 text-right text-gray-500"><?= number_format($min) ?></td>
-                <td class="px-5 py-3.5 text-right text-gray-500">$<?= number_format((float)$p['costo_promedio'], 2) ?></td>
-                <td class="px-5 py-3.5 text-right font-bold text-gray-800">$<?= number_format((float)$p['valor_total'], 2) ?></td>
+                <?php if (ver_costos()): ?><td class="px-5 py-3.5 text-right text-gray-500">$<?= number_format((float)$p['costo_promedio'], 2) ?></td><?php endif; ?>
+                <?php if (ver_costos()): ?><td class="px-5 py-3.5 text-right font-bold text-gray-800">$<?= number_format((float)$p['valor_total'], 2) ?></td><?php endif; ?>
                 <td class="px-5 py-3.5">
                     <?php if ($stock <= 0): ?>
                     <span class="px-2.5 py-1 inline-flex text-xs font-bold rounded-full bg-red-500 text-white">Agotado</span>

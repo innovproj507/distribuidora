@@ -97,7 +97,7 @@ class MovilApiController extends BaseController
             }
         }
 
-        $verCosto  = Auth::can('productos.editar') || Auth::can('compras.crear');
+        $verCosto  = ver_costos();
         $productos = array_map(function (array $p) use ($verCosto, $presentaciones): array {
             $item = [
                 'producto_id'      => (int) $p['producto_id'],

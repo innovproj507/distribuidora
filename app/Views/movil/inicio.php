@@ -85,7 +85,7 @@ $estadoVenta = [
       <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full" style="background:var(--red)"></span>Agotado</span>
       <span class="font-mono font-medium"><?= $salud['agotado'] ?></span>
     </div>
-    <?php if (Auth::can('productos.editar')): ?>
+    <?php if (ver_costos()): ?>
       <div class="flex items-center justify-between pt-1.5 mt-0.5 border-t" style="border-color:var(--line)">
         <span style="color:var(--ink-soft)">Valor en inventario</span>
         <span class="font-mono font-medium"><?= '$' . number_format($valorInventario, 2) ?></span>

@@ -57,18 +57,20 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
 
   <?php if ($completo): ?>
   <div class="card mb-4">
-    <div class="grid grid-cols-2 gap-2">
+    <div class="grid <?= ver_costos() ? 'grid-cols-2' : 'grid-cols-1' ?> gap-2">
       <div>
         <label class="field-label">Precio de venta</label>
         <input class="field-input mb-1" type="number" inputmode="decimal" step="0.01" min="0" name="precio" id="f-precio" value="<?= esc((string) $v('precio', $precio > 0 ? number_format($precio, 2, '.', '') : ''), 'attr') ?>" oninput="margen()">
       </div>
+      <?php if (ver_costos()): ?>
       <div>
         <label class="field-label">Costo</label>
         <input class="field-input mb-1" type="number" inputmode="decimal" step="0.0001" min="0" name="costo" id="f-costo" value="<?= esc((string) $v('costo', (float) $p['costo']), 'attr') ?>" oninput="margen()">
       </div>
+      <?php endif; ?>
     </div>
     <p class="text-xs mb-1" id="f-margen" style="color:var(--ink-soft)"></p>
-    <p class="text-[11px]" style="color:var(--ink-soft)">El costo promedio de cada depósito lo calculan las compras; este es el costo de referencia del producto.</p>
+    <?php if (ver_costos()): ?><p class="text-[11px]" style="color:var(--ink-soft)">El costo promedio de cada depósito lo calculan las compras; este es el costo de referencia del producto.</p><?php endif; ?>
   </div>
   <?php endif; ?>
 
@@ -117,7 +119,7 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
 <script src="/assets/js/foto-producto.js?v=1"></script>
 <script>
 function margen() {
-  if (!document.getElementById('f-precio')) return; // edición básica: sin precio ni costo
+  if (!document.getElementById('f-precio') || !document.getElementById('f-costo')) return; // sin precio o sin costo visible
   const precio = parseFloat(document.getElementById('f-precio').value) || 0;
   const costo = parseFloat(document.getElementById('f-costo').value) || 0;
   document.getElementById('f-margen').textContent = precio > 0 && costo > 0

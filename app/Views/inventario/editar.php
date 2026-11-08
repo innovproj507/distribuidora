@@ -16,7 +16,7 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
 <form action="/inventario/<?= $producto->producto_id ?>/editar" method="POST" enctype="multipart/form-data" class="max-w-4xl mx-auto"
       x-data='{
           precio: <?= json_encode($precioActual) ?>,
-          costo: <?= json_encode((float) $producto->costo) ?>,
+          costo: <?= json_encode(ver_costos() ? (float) $producto->costo : 0.0) ?>,
           unidades: <?= json_encode(array_values($unidades ?? [])) ?>,
           get ganancia() { return (parseFloat(this.precio) || 0) - (parseFloat(this.costo) || 0); },
           get margen() { const p = parseFloat(this.precio) || 0; return p > 0 ? (this.ganancia / p) * 100 : 0; },
@@ -90,9 +90,9 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
 
     <!-- 2. Precio y costo -->
     <div class="bg-white rounded-2xl border-2 border-sky-100 shadow-sm p-6 mb-4">
-        <h3 class="text-base font-bold text-gray-800 mb-1">2. Precio y costo</h3>
+        <h3 class="text-base font-bold text-gray-800 mb-1"><?= ver_costos() ? '2. Precio y costo' : '2. Precio' ?></h3>
         <p class="text-xs text-gray-400 mb-4">Por cada unidad del producto. No lleva ITBMS.</p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 <?= ver_costos() ? 'sm:grid-cols-2' : '' ?> gap-6">
             <div>
                 <label class="<?= $label ?>">Precio de venta ($)</label>
                 <div class="relative">
@@ -102,6 +102,7 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
                 </div>
                 <p class="text-xs text-gray-400 mt-1">Lo que paga el cliente por cada unidad.</p>
             </div>
+            <?php if (ver_costos()): ?>
             <div>
                 <label class="<?= $label ?>">Costo ($) *</label>
                 <div class="relative">
@@ -111,13 +112,16 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
                 </div>
                 <p class="text-xs text-gray-400 mt-1">Lo que te cuesta cada unidad (si compras por caja: precio de la caja ÷ unidades).</p>
             </div>
+            <?php endif; ?>
         </div>
+        <?php if (ver_costos()): ?>
         <div class="mt-4 rounded-xl px-4 py-3 text-sm"
              :class="costo <= 0 ? 'bg-amber-50 text-amber-700' : (ganancia < 0 ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700')">
             <template x-if="costo <= 0"><span><i class="fas fa-exclamation-triangle mr-1"></i> Falta el costo: sin él no se puede calcular la ganancia.</span></template>
             <template x-if="costo > 0 && ganancia < 0"><span><i class="fas fa-exclamation-triangle mr-1"></i> El precio es <b>menor que el costo</b>: pierdes <b x-text="'$' + Math.abs(ganancia).toFixed(2)"></b> por unidad.</span></template>
             <template x-if="costo > 0 && ganancia >= 0"><span><i class="fas fa-check-circle mr-1"></i> Ganas <b x-text="'$' + ganancia.toFixed(2)"></b> por unidad (<b x-text="margen.toFixed(0) + '%'"></b> del precio).</span></template>
         </div>
+        <?php endif; ?>
     </div>
 
     <!-- 3. Presentaciones (opcional) -->
