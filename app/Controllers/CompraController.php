@@ -202,6 +202,7 @@ class CompraController extends BaseController
 
             // Registro de inventario (existencia 0) en todos los depósitos para que aparezca en cada sucursal
             \App\Libraries\SucursalService::poblarProducto($productoId);
+            \App\Libraries\ConteoService::incluirProductoNuevo($productoId);
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollback();

@@ -78,6 +78,35 @@ final class ConteoService
         return $conteoId;
     }
 
+    /**
+     * Un producto creado mientras hay conteos abiertos no estaba en su "foto": se agrega a los
+     * conteos COMPLETOS en proceso de cada depósito donde tiene inventario (pendiente de contar).
+     * Los conteos parciales (por estante/categoría) no guardan su filtro, así que no se tocan.
+     *
+     * @return int conteos a los que se agregó
+     */
+    public static function incluirProductoNuevo(int $productoId): int
+    {
+        $agregados = 0;
+        foreach (Db::all("SELECT conteo_id, deposito_id FROM inventario_conteos WHERE estado = 'en_proceso' AND tipo = 'completo'") as $c) {
+            Db::query(
+                "INSERT IGNORE INTO conteo_detalle (conteo_id, producto_id, cantidad_sistema, costo_unitario)
+                 SELECT ?, i.producto_id, i.existencia, i.costo_promedio
+                 FROM inventario i JOIN productos p ON p.producto_id = i.producto_id
+                 WHERE i.producto_id = ? AND i.deposito_id = ? AND p.estado = 'activo'",
+                [$c['conteo_id'], $productoId, $c['deposito_id']]
+            );
+            if (Db::conn()->affectedRows() > 0) {
+                $agregados++;
+                Db::query(
+                    "UPDATE inventario_conteos SET total_productos = (SELECT COUNT(*) FROM conteo_detalle WHERE conteo_id = ?) WHERE conteo_id = ?",
+                    [$c['conteo_id'], $c['conteo_id']]
+                );
+            }
+        }
+        return $agregados;
+    }
+
     /** Conteo de la sucursal (null si no existe o es de otra). */
     public static function buscar(int $conteoId, int $empresaId, int $sucursalId): ?array
     {

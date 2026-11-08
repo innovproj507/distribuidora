@@ -64,6 +64,8 @@ final class ProductoService
 
         // Fila en existencia 0 en el resto de depósitos (de todas las sucursales)
         SucursalService::poblarProducto($productoId);
+        // Si hay un conteo completo en proceso, el producto nuevo también se cuenta
+        ConteoService::incluirProductoNuevo($productoId);
 
         return $productoId;
     }
