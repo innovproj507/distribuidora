@@ -407,7 +407,7 @@ class ProductoController extends BaseController
             'codigo'           => trim((string) $post('codigo', '')),
             'nombre'           => trim((string) $post('nombre', '')),
             'categoria_id'     => (int) $post('categoria_id', 0) ?: null,
-            'itbms'            => (float) $post('itbms', 7),
+            'itbms'            => 0.0, // el negocio no cobra ITBMS: ningún producto lo lleva
             'stock_minimo'     => (float) $post('stock_minimo', 0),
             'maneja_lotes'     => $post('maneja_lotes', '0') === '1' ? 1 : 0,
             'estado'           => $estado,

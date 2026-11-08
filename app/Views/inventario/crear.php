@@ -126,11 +126,6 @@
                                class="flex-1 py-1.5 px-0 text-sm font-semibold bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none">
                     </div>
                     <div class="flex items-baseline gap-4 py-2">
-                        <label class="text-sm font-semibold text-gray-600 w-40 shrink-0">ITBMS ($)</label>
-                        <input type="number" name="itbms" value="0.00" step="0.01"
-                               class="flex-1 py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none">
-                    </div>
-                    <div class="flex items-baseline gap-4 py-2">
                         <label class="text-sm font-semibold text-gray-600 w-40 shrink-0">Stock Mínimo</label>
                         <input type="number" name="stock_minimo" value="0" min="0"
                                class="flex-1 py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none">

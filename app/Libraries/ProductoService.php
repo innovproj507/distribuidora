@@ -30,6 +30,7 @@ final class ProductoService
         if (self::codigoEnUso($empresaId, $datos['codigo'])) {
             throw new \DomainException("Ya existe un producto con el código: {$datos['codigo']}");
         }
+        $datos['itbms'] = 0; // ningún producto lleva ITBMS
 
         $productoId = Db::insert('productos', array_intersect_key($datos, array_flip(self::CAMPOS)) + [
             'empresa_id'         => $empresaId,
@@ -84,10 +85,20 @@ final class ProductoService
         if (empty($datos['imagen_principal'])) {
             unset($datos['imagen_principal']);
         }
+        $datos['itbms'] = 0; // ningún producto lleva ITBMS (se cobra por tasa global, hoy 0)
 
         Db::update('productos', array_intersect_key($datos, array_flip(self::CAMPOS)) + [
             'fecha_modificacion' => date('Y-m-d H:i:s'),
         ], ['producto_id' => $productoId]);
+
+        // Un solo costo por producto: si se cambia aquí, también es el costo de cada tienda (las ventas toman el
+        // costo del inventario). Antes solo cambiaba la ficha y los reportes seguían con el costo viejo.
+        if (isset($datos['costo']) && abs((float) $datos['costo'] - (float) $actual['costo']) > 0.00001) {
+            Db::query(
+                "UPDATE inventario SET costo_promedio = ?, ultimo_costo = ?, fecha_actualizacion_costo = NOW() WHERE producto_id = ?",
+                [(float) $datos['costo'], (float) $datos['costo'], $productoId]
+            );
+        }
 
         foreach ($precios as $tipo => $monto) {
             self::reemplazarPrecio($productoId, $tipo, $monto);
@@ -128,6 +139,10 @@ final class ProductoService
     {
         if ($cantidad <= 0) {
             throw new \InvalidArgumentException('La cantidad debe ser mayor a 0.');
+        }
+        if ($costo <= 0) {
+            // Sin costo escrito se usa el del producto: con 0 el costo promedio se diluía y quedaba en $0
+            $costo = (float) (Db::value("SELECT costo FROM productos WHERE producto_id = ?", [$productoId]) ?? 0);
         }
 
         $inv = Db::row("SELECT inventario_id, existencia, costo_promedio FROM inventario WHERE producto_id = ? AND deposito_id = ?", [$productoId, $depositoId]);

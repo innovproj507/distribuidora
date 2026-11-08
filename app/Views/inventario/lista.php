@@ -281,7 +281,6 @@ function posCatFilter() {
                     <div class="flex justify-end gap-1.5">
                         <a href="/inventario/<?= $pId ?>" class="w-8 h-8 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors flex items-center justify-center shadow-sm shadow-blue-500/30" title="Ver"><i class="fas fa-eye text-xs"></i></a>
                         <a href="/inventario/<?= $pId ?>/editar" class="w-8 h-8 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors flex items-center justify-center shadow-sm shadow-amber-500/30" title="Editar"><i class="fas fa-edit text-xs"></i></a>
-                        <a href="/inventario/<?= $pId ?>/precios" class="w-8 h-8 rounded-lg bg-teal-500 text-white hover:bg-teal-600 transition-colors flex items-center justify-center shadow-sm shadow-teal-500/30" title="Precios"><i class="fas fa-tag text-xs"></i></a>
                         <form method="post" action="/inventario/<?= $pId ?>/eliminar" class="inline" onsubmit="return confirm('¿Eliminar este producto?')">
                             <?= csrf_field() ?>
                             <button type="submit" class="w-8 h-8 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors flex items-center justify-center shadow-sm shadow-red-500/30" title="Eliminar"><i class="fas fa-trash text-xs"></i></button>
