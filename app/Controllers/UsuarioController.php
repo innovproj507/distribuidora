@@ -205,8 +205,14 @@ class UsuarioController extends BaseController
             Db::update('users', ['password' => password_hash($password, PASSWORD_BCRYPT)], ['id' => $userId]);
         }
 
-        AuditService::log('usuarios.editar', "Usuario '{$usuario['username']}' actualizado", $userId, 'usuario', [], $this->empresaId());
-        $this->success('Usuario actualizado correctamente.');
+        // Si se editó a sí mismo, la sesión muestra el nombre nuevo
+        if ($userId === Auth::id()) {
+            $this->session->set('username', $username);
+        }
+
+        $cambio = $username !== $usuario['username'] ? " (usuario '{$usuario['username']}' → '{$username}')" : '';
+        AuditService::log('usuarios.editar', "Usuario '{$username}' actualizado{$cambio}", $userId, 'usuario', [], $this->empresaId());
+        $this->success('Usuario actualizado correctamente.' . ($cambio ? " Ahora inicia sesión como '{$username}'." : ''));
         return redirect()->to('/usuarios');
     }
 
