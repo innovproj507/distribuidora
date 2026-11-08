@@ -180,6 +180,13 @@ function posCatFilter() {
                 title="Exportar a Excel (.xlsx)">
                 <i class="fas fa-file-excel"></i> .xlsx
             </a>
+            <?php if (\App\Libraries\Auth::can('productos.editar')): ?>
+            <a href="/inventario/presentaciones/importar"
+                class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-emerald-600 text-emerald-700 rounded-lg text-sm font-semibold hover:bg-emerald-50 transition shadow-sm"
+                title="Importar presentaciones (caja, bulto…) desde Excel">
+                <i class="fas fa-boxes"></i> Presentaciones
+            </a>
+            <?php endif; ?>
             <a href="/inventario/nuevo"
                 class="inline-flex items-center gap-1.5 px-4 py-2 bg-sky-500 text-white rounded-lg text-sm font-semibold hover:bg-sky-600 transition shadow-sm">
                 <i class="fas fa-plus"></i> Nuevo

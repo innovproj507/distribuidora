@@ -72,6 +72,14 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
     <p class="text-xs mb-1" id="f-margen" style="color:var(--ink-soft)"></p>
     <?php if (ver_costos()): ?><p class="text-[11px]" style="color:var(--ink-soft)">El costo promedio de cada depósito lo calculan las compras; este es el costo de referencia del producto.</p><?php endif; ?>
   </div>
+
+  <div class="card mb-4">
+    <p class="font-head text-sm font-semibold">¿También lo vendes por caja, bulto, paca…?</p>
+    <p class="text-[11px] mb-3" style="color:var(--ink-soft)">El precio de arriba es por unidad. Aquí cada presentación dice cuántas unidades trae y a cuánto se vende. El stock siempre se cuenta en unidades.</p>
+    <input type="hidden" name="pres_enviado" value="1">
+    <div id="pres-lista" class="flex flex-col gap-2"></div>
+    <button type="button" onclick="agregarPres()" class="w-full mt-2 py-2.5 rounded-xl text-sm font-medium" style="background:var(--navy-light); color:var(--navy)">+ Agregar presentación</button>
+  </div>
   <?php endif; ?>
 
   <div class="card mb-4">
@@ -141,5 +149,41 @@ async function previa(input) {
   img.classList.remove('hidden');
 }
 margen();
+<?php if ($completo): ?>
+// Presentaciones (caja, bulto…): se guardan con el formulario como pres[n][unidad_id|nombre|factor|precio]
+let presN = 0;
+function agregarPres(u) {
+  u = u || { unidad_id: '', nombre: '', factor: '', precio: '' };
+  const n = presN++;
+  const fila = document.createElement('div');
+  fila.className = 'rounded-xl p-2.5';
+  fila.style.background = 'var(--navy-light)';
+  fila.innerHTML =
+    '<input type="hidden" name="pres[' + n + '][unidad_id]" value="' + esc(String(u.unidad_id)) + '">' +
+    '<div class="flex gap-2 items-end">' +
+      '<div class="flex-1 min-w-0"><label class="text-[11px]" style="color:var(--ink-soft)">Nombre</label>' +
+        '<input class="field-input" style="font-family:Inter; padding:8px" name="pres[' + n + '][nombre]" maxlength="50" placeholder="Caja" value="' + esc(u.nombre) + '"></div>' +
+      '<div style="width:70px"><label class="text-[11px]" style="color:var(--ink-soft)">Trae</label>' +
+        '<input class="field-input" style="padding:8px; text-align:center" type="number" inputmode="decimal" step="any" min="0" name="pres[' + n + '][factor]" placeholder="4" value="' + esc(String(u.factor)) + '" oninput="pintarPres(this)"></div>' +
+      '<div style="width:86px"><label class="text-[11px]" style="color:var(--ink-soft)">Precio $</label>' +
+        '<input class="field-input" style="padding:8px; text-align:right" type="number" inputmode="decimal" step="0.01" min="0" name="pres[' + n + '][precio]" value="' + esc(String(u.precio)) + '" oninput="pintarPres(this)"></div>' +
+      '<button type="button" onclick="this.closest(\'.rounded-xl\').remove()" class="w-8 h-9 rounded-lg flex-shrink-0" style="background:var(--red-light); color:var(--red)" title="Quitar">✕</button>' +
+    '</div>' +
+    '<p class="text-[11px] mt-1 pres-info" style="color:var(--ink-soft)"></p>';
+  document.getElementById('pres-lista').appendChild(fila);
+  pintarPres(fila.querySelector('input[type=number]'));
+}
+// Ayuda: precio por unidad dentro de la presentación (ej. caja de 4 a $9 = $2.25 c/u)
+function pintarPres(el) {
+  const fila = el.closest('.rounded-xl');
+  const nums = fila.querySelectorAll('input[type=number]');
+  const factor = parseFloat(nums[0].value) || 0, precio = parseFloat(nums[1].value) || 0;
+  const unidad = parseFloat((document.getElementById('f-precio') || {}).value) || 0;
+  fila.querySelector('.pres-info').textContent = factor > 0
+    ? (precio > 0 ? 'Sale a ' + dinero(precio / factor) + ' cada unidad' : 'Sin precio: se cobra ' + dinero(unidad * factor) + ' (' + factor + ' × ' + dinero(unidad) + ')')
+    : '';
+}
+<?= json_encode(array_map(fn ($u) => ['unidad_id' => (int) $u['unidad_id'], 'nombre' => $u['nombre'], 'factor' => (float) $u['factor_conversion'], 'precio' => (float) $u['precio_a'] > 0 ? (float) $u['precio_a'] : ''], $unidades), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>.forEach(agregarPres);
+<?php endif; ?>
 </script>
 <?php $this->endSection(); ?>

@@ -12,6 +12,10 @@ $routes->group('', ['filter' => ['auth', 'sucursal']], static function ($routes)
     // Productos
     $routes->get('inventario', 'ProductoController::index', ['filter' => 'permiso:productos.ver']);
     $routes->get('inventario/exportar-excel', 'ProductoController::exportarExcel', ['filter' => 'permiso:productos.ver']);
+    $routes->get('inventario/presentaciones/importar', 'PresentacionController::importar', ['filter' => 'permiso:productos.editar']);
+    $routes->get('inventario/presentaciones/plantilla', 'PresentacionController::plantilla', ['filter' => 'permiso:productos.editar']);
+    $routes->post('inventario/presentaciones/importar', 'PresentacionController::revisar', ['filter' => 'permiso:productos.editar']);
+    $routes->post('inventario/presentaciones/aplicar', 'PresentacionController::aplicar', ['filter' => 'permiso:productos.editar']);
     $routes->get('inventario/nuevo', 'ProductoController::crear', ['filter' => 'permiso:productos.crear']);
     $routes->post('inventario/nuevo', 'ProductoController::guardar', ['filter' => 'permiso:productos.crear']);
     $routes->get('inventario/kardex', 'ProductoController::kardex', ['filter' => 'permiso:inventario.ver,productos.ver']);

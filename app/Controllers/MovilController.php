@@ -232,6 +232,7 @@ class MovilController extends BaseController
             'p'           => $p,
             'precio'      => (float) (Db::value("SELECT precio FROM precios_productos WHERE producto_id = ? AND tipo_precio = 'a'", [$id]) ?? 0),
             'inv'         => Db::row("SELECT minimo, ubicacion, fecha_vencimiento FROM inventario WHERE producto_id = ? AND deposito_id = ?", [$id, $this->depositoId()]),
+            'unidades'    => Db::all("SELECT unidad_id, nombre, factor_conversion, precio_a FROM productos_unidades WHERE producto_id = ? ORDER BY factor_conversion", [$id]),
             'categorias'  => Db::all("SELECT categoria_id, nombre FROM categorias_productos WHERE empresa_id = ? ORDER BY nombre", [$empresaId]),
             'proveedores' => Db::all("SELECT proveedor_id, nombre FROM proveedores WHERE empresa_id = ? AND estado = 'activo' ORDER BY nombre", [$empresaId]),
             'marcas'      => array_column(Db::all("SELECT DISTINCT nombre FROM marcas WHERE empresa_id = ? ORDER BY nombre", [$empresaId]), 'nombre'),
@@ -312,6 +313,9 @@ class MovilController extends BaseController
             $vence = \App\Libraries\InventarioService::fechaVencimiento($post('fecha_vencimiento'));
             Db::begin();
             \App\Libraries\ProductoService::actualizar($id, (int) $this->empresaId(), $datos, $precio !== '' ? ['a' => max(0, (float) $precio)] : []);
+            if ($this->request->getPost('pres_enviado')) {
+                $this->guardarPresentaciones($id, (array) ($this->request->getPost('pres') ?? []));
+            }
 
             // Mínimo, ubicación y vencimiento son por depósito: los del depósito activo
             if ($inventarioId = \App\Libraries\InventarioService::inventarioId($id, $this->depositoId())) {
@@ -331,6 +335,44 @@ class MovilController extends BaseController
         \App\Libraries\AuditService::log('productos.editar', "Producto actualizado desde móvil: {$datos['nombre']} (SKU: {$datos['codigo']})", $id, 'producto', [], $this->empresaId());
         $this->success('Producto actualizado.');
         return redirect()->to("/m/productos/{$id}");
+    }
+
+    /**
+     * Presentaciones del formulario móvil: actualiza las existentes (conserva su unidad_id, que
+     * guardan las ventas), agrega las nuevas y borra las quitadas. Filas sin nombre se ignoran.
+     */
+    private function guardarPresentaciones(int $productoId, array $filas): void
+    {
+        $actuales = array_column(Db::all("SELECT unidad_id FROM productos_unidades WHERE producto_id = ?", [$productoId]), 'unidad_id');
+        $actuales = array_map('intval', $actuales);
+        $quedan   = [];
+        $nombres  = [];
+
+        foreach ($filas as $f) {
+            $nombre = trim((string) ($f['nombre'] ?? ''));
+            if ($nombre === '') continue;
+            $factor = round((float) ($f['factor'] ?? 0), 2);
+            if (mb_strlen($nombre) > 50 || $factor <= 0) {
+                throw new \DomainException("La presentación \"{$nombre}\" necesita cuántas unidades trae (mayor que cero).");
+            }
+            if (isset($nombres[mb_strtolower($nombre)])) {
+                throw new \DomainException("La presentación \"{$nombre}\" está repetida.");
+            }
+            $nombres[mb_strtolower($nombre)] = true;
+
+            $datos     = ['nombre' => $nombre, 'factor_conversion' => $factor, 'precio_a' => max(0, round((float) ($f['precio'] ?? 0), 2))];
+            $unidadId  = (int) ($f['unidad_id'] ?? 0);
+            if ($unidadId && in_array($unidadId, $actuales, true)) {
+                Db::update('productos_unidades', $datos, ['unidad_id' => $unidadId]);
+                $quedan[] = $unidadId;
+            } else {
+                Db::insert('productos_unidades', $datos + ['producto_id' => $productoId, 'precio_b' => 0, 'precio_c' => 0, 'codigo_barras' => '']);
+            }
+        }
+
+        foreach (array_diff($actuales, $quedan) as $borrar) {
+            Db::query("DELETE FROM productos_unidades WHERE unidad_id = ? AND producto_id = ?", [$borrar, $productoId]);
+        }
     }
 
     /** Formulario de producto nuevo (productos.crear: admin, gerente, encargado). */
