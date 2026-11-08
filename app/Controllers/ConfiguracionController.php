@@ -45,6 +45,7 @@ class ConfiguracionController extends BaseController
                 'sincronizacion_automatica' => true,
                 'pos_desc_cajero'           => (int) ($empresa['pos_desc_cajero'] ?? 10),
                 'pos_desc_gerente'          => (int) ($empresa['pos_desc_gerente'] ?? 50),
+                'exigir_caja'               => (int) ($empresa['exigir_caja'] ?? 1),
                 'margen_precio_a'           => (float) ($empresa['margen_precio_a'] ?? 35),
                 'margen_precio_b'           => (float) ($empresa['margen_precio_b'] ?? 20),
                 'margen_precio_c'           => (float) ($empresa['margen_precio_c'] ?? 10),
@@ -70,6 +71,9 @@ class ConfiguracionController extends BaseController
             if ($this->request->getPost($campo) !== null) {
                 $datos[$campo] = $num($campo, 0, 1000);
             }
+        }
+        if ($this->request->getPost('exigir_caja') !== null) {
+            $datos['exigir_caja'] = $this->request->getPost('exigir_caja') === '1' ? 1 : 0;
         }
         Db::update('companies', $datos, ['empresa_id' => $empresaId]);
 

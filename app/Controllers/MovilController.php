@@ -333,6 +333,26 @@ class MovilController extends BaseController
         );
     }
 
+    /** Caja del cajero en la PWA: abrir, resumen, entradas/salidas y cierre (usa las rutas /caja/*). */
+    public function caja()
+    {
+        if ($r = $this->exigir('caja.usar', '/m/mas')) return $r;
+        $caja = \App\Libraries\CajaService::abierta((int) Auth::id(), (int) $this->sucursalId());
+
+        return $this->render('movil.caja', [
+            'page_title'  => 'Caja',
+            'headerTitle' => 'Mi caja',
+            'activeTab'   => 'mas',
+            'resumen'     => $caja ? \App\Libraries\CajaService::resumen((int) $caja['caja_id']) : null,
+            'ultima'      => $caja ? null : Db::row(
+                "SELECT caja_id, cerrada_en, efectivo_esperado, efectivo_contado, diferencia_efectivo FROM cajas
+                 WHERE usuario_id = ? AND sucursal_id = ? AND estado = 'cerrada' ORDER BY caja_id DESC LIMIT 1",
+                [Auth::id(), $this->sucursalId()]
+            ),
+            'formas'      => \App\Libraries\CajaService::FORMAS,
+        ]);
+    }
+
     public function clientes()
     {
         if ($r = $this->exigir('clientes.ver', '/m/mas')) return $r;

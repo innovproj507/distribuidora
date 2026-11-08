@@ -89,8 +89,10 @@ final class CotizacionService
 
         $depositoId    = (int) ($ctx['deposito_id'] ?? 0);
         $numeroFactura = NumeracionService::siguiente('factura', $ctx['empresa_id'], (int) $cot['sucursal_id']);
+        $cajaId        = CajaService::paraVenta(['sucursal_id' => $cot['sucursal_id']] + $ctx);
 
         $ventaId = Db::insert('ventas', [
+            'caja_id'              => $cajaId,
             'sucursal_id'          => $cot['sucursal_id'],
             'empresa_id'           => $ctx['empresa_id'],
             'numero_factura'       => $numeroFactura,

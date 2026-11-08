@@ -77,6 +77,7 @@ $enlace = function (string $href, string $emoji, string $bg, string $titulo, str
 <?php if (Auth::can('compras.crear')) $enlace('/m/pedido', '🛒', 'var(--green-light)', 'Pedido a la ciudad', 'Qué comprar en total y cuánto va a cada tienda'); ?>
 <?php if (Auth::can('conteos.ver')) $enlace('/m/conteos', '📋', 'var(--purple-light)', 'Conteo físico', 'Contar estantes, ubicar productos y ajustar faltantes'); ?>
 <?php if (Auth::can('traslados.ver')) $enlace('/m/traslados', '🚤', 'var(--navy-light)', 'Traslados entre tiendas', 'Enviar mercancía y recibirla con conteo'); ?>
+<?php if (Auth::can('caja.usar')) $enlace('/m/caja', '🧮', 'var(--green-light)', 'Mi caja', !empty($caja_actual) ? 'Abierta · entradas, salidas y cierre' : 'Abrir caja con el fondo inicial'); ?>
 <?php if (Auth::can('compras.ver')) $enlace('/m/compras', '📥', 'var(--teal-light)', 'Compras', 'Registrar facturas de proveedor'); ?>
 <?php if (Auth::can('ventas.ver')) $enlace('/m/ventas', '🧾', 'var(--purple-light)', 'Historial de ventas', 'Consulta facturas y su detalle'); ?>
 <?php if (Auth::can('cotizaciones.ver')) $enlace('/m/cotizaciones', '📝', 'var(--amber-light)', 'Cotizaciones', 'Estado y enlace para compartir'); ?>

@@ -27,6 +27,7 @@ $routes->group('m', ['filter' => ['movilauth', 'sucursal']], static function ($r
     $routes->get('cobrar', 'MovilController::cobrar');
     $routes->get('alertas', 'MovilController::alertas');
     $routes->get('mas', 'MovilController::mas');
+    $routes->get('caja', 'MovilController::caja');
     $routes->get('compras/(:num)', 'MovilController::compra/$1');
     $routes->post('api/compra/(:num)/recibir', 'MovilApiController::recibirCompra/$1');
     $routes->post('api/compra/(:num)/reparto', 'MovilApiController::repartoCompra/$1');

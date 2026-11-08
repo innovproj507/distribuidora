@@ -156,6 +156,13 @@ $breadcrumbLabel = $page_title ?? 'Sistema POS';
                 <div class="flex-1"></div>
 
                 <div class="flex items-center gap-2.5">
+                    <!-- Caja del usuario -->
+                    <?php if (isset($exigir_caja)): ?>
+                    <a href="/caja" title="<?= !empty($caja_actual) ? 'Caja abierta: entradas/salidas y cierre' : 'Abrir caja' ?>"
+                       class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors <?= !empty($caja_actual) ? 'text-emerald-700 bg-emerald-50 border-emerald-100 hover:bg-emerald-100' : 'text-amber-700 bg-amber-50 border-amber-100 hover:bg-amber-100' ?>">
+                        <i class="fas fa-cash-register"></i> <?= !empty($caja_actual) ? 'Caja abierta' : 'Abrir caja' ?>
+                    </a>
+                    <?php endif; ?>
                     <!-- Sucursal / depósito activos -->
                     <?php if (!empty($sucursal_actual)):
                         $sucursalesSel = $sucursales_disponibles ?? [];

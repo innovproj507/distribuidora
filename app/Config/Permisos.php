@@ -16,6 +16,7 @@ class Permisos extends BaseConfig
         'cajero' => [
             'dashboard.ver',
             'pos.usar',
+            'caja.usar',
             'ventas.crear',
             'ventas.ver',
             'cotizaciones.ver',
@@ -29,6 +30,8 @@ class Permisos extends BaseConfig
         'supervisor' => [
             'dashboard.ver',
             'pos.usar',
+            'caja.usar',
+            'cajas.ver',
             'ventas.ver',
             'ventas.crear',
             'ventas.anular',
@@ -56,6 +59,9 @@ class Permisos extends BaseConfig
         'gerente' => [
             'dashboard.ver',
             'pos.usar',
+            'caja.usar',
+            'cajas.ver',
+            'cajas.gestionar',
             'ventas.ver',
             'ventas.crear',
             'ventas.anular',
@@ -109,6 +115,7 @@ class Permisos extends BaseConfig
         'auditor' => [
             'dashboard.ver',
             'ventas.ver',
+            'cajas.ver',
             'cotizaciones.ver',
             'clientes.ver',
             'productos.ver',

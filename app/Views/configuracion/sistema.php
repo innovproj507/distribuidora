@@ -159,6 +159,14 @@
                 Roles con mayor descuento: <span class="font-semibold text-gray-500">gerente, administrador, superadmin</span>.
                 El resto se trata como cajero.
             </p>
+            <label class="flex items-start gap-3 mt-4 pt-4 border-t border-gray-100 cursor-pointer select-none">
+                <input type="hidden" name="exigir_caja" value="0">
+                <input type="checkbox" name="exigir_caja" value="1" <?= !empty($configuracion['exigir_caja']) ? 'checked' : '' ?> class="mt-0.5 w-4 h-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500">
+                <span>
+                    <span class="block text-sm font-semibold text-gray-700">Exigir caja abierta para vender</span>
+                    <span class="block text-xs text-gray-400">Cada cajero abre su caja con el fondo inicial y la cierra con arqueo. Sin caja abierta no se puede facturar (POS, venta, PWA y API).</span>
+                </span>
+            </label>
         </div>
 
         <!-- Márgenes por Defecto en Compras -->

@@ -588,4 +588,6 @@
     }
 </script>
 
+<?= view('cajas/_aviso_abrir', ['caja_actual' => $caja_actual ?? null, 'exigir_caja' => $exigir_caja ?? false, 'current_uri' => '/ventas/nueva']) ?>
+
 <?php $this->endSection(); ?>

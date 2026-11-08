@@ -10,6 +10,16 @@ $clientesJs = array_map(fn ($c) => [
 ?>
 <?php $this->section('content'); ?>
 
+<?php if (!empty($exigir_caja) && empty($caja_actual)): ?>
+<a href="/m/caja" class="card mb-3 flex items-center gap-3" style="border:1.5px solid var(--orange); background:var(--orange-light)">
+  <span class="text-2xl">🧮</span>
+  <span class="flex-1">
+    <span class="block text-sm font-semibold" style="color:var(--orange)">Abre tu caja para poder vender</span>
+    <span class="block text-xs" style="color:var(--ink-soft)">Toca aquí y escribe el efectivo inicial.</span>
+  </span>
+</a>
+<?php endif; ?>
+
 <div class="mb-3 flex items-center gap-2 bg-white rounded-xl border px-3 py-2" style="border-color:var(--line)">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7794" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
   <input type="search" id="input-busqueda" class="flex-1 text-sm outline-none bg-transparent" placeholder="Buscar producto, código o escanear" autocomplete="off">

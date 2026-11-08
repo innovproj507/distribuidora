@@ -73,6 +73,8 @@ final class CobroService
             'referencia'  => $referencia !== null && trim($referencia) !== '' ? mb_substr(trim($referencia), 0, 100) : null,
             'notas'       => $notas !== null && trim($notas) !== '' ? trim($notas) : null,
             'usuario_id'  => Auth::id(),
+            // El abono entra en la caja abierta de quien cobra (si tiene una)
+            'caja_id'     => CajaService::abiertaId(isset($ctx['sucursal_id']) ? (int) $ctx['sucursal_id'] : null),
         ]);
         $numero = 'REC-' . str_pad((string) $cobroId, 6, '0', STR_PAD_LEFT);
         Db::update('cobros', ['numero' => $numero], ['cobro_id' => $cobroId]);

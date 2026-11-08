@@ -16,6 +16,14 @@ $routes->group('', ['filter' => ['auth', 'sucursal']], static function ($routes)
     $routes->post('ventas/venta/(:num)/anular', 'VentaController::anular/$1', ['filter' => 'permiso:ventas.anular']);
     $routes->post('ventas/venta/(:num)/pagar', 'VentaController::registrarPago/$1', ['filter' => 'permiso:ventas.ver']);
 
+    // Caja con arqueo: la propia (caja.usar) y el historial de todas (cajas.ver)
+    $routes->get('caja', 'CajaController::miCaja', ['filter' => 'permiso:caja.usar']);
+    $routes->post('caja/abrir', 'CajaController::abrir', ['filter' => 'permiso:caja.usar']);
+    $routes->post('caja/movimiento', 'CajaController::movimiento', ['filter' => 'permiso:caja.usar']);
+    $routes->post('caja/cerrar', 'CajaController::cerrar', ['filter' => 'permiso:caja.usar,cajas.gestionar']);
+    $routes->get('cajas', 'CajaController::index', ['filter' => 'permiso:cajas.ver']);
+    $routes->get('cajas/(:num)', 'CajaController::detalle/$1', ['filter' => 'permiso:caja.usar,cajas.ver']);
+
     // Mini-API del POS (JSON)
     $routes->get('api/productos/buscar', 'VentaController::apiBuscarProductos');
     $routes->get('api/productos/(:num)/stock', 'VentaController::apiVerificarStock/$1');

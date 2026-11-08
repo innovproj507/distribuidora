@@ -27,6 +27,9 @@ final class VentaService
             throw new \RuntimeException('No hay productos en la venta.');
         }
 
+        // Caja abierta del vendedor (si la empresa la exige y no hay, se rechaza antes de escribir)
+        $cajaId = CajaService::paraVenta($ctx);
+
         // Pagos: [{forma_pago, monto}] o forma_pago suelto (modo de un solo pago)
         $pagos = $data['pagos'] ?? null;
         if (empty($pagos) || !is_array($pagos)) {
@@ -50,6 +53,7 @@ final class VentaService
         $numeroFactura = NumeracionService::siguiente('factura', $ctx['empresa_id'], (int) $ctx['sucursal_id']);
 
         $ventaId = Db::insert('ventas', [
+            'caja_id'        => $cajaId,
             'sucursal_id'    => $ctx['sucursal_id'],
             'empresa_id'     => $ctx['empresa_id'],
             'numero_factura' => $numeroFactura,

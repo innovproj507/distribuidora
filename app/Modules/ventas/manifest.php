@@ -15,5 +15,7 @@ return [
         ['type' => 'link', 'label' => 'Punto de Venta',    'icon' => 'fas fa-cash-register',  'href' => '/ventas/pos'],
         ['type' => 'link', 'label' => 'Historial Ventas',  'icon' => 'fas fa-shopping-cart',  'href' => '/ventas'],
         ['type' => 'link', 'label' => 'Cotizaciones',      'icon' => 'fas fa-file-invoice',   'href' => '/ventas/cotizaciones'],
+        ['type' => 'link', 'label' => 'Mi Caja',           'icon' => 'fas fa-cash-register',  'href' => '/caja',   'permission' => 'caja.usar'],
+        ['type' => 'link', 'label' => 'Cajas (arqueos)',   'icon' => 'fas fa-scale-balanced', 'href' => '/cajas',  'permission' => 'cajas.ver'],
     ],
 ];

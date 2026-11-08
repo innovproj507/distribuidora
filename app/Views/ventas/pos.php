@@ -192,6 +192,12 @@
 
                 <!-- Usuario y Salida -->
                 <div class="flex items-center space-x-4">
+                    <?php if (isset($exigir_caja)): ?>
+                    <a href="/caja" class="flex items-center px-3 py-2 text-xs font-bold rounded-lg border transition-all <?= !empty($caja_actual) ? 'text-emerald-700 bg-emerald-50 border-emerald-100 hover:bg-emerald-100' : 'text-amber-700 bg-amber-50 border-amber-100 hover:bg-amber-100' ?>"
+                       title="<?= !empty($caja_actual) ? 'Ver caja, entradas/salidas y cierre' : 'Abrir caja' ?>">
+                        <i class="fas fa-cash-register mr-2"></i><?= !empty($caja_actual) ? 'Caja #' . (int) $caja_actual['caja_id'] . ' abierta' : 'Caja cerrada' ?>
+                    </a>
+                    <?php endif; ?>
                     <a href="/dashboard" onclick="return salirDelPos();" class="flex items-center px-3 py-2 text-xs font-bold text-slate-600 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-all border border-slate-100" title="Salir del POS y volver al panel">
                         <i class="fas fa-sign-out-alt mr-2"></i>Salir del POS
                     </a>
@@ -1500,5 +1506,6 @@
             }
         }
     </script>
+<?= view('cajas/_aviso_abrir', ['caja_actual' => $caja_actual ?? null, 'exigir_caja' => $exigir_caja ?? false, 'current_uri' => '/ventas/pos']) ?>
 </body>
 </html>

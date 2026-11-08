@@ -54,6 +54,11 @@ abstract class BaseController extends Controller
             'depositos_disponibles'  => $this->session->get('depositos_disponibles') ?? [],
             'current_uri'            => '/' . trim($this->request->getUri()->getPath(), '/'),
         ];
+        // Caja del usuario (barra superior, POS y formulario de venta)
+        if (!array_key_exists('caja_actual', $data) && Auth::check() && Auth::can('caja.usar') && $this->sucursalId()) {
+            $data['caja_actual'] = \App\Libraries\CajaService::abierta((int) Auth::id(), (int) $this->sucursalId());
+            $data['exigir_caja'] = \App\Libraries\CajaService::exigida((int) $this->empresaId());
+        }
 
         return view(str_replace('.', '/', $vista), $data);
     }
