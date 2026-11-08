@@ -9,6 +9,10 @@ $this->extend('layouts/movil');
   <input type="search" id="input-busqueda" class="flex-1 text-sm outline-none bg-transparent" placeholder="Buscar producto o código" autocomplete="off">
 </div>
 
+<?php if (!empty($puedeCrear)): ?>
+<a href="/m/productos/nuevo" class="mt-3 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium text-white" style="background:var(--navy)">＋ Nuevo producto</a>
+<?php endif; ?>
+
 <div class="flex gap-2 overflow-x-auto py-3">
   <button type="button" id="chip-todos" onclick="filtrarStockBajo(false)" class="text-xs px-3 py-1.5 rounded-full whitespace-nowrap">Todos</button>
   <button type="button" id="chip-bajo" onclick="filtrarStockBajo(true)" class="text-xs px-3 py-1.5 rounded-full whitespace-nowrap">Stock bajo</button>

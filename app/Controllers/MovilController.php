@@ -153,6 +153,7 @@ class MovilController extends BaseController
             'soloStockBajo' => $this->request->getGet('stock_bajo') !== null,
             'puedeAjustar'  => Auth::can('inventario.ajustar'),
             'puedeEditar'   => Auth::can('productos.editar'),
+            'puedeCrear'    => Auth::can('productos.crear'),
         ]);
     }
 
@@ -344,6 +345,82 @@ class MovilController extends BaseController
 
         \App\Libraries\AuditService::log('productos.editar', "Foto actualizada desde móvil: {$p['nombre']}", $id, 'producto', [], $this->empresaId());
         return $this->json(['ok' => true, 'imagen' => '/assets/uploads/' . $ruta]);
+    }
+
+    /** Formulario de producto nuevo (productos.crear: admin, gerente, encargado). */
+    public function nuevoProducto()
+    {
+        if ($r = $this->exigir('productos.crear', '/m/inventario')) return $r;
+        $empresaId = (int) $this->empresaId();
+
+        return $this->render('movil.producto_nuevo', [
+            'page_title'  => 'Nuevo producto',
+            'headerTitle' => 'Nuevo producto',
+            'activeTab'   => 'inventario',
+            'categorias'  => Db::all("SELECT categoria_id, nombre FROM categorias_productos WHERE empresa_id = ? ORDER BY nombre", [$empresaId]),
+            'proveedores' => Db::all("SELECT proveedor_id, nombre FROM proveedores WHERE empresa_id = ? AND estado = 'activo' ORDER BY nombre", [$empresaId]),
+            'marcas'      => array_column(Db::all("SELECT DISTINCT nombre FROM marcas WHERE empresa_id = ? ORDER BY nombre", [$empresaId]), 'nombre'),
+            'codigo'      => \App\Libraries\ProductoService::siguienteCodigo($empresaId, null),
+            'codigoBarras' => trim((string) ($this->request->getGet('barras') ?? '')),
+        ]);
+    }
+
+    /**
+     * POST: crea el producto con ProductoService::crear (igual que la web). El stock inicial entra
+     * solo al depósito activo (con kardex); el resto de depósitos queda en 0.
+     */
+    public function crearProducto()
+    {
+        if ($r = $this->exigir('productos.crear', '/m/inventario')) return $r;
+        $empresaId  = (int) $this->empresaId();
+        $depositoId = $this->depositoId();
+        $post       = fn (string $k) => trim((string) ($this->request->getPost($k) ?? ''));
+
+        $nombre = $post('nombre');
+        if ($nombre === '') {
+            $this->error('El nombre es obligatorio.');
+            return redirect()->to('/m/productos/nuevo')->withInput();
+        }
+        $categoriaId = (int) $post('categoria_id');
+        $categoriaId = $categoriaId && Db::value("SELECT 1 FROM categorias_productos WHERE categoria_id = ? AND empresa_id = ?", [$categoriaId, $empresaId]) ? $categoriaId : null;
+        $proveedorId = (int) $post('proveedor_id');
+        $minimo      = max(0, (float) $post('minimo'));
+        $stock       = max(0, (float) $post('stock'));
+
+        $datos = [
+            'codigo'        => mb_substr($post('codigo'), 0, 50) ?: \App\Libraries\ProductoService::siguienteCodigo($empresaId, $categoriaId),
+            'nombre'        => mb_substr($nombre, 0, 200),
+            'categoria_id'  => $categoriaId,
+            'codigo_barras' => $post('codigo_barras') ?: null,
+            'marca'         => $post('marca') ?: null,
+            'proveedor_id'  => $proveedorId && Db::value("SELECT 1 FROM proveedores WHERE proveedor_id = ? AND empresa_id = ?", [$proveedorId, $empresaId]) ? $proveedorId : null,
+            'costo'         => max(0, (float) $post('costo')),
+            'itbms'         => 0.0,
+            'stock_minimo'  => $minimo,
+            'maneja_lotes'  => 0,
+            'estado'        => 'activo',
+        ];
+        if ($imagen = $this->subirImagen('imagen', 'productos')) {
+            $datos['imagen_principal'] = $imagen;
+        }
+        $precio = max(0, (float) $post('precio'));
+
+        try {
+            Db::begin();
+            $productoId = \App\Libraries\ProductoService::crear($empresaId, $datos, $precio > 0 ? ['a' => $precio] : [], $depositoId ? [[$depositoId, $stock]] : []);
+            if ($depositoId && ($inventarioId = \App\Libraries\InventarioService::inventarioId($productoId, $depositoId))) {
+                Db::update('inventario', ['ubicacion' => $post('ubicacion') ?: null], ['inventario_id' => $inventarioId]);
+            }
+            Db::commit();
+        } catch (\DomainException $e) {
+            Db::rollback();
+            $this->error($e->getMessage());
+            return redirect()->to('/m/productos/nuevo')->withInput();
+        }
+
+        \App\Libraries\AuditService::log('productos.crear', "Producto creado desde móvil: {$datos['nombre']} (SKU: {$datos['codigo']})", $productoId, 'producto', [], $empresaId);
+        $this->success("Producto {$datos['codigo']} creado." . ($precio <= 0 ? ' Ponle precio para poder venderlo.' : ''));
+        return redirect()->to("/m/productos/{$productoId}");
     }
 
     /** Edición completa (productos.editar) o básica: nombre, foto y ubicación (productos.editar_basico). */

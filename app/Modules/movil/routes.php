@@ -16,6 +16,8 @@ $routes->group('m', ['filter' => ['movilauth', 'sucursal']], static function ($r
     $routes->get('/', 'MovilController::inicio');
     $routes->get('vender', 'MovilController::vender');
     $routes->get('inventario', 'MovilController::inventario');
+    $routes->get('productos/nuevo', 'MovilController::nuevoProducto');
+    $routes->post('productos/nuevo', 'MovilController::crearProducto');
     $routes->get('productos/(:num)', 'MovilController::producto/$1');
     $routes->get('productos/(:num)/editar', 'MovilController::editarProducto/$1');
     $routes->post('productos/(:num)/editar', 'MovilController::guardarProducto/$1');
