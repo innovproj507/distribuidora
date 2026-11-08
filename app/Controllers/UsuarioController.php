@@ -16,7 +16,7 @@ use App\Libraries\Fila;
  */
 class UsuarioController extends BaseController
 {
-    private const ROLES = ['vendedor', 'cajero', 'supervisor', 'gerente', 'auditor', 'superadmin'];
+    private const ROLES = ['vendedor', 'encargado', 'cajero', 'supervisor', 'gerente', 'auditor', 'superadmin'];
 
     public function index(): string
     {

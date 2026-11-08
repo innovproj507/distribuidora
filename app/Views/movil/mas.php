@@ -8,6 +8,7 @@ $etiquetaRol = [
     'supervisor' => 'Supervisor',
     'cajero'     => 'Cajero',
     'vendedor'   => 'Vendedor',
+    'encargado'  => 'Encargado de tienda',
     'auditor'    => 'Auditor',
 ][$rol] ?? ucfirst($rol);
 

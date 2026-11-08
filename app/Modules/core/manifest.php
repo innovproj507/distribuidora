@@ -23,7 +23,7 @@ return [
     // Items inferiores (siempre al final del sidebar)
     'menu_bottom' => [
         ['type' => 'section', 'label' => 'Administración'],
-        ['type' => 'link', 'label' => 'Configuración',   'icon' => 'fas fa-cog',        'href' => '/configuracion'],
+        ['type' => 'link', 'label' => 'Configuración',   'icon' => 'fas fa-cog',        'href' => '/configuracion', 'permission' => 'usuarios.gestionar'],
         ['type' => 'link', 'label' => 'Sucursales',      'icon' => 'fas fa-store',      'href' => '/sucursales', 'permission' => 'sucursales.ver'],
         ['type' => 'link', 'label' => 'Usuarios y Roles','icon' => 'fas fa-users-cog',  'href' => '/usuarios',  'permission' => 'usuarios.ver'],
         ['type' => 'link', 'label' => 'Bitácora',        'icon' => 'fas fa-history',    'href' => '/bitacora',  'permission' => 'bitacora.ver'],
