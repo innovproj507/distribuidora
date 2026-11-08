@@ -87,6 +87,8 @@ $v = fn (string $campo, $def = '') => old($campo, $def);
         <input class="field-input mb-1" style="font-family:'Inter'" name="ubicacion" maxlength="100" placeholder="A-3" value="<?= esc($v('ubicacion'), 'attr') ?>">
       </div>
     </div>
+    <label class="field-label mt-2">Vence (opcional)</label>
+    <input class="field-input mb-1" type="date" name="fecha_vencimiento" value="<?= esc((string) $v('fecha_vencimiento'), 'attr') ?>">
     <p class="text-[11px] mt-1" style="color:var(--ink-soft)">El stock inicial queda en el kardex. En las otras tiendas el producto aparece con 0.</p>
   </div>
 

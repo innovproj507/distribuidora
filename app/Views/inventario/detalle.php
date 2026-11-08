@@ -69,7 +69,14 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
         <!-- Foto e indicadores -->
         <div class="sm:col-span-5">
             <?php if (!empty($producto->imagen_principal)): ?>
-                <img src="/assets/uploads/<?= esc($producto->imagen_principal, 'attr') ?>" alt="" class="aspect-square w-full rounded-xl bg-gray-100 object-cover">
+                <button type="button" onclick="document.getElementById('visor-foto').classList.replace('hidden', 'flex')" class="block w-full cursor-zoom-in" title="Ver en grande">
+                    <img src="/assets/uploads/<?= esc($producto->imagen_principal, 'attr') ?>" alt="" class="aspect-square w-full rounded-xl bg-gray-100 object-cover">
+                </button>
+                <div id="visor-foto" class="fixed inset-0 z-[100] hidden items-center justify-center p-6 bg-black/85 cursor-zoom-out" onclick="this.classList.replace('flex', 'hidden')">
+                    <img src="/assets/uploads/<?= esc($producto->imagen_principal, 'attr') ?>" alt="" class="max-w-full max-h-full rounded-xl object-contain shadow-2xl">
+                    <button type="button" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 text-white text-xl hover:bg-white/30" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+                </div>
+                <script>document.addEventListener('keydown', function (e) { if (e.key === 'Escape') document.getElementById('visor-foto').classList.replace('flex', 'hidden'); });</script>
             <?php else: ?>
                 <div class="aspect-square w-full rounded-xl bg-gray-50 border border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-300">
                     <i class="fas fa-camera text-3xl mb-1"></i><span class="text-xs">Sin foto</span>
@@ -101,6 +108,8 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
                 <?php endif; ?>
                 <?= $fila('Stock mínimo', $aqui ? $num($aqui['minimo'] ?? 0) . ' <span class="text-xs text-gray-400">en ' . esc($aqui['deposito_nombre'] ?? '') . '</span>' : '') ?>
                 <?= $fila('Ubicación', !empty($aqui['ubicacion']) ? '📍 ' . esc($aqui['ubicacion']) : '') ?>
+                <?php $vAqui = \App\Libraries\InventarioService::estadoVencimiento($aqui['fecha_vencimiento'] ?? null); ?>
+                <?= $fila('Vence', $vAqui ? '<span class="' . ($vAqui['nivel'] === 'vencido' ? 'text-red-600 font-semibold' : ($vAqui['nivel'] === 'pronto' ? 'text-orange-600 font-semibold' : '')) . '">' . esc($vAqui['texto']) . '</span>' : '') ?>
             </dl>
         </div>
 
@@ -109,7 +118,11 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
             <div class="px-4 py-2.5 text-center font-extrabold text-gray-800 sm:px-6">Cantidad</div>
             <?php foreach (($inventarios ?? []) as $inv): $esAqui = $aqui && (int) $inv['deposito_id'] === (int) $aqui['deposito_id']; ?>
             <div class="px-4 py-2.5 flex items-start justify-between gap-4 sm:px-6 <?= $esAqui ? 'bg-sky-50/70' : '' ?>">
-                <div class="text-sm font-medium text-gray-700"><?= esc($inv['deposito_nombre'] ?? 'N/A') ?><?= $esAqui ? ' <span class="text-[10px] font-bold text-sky-600 uppercase">aquí</span>' : '' ?></div>
+                <div class="text-sm font-medium text-gray-700"><?= esc($inv['deposito_nombre'] ?? 'N/A') ?><?= $esAqui ? ' <span class="text-[10px] font-bold text-sky-600 uppercase">aquí</span>' : '' ?>
+                    <?php if ($vInv = \App\Libraries\InventarioService::estadoVencimiento($inv['fecha_vencimiento'] ?? null)): ?>
+                    <div class="text-[11px] <?= $vInv['nivel'] === 'vencido' ? 'text-red-600' : ($vInv['nivel'] === 'pronto' ? 'text-orange-600' : 'text-gray-400') ?>"><i class="fas fa-hourglass-half mr-1"></i><?= esc($vInv['texto']) ?></div>
+                    <?php endif; ?>
+                </div>
                 <div class="text-sm font-semibold <?= (float) $inv['existencia'] <= 0 ? 'text-red-600' : 'text-gray-900' ?>"><?= $num($inv['existencia']) ?></div>
             </div>
             <?php endforeach; ?>

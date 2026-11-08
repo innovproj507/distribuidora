@@ -33,7 +33,51 @@ final class AlertaInventarioService
         $this->generarStockExceso();
         $this->generarVencimientoProximo();
         $this->generarLotesVencidos();
+        $this->generarVencimientoProducto();
         $this->generarRotacionLenta();
+    }
+
+    /**
+     * Vencimiento por producto y depósito (inventario.fecha_vencimiento), con stock > 0:
+     * por vencer (≤ 30 días) o ya vencido.
+     */
+    private function generarVencimientoProducto(): void
+    {
+        $rows = Db::query(
+            "SELECT p.producto_id, p.nombre, d.deposito_id, d.nombre AS deposito, i.existencia,
+                    i.fecha_vencimiento, DATEDIFF(i.fecha_vencimiento, CURDATE()) AS dias
+             FROM inventario i
+             JOIN productos p ON i.producto_id = p.producto_id
+             JOIN depositos  d ON i.deposito_id  = d.deposito_id
+             WHERE p.empresa_id = ? AND p.estado = 'activo' AND i.existencia > 0
+               AND i.fecha_vencimiento IS NOT NULL
+               AND DATEDIFF(i.fecha_vencimiento, CURDATE()) <= ?",
+            [$this->empresaId, InventarioService::DIAS_AVISO_VENCIMIENTO]
+        )->getResultArray();
+
+        foreach ($rows as $r) {
+            $dias  = (int) $r['dias'];
+            $fecha = date('d/m/Y', strtotime($r['fecha_vencimiento']));
+            $cant  = rtrim(rtrim(number_format((float) $r['existencia'], 2, '.', ''), '0'), '.');
+            if ($dias < 0) {
+                $this->insertar(
+                    tipo: 'lote_vencido',
+                    mensaje: "Vencido: {$r['nombre']} ({$cant} unds) — venció el {$fecha} en {$r['deposito']}",
+                    prioridad: 'critica',
+                    productoId: (int) $r['producto_id'],
+                    depositoId: (int) $r['deposito_id'],
+                );
+            } else {
+                $this->insertar(
+                    tipo: 'vencimiento_proximo',
+                    mensaje: "Vence en {$dias} días ({$fecha}): {$r['nombre']} ({$cant} unds) en {$r['deposito']}",
+                    prioridad: $dias <= 7 ? 'critica' : ($dias <= 15 ? 'alta' : 'media'),
+                    productoId: (int) $r['producto_id'],
+                    depositoId: (int) $r['deposito_id'],
+                    diasRestantes: $dias,
+                );
+            }
+        }
     }
 
     /** Productos con existencia <= stock_minimo (y minimo > 0) */

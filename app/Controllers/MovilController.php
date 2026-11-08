@@ -151,6 +151,7 @@ class MovilController extends BaseController
                 [$this->empresaId()]
             ),
             'soloStockBajo' => $this->request->getGet('stock_bajo') !== null,
+            'porVencer'     => $this->request->getGet('por_vencer') !== null,
             'puedeAjustar'  => Auth::can('inventario.ajustar'),
             'puedeEditar'   => Auth::can('productos.editar'),
             'puedeCrear'    => Auth::can('productos.crear'),
@@ -183,7 +184,7 @@ class MovilController extends BaseController
             'unidades'    => Db::all("SELECT nombre, factor_conversion, precio_a FROM productos_unidades WHERE producto_id = ? ORDER BY factor_conversion", [$id]),
             // Stock en todas las tiendas que el usuario puede ver
             'stocks'      => Db::all(
-                "SELECT d.deposito_id, d.nombre AS deposito, b.nombre AS sucursal, i.existencia, i.minimo, i.ubicacion
+                "SELECT d.deposito_id, d.nombre AS deposito, b.nombre AS sucursal, i.existencia, i.minimo, i.ubicacion, i.fecha_vencimiento
                  FROM inventario i JOIN depositos d ON d.deposito_id = i.deposito_id JOIN branches b ON b.sucursal_id = d.sucursal_id
                  WHERE i.producto_id = ? AND d.estado = 'activo' AND b.sucursal_id IN (" . implode(',', array_fill(0, count($sucursales), '?')) . ")
                  ORDER BY b.es_principal DESC, b.nombre, d.es_principal DESC",
@@ -209,7 +210,14 @@ class MovilController extends BaseController
             'verCosto'     => ver_costos(),
             'puedeEditar'  => self::puedeEditarProducto(),
             'puedeAjustar' => Auth::can('inventario.ajustar'),
+            'puedeVence'   => self::puedeFijarVencimiento(),
         ]);
+    }
+
+    /** Quién puede fijar la fecha de vencimiento (mismo criterio que /m/api/vencimiento). */
+    public static function puedeFijarVencimiento(): bool
+    {
+        return Auth::can('conteos.crear') || Auth::can('productos.editar') || Auth::can('productos.editar_basico') || Auth::can('compras.recibir');
     }
 
     public function editarProducto(int $id)
@@ -230,7 +238,7 @@ class MovilController extends BaseController
             'activeTab'   => 'inventario',
             'p'           => $p,
             'precio'      => (float) (Db::value("SELECT precio FROM precios_productos WHERE producto_id = ? AND tipo_precio = 'a'", [$id]) ?? 0),
-            'inv'         => Db::row("SELECT minimo, ubicacion FROM inventario WHERE producto_id = ? AND deposito_id = ?", [$id, $this->depositoId()]),
+            'inv'         => Db::row("SELECT minimo, ubicacion, fecha_vencimiento FROM inventario WHERE producto_id = ? AND deposito_id = ?", [$id, $this->depositoId()]),
             'categorias'  => Db::all("SELECT categoria_id, nombre FROM categorias_productos WHERE empresa_id = ? ORDER BY nombre", [$empresaId]),
             'proveedores' => Db::all("SELECT proveedor_id, nombre FROM proveedores WHERE empresa_id = ? AND estado = 'activo' ORDER BY nombre", [$empresaId]),
             'marcas'      => array_column(Db::all("SELECT DISTINCT nombre FROM marcas WHERE empresa_id = ? ORDER BY nombre", [$empresaId]), 'nombre'),
@@ -263,10 +271,16 @@ class MovilController extends BaseController
             if ($imagen = $this->subirImagen('imagen', 'productos')) {
                 $datos['imagen_principal'] = $imagen;
             }
+            try {
+                $vence = \App\Libraries\InventarioService::fechaVencimiento($post('fecha_vencimiento'));
+            } catch (\DomainException $e) {
+                $this->error($e->getMessage());
+                return redirect()->to("/m/productos/{$id}/editar")->withInput();
+            }
             Db::begin();
             \App\Libraries\ProductoService::actualizar($id, (int) $this->empresaId(), $datos, []);
             if ($inventarioId = \App\Libraries\InventarioService::inventarioId($id, $this->depositoId())) {
-                Db::update('inventario', ['ubicacion' => $post('ubicacion') ?: null], ['inventario_id' => $inventarioId]);
+                Db::update('inventario', ['ubicacion' => $post('ubicacion') ?: null, 'fecha_vencimiento' => $vence], ['inventario_id' => $inventarioId]);
             }
             Db::commit();
             \App\Libraries\AuditService::log('productos.editar', "Producto actualizado desde móvil (básico): {$p['nombre']} → {$datos['nombre']}", $id, 'producto', [], $this->empresaId());
@@ -302,12 +316,17 @@ class MovilController extends BaseController
         $precio = $post('precio');
 
         try {
+            $vence = \App\Libraries\InventarioService::fechaVencimiento($post('fecha_vencimiento'));
             Db::begin();
             \App\Libraries\ProductoService::actualizar($id, (int) $this->empresaId(), $datos, $precio !== '' ? ['a' => max(0, (float) $precio)] : []);
 
-            // Mínimo y ubicación son por depósito: los del depósito activo
+            // Mínimo, ubicación y vencimiento son por depósito: los del depósito activo
             if ($inventarioId = \App\Libraries\InventarioService::inventarioId($id, $this->depositoId())) {
-                Db::update('inventario', ['minimo' => max(0, (float) $post('minimo')), 'ubicacion' => $post('ubicacion') ?: null], ['inventario_id' => $inventarioId]);
+                Db::update('inventario', [
+                    'minimo'            => max(0, (float) $post('minimo')),
+                    'ubicacion'         => $post('ubicacion') ?: null,
+                    'fecha_vencimiento' => $vence,
+                ], ['inventario_id' => $inventarioId]);
             }
             Db::commit();
         } catch (\DomainException $e) {
@@ -319,35 +338,6 @@ class MovilController extends BaseController
         \App\Libraries\AuditService::log('productos.editar', "Producto actualizado desde móvil: {$datos['nombre']} (SKU: {$datos['codigo']})", $id, 'producto', [], $this->empresaId());
         $this->success('Producto actualizado.');
         return redirect()->to("/m/productos/{$id}");
-    }
-
-    /** POST multipart {imagen} desde la ficha: cambia solo la foto. Responde JSON. */
-    public function subirFoto(int $id)
-    {
-        if (!self::puedeEditarProducto()) {
-            return $this->json(['error' => 'No tienes permiso para editar productos.'], 403);
-        }
-        $p = $this->productoDeEmpresa($id);
-        if (!$p) {
-            return $this->json(['error' => 'Producto no encontrado.'], 404);
-        }
-
-        $ruta = $this->subirImagen('imagen', 'productos');
-        if (!$ruta) {
-            flash_consumir(); // subirImagen deja un flash si el tipo no es válido; aquí se responde en JSON
-            return $this->json(['error' => 'No se recibió una imagen válida (JPG, PNG, WEBP o GIF).'], 422);
-        }
-
-        Db::update('productos', ['imagen_principal' => $ruta, 'fecha_modificacion' => date('Y-m-d H:i:s')], ['producto_id' => $id]);
-
-        // La foto anterior ya no se usa
-        $anterior = (string) ($p['imagen_principal'] ?? '');
-        if ($anterior !== '' && str_starts_with($anterior, 'productos/') && !str_contains($anterior, '..')) {
-            @unlink(FCPATH . 'assets/uploads/' . $anterior);
-        }
-
-        \App\Libraries\AuditService::log('productos.editar', "Foto actualizada desde móvil: {$p['nombre']}", $id, 'producto', [], $this->empresaId());
-        return $this->json(['ok' => true, 'imagen' => '/assets/uploads/' . $ruta]);
     }
 
     /** Formulario de producto nuevo (productos.crear: admin, gerente, encargado). */
@@ -409,10 +399,11 @@ class MovilController extends BaseController
         $precio = max(0, (float) $post('precio'));
 
         try {
+            $vence = \App\Libraries\InventarioService::fechaVencimiento($post('fecha_vencimiento'));
             Db::begin();
             $productoId = \App\Libraries\ProductoService::crear($empresaId, $datos, $precio > 0 ? ['a' => $precio] : [], $depositoId ? [[$depositoId, $stock]] : []);
             if ($depositoId && ($inventarioId = \App\Libraries\InventarioService::inventarioId($productoId, $depositoId))) {
-                Db::update('inventario', ['ubicacion' => $post('ubicacion') ?: null], ['inventario_id' => $inventarioId]);
+                Db::update('inventario', ['ubicacion' => $post('ubicacion') ?: null, 'fecha_vencimiento' => $vence], ['inventario_id' => $inventarioId]);
             }
             Db::commit();
         } catch (\DomainException $e) {
@@ -651,7 +642,7 @@ class MovilController extends BaseController
 
         $items = Db::all(
             "SELECT cd.producto_id, cd.cantidad_sistema, cd.cantidad_contada, cd.diferencia, cd.estado, cd.costo_unitario,
-                    p.nombre, p.codigo, p.codigo_barras, COALESCE(i.ubicacion, '') AS ubicacion
+                    p.nombre, p.codigo, p.codigo_barras, COALESCE(i.ubicacion, '') AS ubicacion, i.fecha_vencimiento
              FROM conteo_detalle cd
              JOIN productos p ON p.producto_id = cd.producto_id
              LEFT JOIN inventario i ON i.producto_id = cd.producto_id AND i.deposito_id = ?
@@ -674,6 +665,8 @@ class MovilController extends BaseController
                 'contada'    => $i['cantidad_contada'] !== null ? (float) $i['cantidad_contada'] : null,
                 'sistema'    => $contado || !$abierto ? (float) $i['cantidad_sistema'] : null,
                 'diferencia' => $contado && $i['diferencia'] !== null ? (float) $i['diferencia'] : null,
+                'vence'      => $i['fecha_vencimiento'],
+                'venceInfo'  => \App\Libraries\InventarioService::estadoVencimiento($i['fecha_vencimiento']),
             ];
         }, $items);
 

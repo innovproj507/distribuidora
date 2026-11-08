@@ -167,10 +167,19 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
             <a href="/inventario/<?= $producto->producto_id ?>" class="text-xs font-semibold text-sky-600 hover:text-sky-800">Agregar stock o ver movimientos <i class="fas fa-arrow-right ml-1"></i></a>
         </div>
         <div class="flex flex-wrap gap-3">
-            <?php foreach (($inventariosActuales ?? []) as $inv): ?>
+            <?php foreach (($inventariosActuales ?? []) as $inv):
+                $vence    = \App\Libraries\InventarioService::estadoVencimiento($inv['fecha_vencimiento'] ?? null);
+                $editable = \App\Libraries\SucursalService::puedeUsarDeposito((int) $inv['deposito_id'], (int) ($sucursal_actual['sucursal_id'] ?? 0)); ?>
                 <div class="bg-gray-50 border border-gray-100 px-4 py-2 rounded-xl">
                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider"><?= esc($inv['deposito_nombre']) ?></p>
                     <p class="text-lg font-black text-slate-800"><?= number_format((float) $inv['existencia'], 0) ?> <span class="text-xs font-normal text-gray-400">unidades</span></p>
+                    <?php if ($editable): ?>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-1">Vence</label>
+                        <input type="date" name="vence[<?= (int) $inv['deposito_id'] ?>]" value="<?= esc($inv['fecha_vencimiento'] ?? '', 'attr') ?>" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white">
+                    <?php endif; ?>
+                    <?php if ($vence): ?>
+                        <p class="text-[11px] font-semibold mt-1 <?= $vence['nivel'] === 'vencido' ? 'text-red-600' : ($vence['nivel'] === 'pronto' ? 'text-orange-600' : 'text-gray-500') ?>"><i class="fas fa-hourglass-half mr-1"></i><?= esc($vence['texto']) ?></p>
+                    <?php endif; ?>
                 </div>
             <?php endforeach; ?>
             <?php if (empty($inventariosActuales)): ?>

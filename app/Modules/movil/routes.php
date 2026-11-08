@@ -21,7 +21,6 @@ $routes->group('m', ['filter' => ['movilauth', 'sucursal']], static function ($r
     $routes->get('productos/(:num)', 'MovilController::producto/$1');
     $routes->get('productos/(:num)/editar', 'MovilController::editarProducto/$1');
     $routes->post('productos/(:num)/editar', 'MovilController::guardarProducto/$1');
-    $routes->post('productos/(:num)/foto', 'MovilController::subirFoto/$1');
     $routes->get('clientes', 'MovilController::clientes');
     $routes->get('compras', 'MovilController::compras');
     $routes->get('ventas', 'MovilController::ventas');
@@ -56,4 +55,5 @@ $routes->group('m', ['filter' => ['movilauth', 'sucursal']], static function ($r
 
     $routes->get('api/productos', 'MovilApiController::productos');
     $routes->post('api/movimiento', 'MovilApiController::movimiento');
+    $routes->post('api/vencimiento', 'MovilApiController::vencimiento');
 });

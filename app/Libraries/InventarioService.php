@@ -53,6 +53,55 @@ final class InventarioService
         return $saldoNuevo;
     }
 
+    /** Días antes del vencimiento en que el producto se marca "por vencer". */
+    public const DIAS_AVISO_VENCIMIENTO = 30;
+
+    /**
+     * Normaliza una fecha de vencimiento recibida de un formulario (Y-m-d). '' o null = sin fecha.
+     * Lanza DomainException si no es una fecha válida.
+     */
+    public static function fechaVencimiento(?string $valor): ?string
+    {
+        $valor = trim((string) $valor);
+        if ($valor === '') {
+            return null;
+        }
+        $d = \DateTime::createFromFormat('Y-m-d', $valor);
+        if (!$d || $d->format('Y-m-d') !== $valor || (int) $d->format('Y') < 2000 || (int) $d->format('Y') > 2100) {
+            throw new \DomainException('La fecha de vencimiento no es válida.');
+        }
+        return $valor;
+    }
+
+    /** Guarda el próximo vencimiento de un producto en un depósito (null lo quita). */
+    public static function fijarVencimiento(int $productoId, int $depositoId, ?string $fecha): void
+    {
+        Db::query(
+            "UPDATE inventario SET fecha_vencimiento = ? WHERE producto_id = ? AND deposito_id = ?",
+            [self::fechaVencimiento($fecha), $productoId, $depositoId]
+        );
+    }
+
+    /**
+     * Estado de un vencimiento para mostrar: ['texto', 'nivel' => ok|pronto|vencido, 'dias'].
+     * null si no hay fecha.
+     */
+    public static function estadoVencimiento(?string $fecha): ?array
+    {
+        if (!$fecha) {
+            return null;
+        }
+        $dias = (int) floor((strtotime($fecha) - strtotime(date('Y-m-d'))) / 86400);
+        $f    = date('d/m/Y', strtotime($fecha));
+        if ($dias < 0) {
+            return ['texto' => "Vencido ({$f})", 'nivel' => 'vencido', 'dias' => $dias, 'fecha' => $f];
+        }
+        if ($dias <= self::DIAS_AVISO_VENCIMIENTO) {
+            return ['texto' => $dias === 0 ? "Vence hoy ({$f})" : "Vence en {$dias} días ({$f})", 'nivel' => 'pronto', 'dias' => $dias, 'fecha' => $f];
+        }
+        return ['texto' => "Vence {$f}", 'nivel' => 'ok', 'dias' => $dias, 'fecha' => $f];
+    }
+
     /** inventario_id de un producto en un depósito, o null si no existe. */
     public static function inventarioId(int $productoId, int $depositoId): ?int
     {

@@ -73,6 +73,7 @@ const CONTEO_ID = <?= (int) $conteo['conteo_id'] ?>;
 const ABIERTO   = <?= json_encode($abierto) ?>;
 const EDITA     = <?= json_encode($edita) ?>;
 const ITEMS     = <?= json_encode($items, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;
+const DEPOSITO  = <?= (int) $conteo['deposito_id'] ?>;
 let filtro = 'todos', consulta = '';
 
 function difTexto(i) {
@@ -81,6 +82,25 @@ function difTexto(i) {
   return d === 0 ? 'Cuadra ✓' : (d > 0 ? 'Sobran ' : 'Faltan ') + numero(Math.abs(d)) + ' (sistema ' + numero(i.sistema) + ')';
 }
 function difColor(i) { return i.diferencia === 0 ? 'var(--green)' : 'var(--red)'; }
+function venceColor(v) { return !v ? 'var(--ink-soft)' : (v.nivel === 'vencido' ? 'var(--red)' : (v.nivel === 'pronto' ? 'var(--orange)' : 'var(--ink-soft)')); }
+// Línea de vencimiento: editable (fecha) mientras el conteo está abierto, solo texto si no
+function venceHtml(i) {
+  if (EDITA) {
+    return '<label class="flex items-center gap-1 mt-1 text-[11px]" style="color:' + venceColor(i.venceInfo) + '"><span id="v-' + i.id + '">⏳ ' + (i.venceInfo ? esc(i.venceInfo.texto) : 'Vence:') + '</span>' +
+      '<input type="date" value="' + esc(i.vence || '') + '" onchange="guardarVence(' + i.id + ', this.value)" class="border rounded-md px-1" style="border-color:var(--line); font-size:11px; max-width:7.5rem"></label>';
+  }
+  return i.venceInfo ? '<p class="text-[11px]" style="color:' + venceColor(i.venceInfo) + '">⏳ ' + esc(i.venceInfo.texto) + '</p>' : '';
+}
+async function guardarVence(id, fecha) {
+  const i = ITEMS.find(function (x) { return x.id === id; });
+  try {
+    const r = await api('/m/api/vencimiento', { method: 'POST', body: { producto_id: id, fecha: fecha, deposito_id: DEPOSITO } });
+    i.vence = r.fecha; i.venceInfo = r.estado;
+    const s = document.getElementById('v-' + id);
+    s.textContent = '⏳ ' + (r.estado ? r.estado.texto : 'Vence:');
+    s.parentNode.style.color = venceColor(r.estado);
+  } catch (e) { toast(e.message, 'error'); }
+}
 
 function visible(i) {
   if (filtro === 'pendientes' && i.estado !== 'pendiente') return false;
@@ -104,7 +124,7 @@ function pintar() {
     html += '<div class="card !p-3 flex items-center gap-3" id="p-' + i.id + '">' +
       '<div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">' + esc(i.nombre) + '</p>' +
       '<p class="text-xs truncate" style="color:var(--ink-soft)">' + esc(i.codigo || '') + (i.barras ? ' · ▮▯▮ ' + esc(i.barras) : '') + '</p>' +
-      '<p class="text-[11px] font-medium" id="d-' + i.id + '" style="color:' + (i.diferencia === null ? 'var(--ink-soft)' : difColor(i)) + '">' + esc(difTexto(i)) + '</p></div>' +
+      '<p class="text-[11px] font-medium" id="d-' + i.id + '" style="color:' + (i.diferencia === null ? 'var(--ink-soft)' : difColor(i)) + '">' + esc(difTexto(i)) + '</p>' + venceHtml(i) + '</div>' +
       (EDITA
         ? '<input type="number" inputmode="decimal" step="any" min="0" data-id="' + i.id + '" value="' + (i.contada === null ? '' : i.contada) + '" placeholder="—" onchange="anotar(' + i.id + ', this)" onkeydown="siguiente(event)" class="field-input" style="width:84px; text-align:right; padding:8px">'
         : '<span class="font-mono text-sm font-semibold">' + (i.contada === null ? '—' : numero(i.contada)) + '</span>') +

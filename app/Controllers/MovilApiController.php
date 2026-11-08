@@ -28,6 +28,7 @@ class MovilApiController extends BaseController
         $q           = trim((string) ($this->request->getGet('q') ?? ''));
         $categoriaId = (int) ($this->request->getGet('categoria') ?? 0);
         $soloBajo    = $this->request->getGet('stock_bajo') === '1';
+        $porVencer   = $this->request->getGet('por_vencer') === '1';
         $offset      = max(0, (int) ($this->request->getGet('offset') ?? 0));
 
         $where  = ["p.estado = 'activo'", 'p.empresa_id = ?'];
@@ -51,12 +52,17 @@ class MovilApiController extends BaseController
         if ($soloBajo) {
             $where[] = 'COALESCE(i.existencia, 0) <= COALESCE(i.minimo, 0)';
         }
+        if ($porVencer) {
+            // Vencidos o que vencen en los próximos días (con stock)
+            $where[]  = 'i.fecha_vencimiento IS NOT NULL AND i.existencia > 0 AND DATEDIFF(i.fecha_vencimiento, CURDATE()) <= ?';
+            $params[] = InventarioService::DIAS_AVISO_VENCIMIENTO;
+        }
 
         $limite = self::POR_PAGINA + 1; // uno extra para saber si hay más
         $filas  = Db::all(
             "SELECT p.producto_id, p.codigo, p.codigo_barras, p.nombre, p.costo, p.maneja_lotes,
                     p.imagen_principal, c.nombre AS categoria_nombre,
-                    COALESCE(i.existencia, 0) AS existencia, COALESCE(i.minimo, 0) AS minimo, COALESCE(i.ubicacion, '') AS ubicacion,
+                    COALESCE(i.existencia, 0) AS existencia, COALESCE(i.minimo, 0) AS minimo, COALESCE(i.ubicacion, '') AS ubicacion, i.fecha_vencimiento,
                     COALESCE(pa.precio, 0) AS precio_a,
                     COALESCE(pb.precio, 0) AS precio_b,
                     COALESCE(pc.precio, 0) AS precio_c
@@ -67,7 +73,7 @@ class MovilApiController extends BaseController
              LEFT JOIN precios_productos pb ON pb.producto_id = p.producto_id AND pb.tipo_precio = 'b'
              LEFT JOIN precios_productos pc ON pc.producto_id = p.producto_id AND pc.tipo_precio = 'c'
              WHERE " . implode(' AND ', $where) . "
-             ORDER BY p.nombre
+             ORDER BY " . ($porVencer ? 'i.fecha_vencimiento, ' : '') . "p.nombre
              LIMIT {$limite} OFFSET {$offset}",
             $params
         );
@@ -110,6 +116,7 @@ class MovilApiController extends BaseController
                 'existencia'       => (float) $p['existencia'],
                 'minimo'           => (float) $p['minimo'],
                 'ubicacion'        => (string) $p['ubicacion'],
+                'vence'            => InventarioService::estadoVencimiento($p['fecha_vencimiento']),
                 'precio_a'         => (float) $p['precio_a'],
                 'precio_b'         => (float) $p['precio_b'],
                 'precio_c'         => (float) $p['precio_c'],
@@ -218,17 +225,31 @@ class MovilApiController extends BaseController
         if (!$compra || in_array($compra['estado'], ['recibida', 'cancelada'], true)) {
             return $this->json(['error' => 'Esta compra no admite recepción.'], 422);
         }
+        $entrada   = $this->jsonInput();
         $recibidas = [];
-        foreach ((array) ($this->jsonInput()['recibidas'] ?? []) as $detalleId => $cantidad) {
+        foreach ((array) ($entrada['recibidas'] ?? []) as $detalleId => $cantidad) {
             $recibidas[(int) $detalleId] = (float) $cantidad;
         }
         try {
+            // Vencimiento opcional por línea {detalle_id: 'Y-m-d'}: se valida antes de tocar nada
+            $vencimientos = [];
+            foreach ((array) ($entrada['vencimientos'] ?? []) as $detalleId => $fecha) {
+                if (($f = InventarioService::fechaVencimiento((string) $fecha)) && ($recibidas[(int) $detalleId] ?? 0) > 0) {
+                    $vencimientos[(int) $detalleId] = $f;
+                }
+            }
             Db::begin();
             $estado = \App\Libraries\CompraService::recibirPendientes($id, $compra, $recibidas, (int) $compra['deposito_id']);
+            foreach ($vencimientos as $detalleId => $f) {
+                $productoId = Db::value("SELECT producto_id FROM compras_detalle WHERE detalle_id = ? AND compra_id = ?", [$detalleId, $id]);
+                if ($productoId) {
+                    InventarioService::fijarVencimiento((int) $productoId, (int) $compra['deposito_id'], $f);
+                }
+            }
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollback();
-            return $this->json(['error' => $e instanceof \RuntimeException ? $e->getMessage() : 'No se pudo registrar la recepción.'], 422);
+            return $this->json(['error' => $e instanceof \RuntimeException || $e instanceof \DomainException ? $e->getMessage() : 'No se pudo registrar la recepción.'], 422);
         }
         AuditService::log('compras.recibir', "Recepción {$estado} — Compra #{$id} (móvil)", $id, 'compra', ['estado' => $estado], $this->empresaId());
         return $this->json(['success' => true, 'estado' => $estado]);
@@ -339,6 +360,34 @@ class MovilApiController extends BaseController
         }
         AuditService::log('inventario.conteo', "Conteo #{$id} abierto (móvil): {$descripcion}", $id, 'conteo', [], $this->empresaId());
         return $this->json(['success' => true, 'conteo_id' => $id]);
+    }
+
+    /**
+     * POST /m/api/vencimiento {producto_id, fecha: 'Y-m-d'|''} — próximo vencimiento del producto en el
+     * depósito activo (desde el conteo, la ficha o la recepción). '' lo quita.
+     */
+    public function vencimiento()
+    {
+        if (!Auth::can('conteos.crear') && !Auth::can('productos.editar') && !Auth::can('productos.editar_basico') && !Auth::can('compras.recibir')) {
+            return $this->json(['error' => 'Sin permiso.'], 403);
+        }
+        $d          = $this->jsonInput();
+        $productoId = (int) ($d['producto_id'] ?? 0);
+        // Depósito: el indicado (p. ej. el del conteo) si es de la sucursal y el usuario lo puede usar; si no, el activo
+        $depositoId = (int) ($d['deposito_id'] ?? 0);
+        if (!$depositoId || !\App\Libraries\SucursalService::puedeUsarDeposito($depositoId, (int) $this->sucursalId())) {
+            $depositoId = $this->depositoId();
+        }
+        if (!$depositoId || !Db::value("SELECT 1 FROM productos WHERE producto_id = ? AND empresa_id = ?", [$productoId, $this->empresaId()])) {
+            return $this->json(['error' => 'Producto no encontrado.'], 404);
+        }
+        try {
+            InventarioService::fijarVencimiento($productoId, $depositoId, isset($d['fecha']) ? (string) $d['fecha'] : null);
+        } catch (\DomainException $e) {
+            return $this->json(['error' => $e->getMessage()], 422);
+        }
+        $fecha = Db::value("SELECT fecha_vencimiento FROM inventario WHERE producto_id = ? AND deposito_id = ?", [$productoId, $depositoId]);
+        return $this->json(['success' => true, 'fecha' => $fecha, 'estado' => InventarioService::estadoVencimiento($fecha)]);
     }
 
     /** POST /m/api/conteo/{id}/linea {producto_id, cantidad|null, ubicacion?} */

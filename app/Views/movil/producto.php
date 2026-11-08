@@ -13,6 +13,8 @@ $tipos = [
     'traslado_salida'  => ['Traslado enviado', 'var(--red)', '−'],
     'traslado_entrada' => ['Traslado recibido', 'var(--green)', '+'],
 ];
+$vence = \App\Libraries\InventarioService::estadoVencimiento($inv['fecha_vencimiento'] ?? null);
+$colorVence = fn (?array $v) => !$v ? 'var(--ink-soft)' : ($v['nivel'] === 'vencido' ? 'var(--red)' : ($v['nivel'] === 'pronto' ? 'var(--orange)' : 'var(--ink)'));
 $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.');
 ?>
 <?php $this->section('content'); ?>
@@ -22,14 +24,13 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
 <div class="card mb-4">
   <div class="flex gap-3">
     <?php $tieneFoto = !empty($p['imagen_principal']); ?>
-    <?php if ($puedeEditar): ?><label class="relative flex-shrink-0 cursor-pointer" title="Tomar foto"><?php else: ?><div class="relative flex-shrink-0"><?php endif; ?>
-      <img id="foto-prod" src="<?= $tieneFoto ? '/assets/uploads/' . esc($p['imagen_principal'], 'attr') : '' ?>" alt="" class="w-20 h-20 rounded-xl object-cover <?= $tieneFoto ? '' : 'hidden' ?>">
-      <div id="foto-vacia" class="w-20 h-20 rounded-xl flex flex-col items-center justify-center text-3xl <?= $tieneFoto ? 'hidden' : '' ?>" style="background:var(--navy-light)">📦<?php if ($puedeEditar): ?><span class="text-[10px] mt-0.5" style="color:var(--navy)">Tomar foto</span><?php endif; ?></div>
-      <?php if ($puedeEditar): ?>
-        <span id="foto-badge" class="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center text-sm shadow" style="background:var(--navy); color:white">📷</span>
-        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="subirFoto(this)">
-      <?php endif; ?>
-    <?php if ($puedeEditar): ?></label><?php else: ?></div><?php endif; ?>
+    <?php if ($tieneFoto): ?>
+      <button type="button" onclick="verFoto()" class="flex-shrink-0" title="Ver foto">
+        <img src="/assets/uploads/<?= esc($p['imagen_principal'], 'attr') ?>" alt="" class="w-20 h-20 rounded-xl object-cover">
+      </button>
+    <?php else: ?>
+      <div class="w-20 h-20 rounded-xl flex-shrink-0 flex flex-col items-center justify-center text-3xl" style="background:var(--navy-light)">📦<span class="text-[10px] mt-0.5" style="color:var(--ink-soft)">Sin foto</span></div>
+    <?php endif; ?>
     <div class="min-w-0 flex-1">
       <p class="font-head text-base font-semibold leading-tight"><?= esc($p['nombre']) ?></p>
       <p class="text-xs mt-1 font-mono" style="color:var(--ink-soft)"><?= esc($p['codigo']) ?><?= $p['codigo_barras'] ? ' · ' . esc($p['codigo_barras']) : '' ?></p>
@@ -37,6 +38,7 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
         <span class="text-[10px] px-2 py-0.5 rounded-full" style="background:<?= $fondo ?>; color:<?= $color ?>"><?= $etiqueta ?></span>
         <?php if ($p['estado'] !== 'activo'): ?><span class="text-[10px] px-2 py-0.5 rounded-full" style="background:var(--line); color:var(--ink-soft)">Inactivo</span><?php endif; ?>
         <?php if ($p['maneja_lotes']): ?><span class="text-[10px] px-2 py-0.5 rounded-full" style="background:var(--purple-light); color:var(--purple)">Con lotes</span><?php endif; ?>
+        <?php if ($vence && $vence['nivel'] !== 'ok'): ?><span class="text-[10px] px-2 py-0.5 rounded-full" style="background:<?= $vence['nivel'] === 'vencido' ? 'var(--red-light)' : 'var(--orange-light)' ?>; color:<?= $colorVence($vence) ?>">⏳ <?= $vence['nivel'] === 'vencido' ? 'Vencido' : 'Por vencer' ?></span><?php endif; ?>
       </div>
     </div>
   </div>
@@ -61,6 +63,17 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
     <dt style="color:var(--ink-soft)">Marca</dt><dd class="text-right truncate"><?= esc($p['marca'] ?: '—') ?></dd>
     <dt style="color:var(--ink-soft)">Proveedor</dt><dd class="text-right truncate"><?= esc($p['proveedor_nombre'] ?? '—') ?></dd>
     <dt style="color:var(--ink-soft)">Ubicación</dt><dd class="text-right truncate"><?= !empty($inv['ubicacion']) ? '📍 ' . esc($inv['ubicacion']) : '—' ?></dd>
+    <dt style="color:var(--ink-soft)">Vence</dt>
+    <dd class="text-right">
+      <?php if ($puedeVence && $inv): ?>
+        <label class="inline-flex items-center gap-1 cursor-pointer">
+          <span id="vence-texto" class="text-xs" style="color:<?= $colorVence($vence) ?>"><?= $vence ? esc($vence['texto']) : 'Sin fecha' ?></span>
+          <input type="date" id="vence-input" value="<?= esc($inv['fecha_vencimiento'] ?? '', 'attr') ?>" onchange="guardarVence(this.value)" class="text-xs border rounded-lg px-1 py-0.5" style="border-color:var(--line); max-width:8.5rem">
+        </label>
+      <?php else: ?>
+        <span class="text-xs" style="color:<?= $colorVence($vence) ?>"><?= $vence ? esc($vence['texto']) : '—' ?></span>
+      <?php endif; ?>
+    </dd>
     <dt style="color:var(--ink-soft)">Stock mínimo</dt><dd class="text-right font-mono"><?= $num($minimo) ?></dd>
     <?php if ($verCosto): ?>
       <dt style="color:var(--ink-soft)">Costo promedio</dt><dd class="text-right font-mono">$<?= number_format((float) ($inv['costo_promedio'] ?? $p['costo']), 2) ?></dd>
@@ -97,6 +110,7 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
       <div class="min-w-0">
         <p class="text-sm font-medium truncate"><?= esc($s['sucursal']) ?></p>
         <p class="text-xs truncate" style="color:var(--ink-soft)"><?= esc($s['deposito']) ?><?= $s['ubicacion'] ? ' · 📍 ' . esc($s['ubicacion']) : '' ?></p>
+        <?php if ($sv = \App\Libraries\InventarioService::estadoVencimiento($s['fecha_vencimiento'])): ?><p class="text-[11px]" style="color:<?= $colorVence($sv) ?>">⏳ <?= esc($sv['texto']) ?></p><?php endif; ?>
       </div>
       <p class="font-mono text-sm font-semibold flex-shrink-0" style="color:<?= (float) $s['existencia'] <= 0 ? 'var(--red)' : 'var(--ink)' ?>"><?= $num($s['existencia']) ?></p>
     </div>
@@ -164,36 +178,31 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
-<?php if ($puedeEditar): ?>
-<script src="/assets/js/foto-producto.js?v=1"></script>
+<?php if ($puedeVence && $inv): ?>
 <script>
-async function subirFoto(input) {
-  const original = input.files && input.files[0];
-  input.value = '';
-  if (!original) return;
-  const badge = document.getElementById('foto-badge');
-  badge.textContent = '⏳';
+async function guardarVence(fecha) {
+  const texto = document.getElementById('vence-texto');
   try {
-    const archivo = await FotoProducto.reducir(original);
-    const datos = new FormData();
-    datos.append('imagen', archivo);
-    const r = await fetch('/m/productos/<?= (int) $p['producto_id'] ?>/foto', {
-      method: 'POST', body: datos, credentials: 'same-origin',
-      headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest' },
-    });
-    const res = await r.json().catch(function () { return {}; });
-    if (!r.ok || !res.imagen) throw new Error(res.error || 'No se pudo guardar la foto.');
-    const img = document.getElementById('foto-prod');
-    img.src = res.imagen;
-    img.classList.remove('hidden');
-    document.getElementById('foto-vacia').classList.add('hidden');
-    toast('Foto guardada.');
-  } catch (e) {
-    toast(e.message, 'error');
-  } finally {
-    badge.textContent = '📷';
+    const r = await api('/m/api/vencimiento', { method: 'POST', body: { producto_id: <?= (int) $p['producto_id'] ?>, fecha: fecha } });
+    const e = r.estado;
+    texto.textContent = e ? e.texto : 'Sin fecha';
+    texto.style.color = !e ? 'var(--ink-soft)' : (e.nivel === 'vencido' ? 'var(--red)' : (e.nivel === 'pronto' ? 'var(--orange)' : 'var(--ink)'));
+    toast(e ? 'Vencimiento guardado.' : 'Vencimiento quitado.');
+  } catch (err) {
+    toast(err.message, 'error');
   }
 }
+</script>
+<?php endif; ?>
+<?php if ($tieneFoto): ?>
+<div id="visor-foto" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="background:rgba(0,0,0,.88)" onclick="cerrarFoto()">
+  <img src="/assets/uploads/<?= esc($p['imagen_principal'], 'attr') ?>" alt="" class="max-w-full max-h-full rounded-xl object-contain">
+  <button type="button" class="absolute top-4 right-4 w-10 h-10 rounded-full text-white text-xl" style="background:rgba(255,255,255,.2)" aria-label="Cerrar">✕</button>
+</div>
+<script>
+function verFoto() { const v = document.getElementById('visor-foto'); v.classList.remove('hidden'); v.classList.add('flex'); }
+function cerrarFoto() { const v = document.getElementById('visor-foto'); v.classList.add('hidden'); v.classList.remove('flex'); }
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarFoto(); });
 </script>
 <?php endif; ?>
 <?php if ($puedeAjustar && !$p['maneja_lotes']): ?>

@@ -17,6 +17,7 @@ $this->extend('layouts/movil');
 <div class="flex gap-2 overflow-x-auto py-3">
   <button type="button" id="chip-todos" onclick="filtrarStockBajo(false)" class="text-xs px-3 py-1.5 rounded-full whitespace-nowrap">Todos</button>
   <button type="button" id="chip-bajo" onclick="filtrarStockBajo(true)" class="text-xs px-3 py-1.5 rounded-full whitespace-nowrap">Stock bajo</button>
+  <button type="button" id="chip-vencer" onclick="filtrarVencer()" class="text-xs px-3 py-1.5 rounded-full whitespace-nowrap">⏳ Por vencer</button>
 </div>
 
 <?php if (!empty($categorias)): ?>
@@ -93,6 +94,7 @@ const PUEDE_AJUSTAR = <?= json_encode($puedeAjustar) ?>;
 const PUEDE_EDITAR  = <?= json_encode($puedeEditar) ?>;
 
 let soloStockBajo = <?= json_encode($soloStockBajo) ?>;
+let porVencer = <?= json_encode($porVencer ?? false) ?>;
 let categoriaActual = '';
 let movProductoId = null;
 let movTipo = 'entrada';
@@ -154,6 +156,7 @@ const lista = new ListaProductos({
       q: document.getElementById('input-busqueda').value.trim(),
       categoria: categoriaActual,
       stock_bajo: soloStockBajo ? '1' : '',
+      por_vencer: porVencer ? '1' : '',
     };
   },
   renderItem: function (p) {
@@ -162,6 +165,9 @@ const lista = new ListaProductos({
     const etiqueta = estado === 'agotado' ? 'Agotado' : numero(p.existencia) + ' uds';
     let detalle = esc(p.codigo || '') + (p.ubicacion ? ' · 📍 ' + esc(p.ubicacion) : '');
     if (PUEDE_EDITAR && p.costo !== undefined) detalle += ' · Costo ' + dinero(p.costo);
+    const vence = p.vence
+      ? '<p class="text-[11px] font-medium" style="color:' + (p.vence.nivel === 'vencido' ? 'var(--red)' : (p.vence.nivel === 'pronto' ? 'var(--orange)' : 'var(--ink-soft)')) + '">⏳ ' + esc(p.vence.texto) + '</p>'
+      : '';
 
     const contenido =
       htmlAvatarProducto(p, 'w-14 h-14') +
@@ -170,7 +176,7 @@ const lista = new ListaProductos({
           '<p class="text-sm font-medium truncate pr-2">' + esc(p.nombre) + '</p>' +
           '<p class="font-mono text-sm font-semibold">' + dinero(p.precio_a) + '</p>' +
         '</div>' +
-        '<p class="text-xs truncate" style="color:var(--ink-soft)">' + detalle + '</p>' +
+        '<p class="text-xs truncate" style="color:var(--ink-soft)">' + detalle + '</p>' + vence +
         '<div class="flex items-center gap-2 mt-2">' +
           '<div class="stockbar flex-1"><div style="width:' + porcentajeStock(p) + '%; background:' + colores.bar + '"></div></div>' +
           '<span class="font-mono text-xs" style="color:' + colores.text + '">' + etiqueta + '</span>' +
@@ -197,14 +203,26 @@ const lista = new ListaProductos({
 function pintarChipsStock() {
   const todos = document.getElementById('chip-todos');
   const bajo = document.getElementById('chip-bajo');
-  todos.className = 'text-xs px-3 py-1.5 rounded-full whitespace-nowrap ' + (soloStockBajo ? 'bg-white border' : 'text-white');
-  todos.style.cssText = soloStockBajo ? 'border-color:var(--line)' : 'background:var(--navy)';
+  const vencer = document.getElementById('chip-vencer');
+  const filtrado = soloStockBajo || porVencer;
+  todos.className = 'text-xs px-3 py-1.5 rounded-full whitespace-nowrap ' + (filtrado ? 'bg-white border' : 'text-white');
+  todos.style.cssText = filtrado ? 'border-color:var(--line)' : 'background:var(--navy)';
+  vencer.className = 'text-xs px-3 py-1.5 rounded-full whitespace-nowrap';
+  vencer.style.cssText = porVencer ? 'background:var(--red); color:white' : 'background:var(--red-light); color:var(--red)';
   bajo.className = 'text-xs px-3 py-1.5 rounded-full whitespace-nowrap';
   bajo.style.cssText = soloStockBajo ? 'background:var(--orange); color:white' : 'background:var(--orange-light); color:var(--orange)';
 }
 
+function filtrarVencer() {
+  porVencer = !porVencer;
+  soloStockBajo = false;
+  pintarChipsStock();
+  lista.cargar(true);
+}
+
 function filtrarStockBajo(valor) {
   soloStockBajo = valor;
+  porVencer = false;
   pintarChipsStock();
   lista.cargar(true);
 }

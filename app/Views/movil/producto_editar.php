@@ -88,6 +88,9 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
         <input class="field-input mb-3" style="font-family:'Inter'" name="ubicacion" maxlength="100" placeholder="Estante A-3" value="<?= esc($v('ubicacion', $inv['ubicacion'] ?? ''), 'attr') ?>">
       </div>
     </div>
+    <label class="field-label">Vence (próximo vencimiento)</label>
+    <input class="field-input mb-1" type="date" name="fecha_vencimiento" value="<?= esc((string) $v('fecha_vencimiento', $inv['fecha_vencimiento'] ?? ''), 'attr') ?>">
+    <p class="text-[11px]" style="color:var(--ink-soft)">Déjalo vacío si no vence. Avisa 30 días antes.</p>
   </div>
 
   <div class="card mb-4">

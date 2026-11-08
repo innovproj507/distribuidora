@@ -215,6 +215,7 @@
                         <tr>
                             <th class="px-6 py-3 text-left text-[10px] font-black text-gray-500 uppercase tracking-wider">Depósito</th>
                             <th class="px-6 py-3 text-left text-[10px] font-black text-gray-500 uppercase tracking-wider">Stock Inicial</th>
+                            <th class="px-6 py-3 text-left text-[10px] font-black text-gray-500 uppercase tracking-wider">Vence (opcional)</th>
                             <th class="px-6 py-3 text-left text-[10px] font-black text-gray-500 uppercase tracking-wider">Estado</th>
                         </tr>
                     </thead>
@@ -233,12 +234,16 @@
                                 </div>
                             </td>
                             <td class="px-6 py-4">
+                                <input type="date" name="vence[<?= (int) $dep['deposito_id'] ?>]"
+                                       class="px-3 py-2 border border-gray-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-sky-500 bg-white focus:outline-none">
+                            </td>
+                            <td class="px-6 py-4">
                                 <span class="px-2 py-1 bg-emerald-500 text-white text-[9px] font-black rounded-full uppercase">Activo</span>
                             </td>
                         </tr>
                         <?php endforeach; ?>
                         <?php if (empty($depositos)): ?>
-                        <tr><td colspan="3" class="px-6 py-4 text-center text-xs text-gray-400 italic">No hay depósitos activos disponibles</td></tr>
+                        <tr><td colspan="4" class="px-6 py-4 text-center text-xs text-gray-400 italic">No hay depósitos activos disponibles</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>

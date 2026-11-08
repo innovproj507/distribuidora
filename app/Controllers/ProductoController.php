@@ -47,7 +47,7 @@ class ProductoController extends BaseController
 
         $productos = Db::all(
             "SELECT p.*, c.nombre AS categoria_nombre, pr.nombre AS proveedor_nombre,
-                    COALESCE(i.existencia, 0) AS stock_total, COALESCE(i.costo_promedio, 0) AS costo_promedio,
+                    COALESCE(i.existencia, 0) AS stock_total, COALESCE(i.costo_promedio, 0) AS costo_promedio, i.fecha_vencimiento,
                     COALESCE(pa.precio, 0) AS precio_a, COALESCE(pb.precio, 0) AS precio_b, COALESCE(pc.precio, 0) AS precio_c
              FROM productos p
              LEFT JOIN categorias_productos c ON p.categoria_id = c.categoria_id
@@ -163,9 +163,11 @@ class ProductoController extends BaseController
         }
 
         try {
+            $vencimientos = $this->vencimientosFormulario();
             Db::begin();
             $productoId = ProductoService::crear((int) $this->empresaId(), $datos, $this->preciosFormulario(['a', 'b', 'c']), $this->stocksFormulario());
             ProductoService::guardarUnidades($productoId, $this->unidadesFormulario());
+            $this->guardarVencimientos($productoId, $vencimientos);
             Db::commit();
         } catch (\DomainException $e) {
             Db::rollback();
@@ -220,9 +222,11 @@ class ProductoController extends BaseController
         $datos['imagen_principal'] = $this->subirImagen('imagen_principal', 'productos');
 
         try {
+            $vencimientos = $this->vencimientosFormulario();
             Db::begin();
             ProductoService::actualizar($productoId, (int) $this->empresaId(), $datos, $this->preciosFormulario(['a', 'b', 'c', 'promocional']));
             ProductoService::guardarUnidades($productoId, $this->unidadesFormulario());
+            $this->guardarVencimientos($productoId, $vencimientos);
             Db::commit();
         } catch (\DomainException $e) {
             Db::rollback();
@@ -451,6 +455,28 @@ class ProductoController extends BaseController
             }
         }
         return $resultado;
+    }
+
+    /**
+     * Fechas de vencimiento del formulario: vence[deposito_id] = 'Y-m-d' | ''. Solo depósitos de la
+     * sucursal activa que el usuario puede usar. Lanza DomainException si una fecha no es válida.
+     */
+    private function vencimientosFormulario(): array
+    {
+        $resultado = [];
+        foreach ((array) ($this->request->getPost('vence') ?? []) as $depositoId => $fecha) {
+            if (\App\Libraries\SucursalService::puedeUsarDeposito((int) $depositoId, (int) $this->sucursalId())) {
+                $resultado[(int) $depositoId] = \App\Libraries\InventarioService::fechaVencimiento((string) $fecha);
+            }
+        }
+        return $resultado;
+    }
+
+    private function guardarVencimientos(int $productoId, array $vencimientos): void
+    {
+        foreach ($vencimientos as $depositoId => $fecha) {
+            \App\Libraries\InventarioService::fijarVencimiento($productoId, $depositoId, $fecha);
+        }
     }
 
     private function unidadesFormulario(): array

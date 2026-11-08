@@ -237,6 +237,10 @@ function posCatFilter() {
                         <div>
                             <a href="/inventario/<?= $pId ?>" class="text-sm font-semibold text-gray-900 hover:text-sky-500 transition-colors"><?= esc($pNombre) ?></a>
                             <div class="text-xs text-gray-400">SKU: <?= esc($pCodigo) ?></div>
+                            <?php $vence = \App\Libraries\InventarioService::estadoVencimiento(is_array($producto) ? ($producto['fecha_vencimiento'] ?? null) : ($producto->fecha_vencimiento ?? null)); ?>
+                            <?php if ($vence): ?>
+                            <div class="text-[11px] font-semibold <?= $vence['nivel'] === 'vencido' ? 'text-red-600' : ($vence['nivel'] === 'pronto' ? 'text-orange-600' : 'text-gray-400') ?>"><i class="fas fa-hourglass-half mr-1"></i><?= esc($vence['texto']) ?></div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </td>

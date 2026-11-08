@@ -118,6 +118,14 @@ final class TrasladoService
             }
 
             InventarioService::registrar($inventarioId, 'traslado_entrada', (float) $detalle['cantidad'], $trasladoId, 'traslados', "Traslado #{$trasladoId} recibido");
+
+            // Vencimiento: si el destino no tiene fecha, toma la del origen (la mercancía es la misma)
+            Db::query(
+                "UPDATE inventario d JOIN inventario o ON o.producto_id = d.producto_id AND o.deposito_id = ?
+                 SET d.fecha_vencimiento = o.fecha_vencimiento
+                 WHERE d.inventario_id = ? AND d.fecha_vencimiento IS NULL AND o.fecha_vencimiento IS NOT NULL",
+                [$traslado['deposito_origen_id'], $inventarioId]
+            );
         }
     }
 }

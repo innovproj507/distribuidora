@@ -63,6 +63,9 @@ $ec = $estadoCompra[$compra['estado']] ?? [ucfirst((string) $compra['estado']), 
               <?php foreach ($l['pres'] as $p): ?><option value="<?= (float) $p['factor'] ?>"><?= esc(mb_strtolower($p['nombre'])) ?> ×<?= (float) $p['factor'] ?></option><?php endforeach; ?>
             </select>
           <?php endif; ?>
+          <label class="flex items-center gap-1 text-[11px]" style="color:var(--ink-soft)">⏳
+            <input type="date" data-detalle="<?= (int) $l['detalle_id'] ?>" class="rec-vence border rounded-md px-1" title="Vence (opcional)" style="border-color:var(--line); font-size:11px; max-width:7.5rem">
+          </label>
         </div>
       <?php endif; ?>
     </div>
@@ -94,10 +97,12 @@ async function recibirCompra() {
   document.querySelectorAll('.rec-linea').forEach(function (el) {
     recibidas[el.dataset.detalle] = Math.round((parseFloat(el.value) || 0) * parseFloat(el.dataset.factor) * 100) / 100;
   });
+  const vencimientos = {};
+  document.querySelectorAll('.rec-vence').forEach(function (el) { if (el.value) vencimientos[el.dataset.detalle] = el.value; });
   const boton = document.getElementById('btn-recibir');
   boton.disabled = true; boton.textContent = 'Guardando…';
   try {
-    await api('/m/api/compra/' + COMPRA_ID + '/recibir', { method: 'POST', body: { recibidas: recibidas } });
+    await api('/m/api/compra/' + COMPRA_ID + '/recibir', { method: 'POST', body: { recibidas: recibidas, vencimientos: vencimientos } });
     toast('Recepción registrada.');
     setTimeout(function () { location.reload(); }, 700);
   } catch (e) {
