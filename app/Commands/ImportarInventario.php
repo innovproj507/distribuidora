@@ -75,6 +75,11 @@ class ImportarInventario extends BaseCommand
                 $precio = isset($l['precio']) ? (float) $l['precio'] : 0.0;
                 $clave  = self::norm($nombre);
                 $existe = $indice[$clave][0] ?? null;
+                if (!empty($l['producto_id'])) { // correspondencia indicada a mano
+                    $fila = Db::row("SELECT producto_id, nombre, estado FROM productos WHERE producto_id = ? AND empresa_id = ?", [(int) $l['producto_id'], self::EMPRESA]);
+                    if (!$fila) throw new \RuntimeException("producto_id {$l['producto_id']} no existe ({$nombre})");
+                    $existe = $fila;
+                }
 
                 if (!$existe) {
                     $catId = $this->categoria((string) ($l['categoria'] ?? ''), $cats, $aplicar);
@@ -108,10 +113,10 @@ class ImportarInventario extends BaseCommand
                 $actual = $invId ? (float) Db::value("SELECT existencia FROM inventario WHERE inventario_id = ?", [$invId]) : 0.0;
 
                 if (abs($actual - $cant) < 0.005) {
-                    CLI::write("  = IGUAL  {$existe['nombre']} ({$actual})");
+                    CLI::write("  = IGUAL  {$existe['nombre']} ({$actual})   (Excel: {$nombre})");
                     $cont['iguales']++;
                 } else {
-                    CLI::write("  ~ AJUSTAR {$existe['nombre']}: {$actual} → {$cant}", 'cyan');
+                    CLI::write("  ~ AJUSTAR {$existe['nombre']}: {$actual} → {$cant}   (Excel: {$nombre})", 'cyan');
                     if ($aplicar && $invId) {
                         $dif = round($cant - $actual, 2);
                         $mot = 'Inventario manual ' . date('Y-m-d');
