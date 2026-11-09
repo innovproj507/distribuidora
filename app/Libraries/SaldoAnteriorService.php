@@ -11,7 +11,7 @@ namespace App\Libraries;
  */
 final class SaldoAnteriorService
 {
-    public const ENCABEZADOS = ['ID', 'Código', 'Cliente', 'RUC', 'Teléfono', 'Debe hoy en el sistema (referencia)', 'Saldo anterior', 'Fecha', 'Referencia', 'Límite de crédito'];
+    public const ENCABEZADOS = ['ID', 'Código', 'Cliente', 'RUC', 'Teléfono', 'Ya debe en el sistema (no llenar)', 'Saldo anterior', 'Fecha', 'Referencia', 'Límite de crédito'];
 
     /**
      * Registra un saldo anterior. El llamador abre la transacción.
@@ -187,6 +187,25 @@ final class SaldoAnteriorService
                 }
             }
             $lineas[] = $l;
+        }
+
+        if (!$lineas) {
+            // Explica por qué no hay nada: casi siempre el monto se escribió en otra columna
+            $letra = chr(65 + (int) $cols['monto']);
+            $otra = null;
+            foreach ($filas[0] as $i => $h) {
+                if ($i === $cols['monto']) continue;
+                $n = self::normalizar((string) $h);
+                if (str_contains($n, 'debe') || str_contains($n, 'saldo') || str_contains($n, 'monto')) {
+                    foreach (array_slice($filas, 1) as $f) {
+                        if ((float) (self::decimal(trim((string) ($f[$i] ?? ''))) ?? 0) > 0) { $otra = (string) $h; break 2; }
+                    }
+                }
+            }
+            throw new \DomainException(
+                "Ninguna fila tiene monto en la columna \"Saldo anterior\" (columna {$letra}), así que no hay nada que cargar."
+                . ($otra !== null ? " Parece que los montos están en la columna \"{$otra}\": pásalos a \"Saldo anterior\" y sube el archivo de nuevo." : '')
+            );
         }
         return $lineas;
     }
