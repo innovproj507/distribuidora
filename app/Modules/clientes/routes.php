@@ -19,6 +19,14 @@ $routes->group('', ['filter' => ['auth', 'sucursal']], static function ($routes)
     $routes->post('clientes/(:num)/direccion', 'ClienteController::agregarDireccion/$1', ['filter' => 'permiso:clientes.editar']);
     $routes->post('clientes/direccion/(:num)/eliminar', 'ClienteController::eliminarDireccion/$1', ['filter' => 'permiso:clientes.eliminar']);
 
+    // Saldos anteriores (créditos de antes del sistema)
+    $routes->post('clientes/(:num)/saldo-anterior', 'SaldoAnteriorController::guardar/$1', ['filter' => 'permiso:clientes.editar']);
+    $routes->post('clientes/saldo-anterior/(:num)/anular', 'SaldoAnteriorController::anular/$1', ['filter' => 'permiso:clientes.eliminar']);
+    $routes->get('clientes/saldos-anteriores/importar', 'SaldoAnteriorController::importar', ['filter' => 'permiso:clientes.editar']);
+    $routes->post('clientes/saldos-anteriores/importar', 'SaldoAnteriorController::revisar', ['filter' => 'permiso:clientes.editar']);
+    $routes->get('clientes/saldos-anteriores/plantilla', 'SaldoAnteriorController::plantilla', ['filter' => 'permiso:clientes.editar']);
+    $routes->post('clientes/saldos-anteriores/aplicar', 'SaldoAnteriorController::aplicar', ['filter' => 'permiso:clientes.editar']);
+
     // Mini-API (JSON)
     $routes->post('api/clientes/crear-rapido', 'ClienteController::crearRapido', ['filter' => 'permiso:clientes.crear']);
     $routes->get('api/clientes/buscar', 'ClienteController::buscarAjax', ['filter' => 'permiso:clientes.ver,pos.usar']);

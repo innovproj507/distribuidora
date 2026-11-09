@@ -108,6 +108,7 @@ class ClienteController extends BaseController
             'cliente'       => new Fila($cliente),
             'direcciones'   => Fila::lista(Db::all("SELECT * FROM direcciones_cliente WHERE cliente_id = ?", [$clienteId])),
             'ventas'        => Db::all("SELECT * FROM ventas WHERE cliente_id = ? AND sucursal_id = ? ORDER BY fecha DESC LIMIT 20", [$clienteId, $this->sucursalId()]),
+            'saldosAnteriores' => \App\Libraries\SaldoAnteriorService::delCliente($clienteId, (int) $this->empresaId()),
         ]);
     }
 

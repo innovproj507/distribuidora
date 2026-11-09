@@ -108,7 +108,7 @@ final class SimpleXlsxReader
         $filas  = [];
         foreach ($lineas as $l) {
             if (trim($l) === '') continue;
-            $filas[] = array_map('trim', str_getcsv($l, $sep));
+            $filas[] = array_map('trim', str_getcsv($l, $sep, '"', ''));
             if (count($filas) >= self::MAX_FILAS) break;
         }
         return $filas;

@@ -41,9 +41,11 @@
 <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
     <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
         <h3 class="text-lg font-bold text-slate-800">Cuentas Pendientes</h3>
-        <button class="text-blue-500 hover:text-blue-500/80 font-bold text-sm transition-all flex items-center gap-2">
-            <i class="fas fa-file-export"></i> Exportar Reporte
-        </button>
+        <?php if (\App\Libraries\Auth::can('clientes.editar')): ?>
+        <a href="/clientes/saldos-anteriores/importar" class="text-blue-500 hover:text-blue-500/80 font-bold text-sm transition-all flex items-center gap-2">
+            <i class="fas fa-file-import"></i> Importar saldos anteriores
+        </a>
+        <?php endif; ?>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-100">

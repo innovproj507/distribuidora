@@ -61,10 +61,14 @@
                 <span class="text-sm text-gray-800 font-medium">$<?= number_format((float)$cliente->limite_credito, 2) ?></span>
             </div>
             <div class="flex items-baseline gap-4 py-2">
-                <label class="text-sm font-semibold text-gray-600 w-36 shrink-0">Saldo</label>
-                <span class="text-sm font-semibold <?= (float)$cliente->saldo > 0 ? 'text-red-600' : 'text-emerald-600' ?>">
-                    $<?= number_format((float)$cliente->saldo, 2) ?>
+                <label class="text-sm font-semibold text-gray-600 w-36 shrink-0">Debe (pendiente)</label>
+                <span class="text-sm font-semibold <?= (float)$cliente->saldo_pendiente > 0 ? 'text-red-600' : 'text-emerald-600' ?>">
+                    $<?= number_format((float)$cliente->saldo_pendiente, 2) ?>
                 </span>
+            </div>
+            <div class="flex items-baseline gap-4 py-2">
+                <label class="text-sm font-semibold text-gray-600 w-36 shrink-0">Crédito disponible</label>
+                <span class="text-sm text-gray-600">$<?= number_format(max(0, (float)$cliente->limite_credito - (float)$cliente->saldo_pendiente), 2) ?></span>
             </div>
         </div>
     </div>
@@ -81,6 +85,79 @@
                 class="px-4 py-1.5 rounded-lg text-sm font-semibold transition">
             Direcciones
         </button>
+        <button @click="tab='saldos'" :class="tab==='saldos' ? 'bg-sky-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                class="px-4 py-1.5 rounded-lg text-sm font-semibold transition">
+            Saldos anteriores<?php if (!empty($saldosAnteriores)): ?> (<?= count($saldosAnteriores) ?>)<?php endif; ?>
+        </button>
+    </div>
+
+    <!-- Saldos anteriores (créditos de antes del sistema) -->
+    <div x-show="tab==='saldos'" x-cloak>
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-4">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        <th class="px-5 py-3.5 bg-gray-50/80">Número</th>
+                        <th class="px-5 py-3.5 bg-gray-50/80">Fecha</th>
+                        <th class="px-5 py-3.5 bg-gray-50/80">Referencia</th>
+                        <th class="px-5 py-3.5 bg-gray-50/80 text-right">Monto</th>
+                        <th class="px-5 py-3.5 bg-gray-50/80 text-right">Falta</th>
+                        <th class="px-5 py-3.5 bg-gray-50/80">Estado</th>
+                        <th class="px-5 py-3.5 bg-gray-50/80"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    <?php foreach (($saldosAnteriores ?? []) as $s):
+                        $falta = $s['estado'] === 'pendiente' ? max(0, (float) $s['monto'] - (float) $s['abonado']) : 0;
+                        $color = ['pendiente' => 'bg-amber-500', 'pagada' => 'bg-emerald-500', 'anulada' => 'bg-slate-400'][$s['estado']] ?? 'bg-slate-400'; ?>
+                    <tr class="<?= $s['estado'] === 'anulada' ? 'text-gray-400 line-through' : '' ?>">
+                        <td class="px-5 py-3 font-bold"><?= esc($s['numero']) ?></td>
+                        <td class="px-5 py-3 text-xs"><?= date('d/m/Y', strtotime($s['fecha'])) ?></td>
+                        <td class="px-5 py-3 text-gray-500"><?= esc($s['referencia'] ?? '') ?></td>
+                        <td class="px-5 py-3 text-right font-bold">$<?= number_format((float) $s['monto'], 2) ?></td>
+                        <td class="px-5 py-3 text-right <?= $falta > 0 ? 'text-red-600 font-semibold' : '' ?>">$<?= number_format($falta, 2) ?></td>
+                        <td class="px-5 py-3"><span class="px-2.5 py-1 rounded-full text-xs font-bold text-white no-underline <?= $color ?>"><?= ucfirst($s['estado']) ?></span></td>
+                        <td class="px-5 py-3 text-right">
+                            <?php if ($s['estado'] === 'pendiente' && (float) $s['abonado'] <= 0 && \App\Libraries\Auth::can('clientes.eliminar')): ?>
+                            <form action="/clientes/saldo-anterior/<?= (int) $s['saldo_id'] ?>/anular" method="POST" onsubmit="return confirm('¿Anular <?= esc($s['numero'], 'js') ?>? Se resta del saldo del cliente.')">
+                                <?= csrf_field() ?>
+                                <button type="submit" class="text-xs text-red-500 hover:text-red-700 font-semibold">Anular</button>
+                            </form>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                    <?php if (empty($saldosAnteriores)): ?>
+                    <tr><td colspan="7" class="px-5 py-8 text-center text-sm text-gray-400">Sin saldos anteriores</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <?php if (\App\Libraries\Auth::can('clientes.editar')): ?>
+        <form action="/clientes/<?= $cliente->cliente_id ?>/saldo-anterior" method="POST" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <?= csrf_field() ?>
+            <h3 class="text-base font-bold text-gray-800 mb-1">Agregar saldo anterior</h3>
+            <p class="text-xs text-gray-400 mb-4">Lo que el cliente ya debía antes de usar el sistema. Se cobra con abonos como una factura a crédito; no cuenta como venta. Para muchos clientes a la vez: <a href="/clientes/saldos-anteriores/importar" class="text-sky-600 font-semibold">importar desde Excel</a>.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <label class="text-xs font-semibold text-gray-600">Monto
+                    <input type="number" name="monto" step="0.01" min="0.01" required class="mt-1 w-full rounded-lg border-gray-200 text-sm">
+                </label>
+                <label class="text-xs font-semibold text-gray-600">Fecha de la deuda
+                    <input type="date" name="fecha" value="<?= date('Y-m-d') ?>" max="<?= date('Y-m-d') ?>" required class="mt-1 w-full rounded-lg border-gray-200 text-sm">
+                </label>
+                <label class="text-xs font-semibold text-gray-600 sm:col-span-2">Referencia (factura vieja, cuaderno…)
+                    <input type="text" name="referencia" maxlength="100" class="mt-1 w-full rounded-lg border-gray-200 text-sm">
+                </label>
+                <label class="text-xs font-semibold text-gray-600 sm:col-span-4">Notas
+                    <input type="text" name="notas" maxlength="500" class="mt-1 w-full rounded-lg border-gray-200 text-sm">
+                </label>
+            </div>
+            <button type="submit" class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-sky-500 text-white rounded-lg text-sm font-semibold hover:bg-sky-600 transition shadow-sm">
+                <i class="fas fa-plus"></i> Agregar saldo anterior
+            </button>
+        </form>
+        <?php endif; ?>
     </div>
 
     <!-- Historial de compras -->
