@@ -17,13 +17,13 @@ $imagen = $imagen ?? '';
                 <i class="fas fa-camera"></i> Tomar foto
             </button>
             <button type="button" data-elegir class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50">
-                <i class="fas fa-image"></i> Subir archivo
+                <i class="fas fa-image"></i> Galería / archivo
             </button>
             <button type="button" data-quitar class="hidden inline-flex items-center gap-1.5 px-3 py-1.5 text-red-500 rounded-lg text-sm hover:bg-red-50" title="Descartar la foto nueva">
                 <i class="fas fa-xmark"></i>
             </button>
         </div>
-        <p class="text-xs text-gray-400">En el celular abre la cámara; en la computadora, la webcam. Se reduce antes de subir.</p>
+        <p class="text-xs text-gray-400">Tomar foto usa la cámara (webcam en la computadora); Galería elige una foto guardada. Se reduce antes de subir.</p>
     </div>
     <input type="file" name="imagen_principal" data-real accept="image/*" class="hidden">
     <input type="file" data-camara accept="image/*" capture="environment" class="hidden">

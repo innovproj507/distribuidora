@@ -115,7 +115,11 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
       <?php else: ?>
         <img alt="" class="w-14 h-14 rounded-xl object-cover hidden" id="f-foto-prev">
       <?php endif; ?>
-      <input type="file" name="imagen" accept="image/*" capture="environment" class="text-xs flex-1" onchange="previa(this)">
+      <input type="file" name="imagen" accept="image/*" class="hidden" id="f-imagen">
+      <div class="flex flex-1 gap-2">
+        <label class="flex-1 py-2.5 rounded-xl text-sm font-medium text-center cursor-pointer" style="background:var(--navy); color:white">📷 Tomar foto<input type="file" accept="image/*" capture="environment" class="hidden" onchange="previa(this)"></label>
+        <label class="flex-1 py-2.5 rounded-xl text-sm font-medium text-center cursor-pointer" style="background:var(--navy-light); color:var(--navy)">🖼️ Galería<input type="file" accept="image/*" class="hidden" onchange="previa(this)"></label>
+      </div>
     </div>
 
     <?php if ($completo): ?>
@@ -162,7 +166,8 @@ async function previa(input) {
   const reducido = await FotoProducto.reducir(input.files[0]);
   const dt = new DataTransfer();
   dt.items.add(reducido);
-  input.files = dt.files;
+  document.getElementById('f-imagen').files = dt.files;
+  input.value = '';
   const img = document.getElementById('f-foto-prev');
   img.src = URL.createObjectURL(reducido);
   img.classList.remove('hidden');
