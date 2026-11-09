@@ -41,6 +41,42 @@ final class ProductoService
         return isset(self::UNIDADES_MEDIDA[$valor]) ? $valor : 'und';
     }
 
+    /**
+     * Reparte una cantidad en unidades base entre las presentaciones, de mayor a menor, sin mostrar
+     * las que no alcanzan: 300 huevos (bandeja 30, caja 360) → "10 bandejas"; 290 → "9 bandejas y 20 unidades";
+     * 120 lb (saco 50) → "2 sacos y 20 lb". '' si no hay presentaciones o no alcanza para la más chica.
+     * Misma lógica que desglose() en public/movil/app.js.
+     *
+     * @param array $presentaciones filas con nombre + factor_conversion (o factor)
+     */
+    public static function desglose(float $cantidad, array $presentaciones, ?string $unidad = 'und'): string
+    {
+        $pres = [];
+        foreach ($presentaciones as $p) {
+            $f = (float) ($p['factor_conversion'] ?? $p['factor'] ?? 0);
+            if ($f > 1) $pres[] = ['nombre' => (string) $p['nombre'], 'factor' => $f];
+        }
+        usort($pres, fn ($a, $b) => $b['factor'] <=> $a['factor']);
+        $resto = round($cantidad, 2);
+        if (!$pres || $resto < end($pres)['factor']) return '';
+
+        $partes = [];
+        foreach ($pres as $p) {
+            $n = (int) floor(($resto + 0.0001) / $p['factor']);
+            if ($n > 0) {
+                $nom = mb_strtolower($p['nombre']);
+                $partes[] = $n . ' ' . ($n > 1 && !str_ends_with($nom, 's') ? $nom . (preg_match('/[aeiouáéíóú]$/u', $nom) ? 's' : 'es') : $nom);
+                $resto = round($resto - $n * $p['factor'], 2);
+            }
+        }
+        if ($resto > 0) {
+            $um = self::unidadMedida($unidad);
+            $partes[] = rtrim(rtrim(number_format($resto, 2, '.', ''), '0'), '.') . ' ' . ($um === 'und' ? ($resto == 1 ? 'unidad' : 'unidades') : self::abreviatura($um));
+        }
+        $ultimo = array_pop($partes);
+        return $partes ? implode(', ', $partes) . ' y ' . $ultimo : $ultimo;
+    }
+
     /** Abreviatura para mostrar: "uds", "lb"… */
     public static function abreviatura(?string $unidad): string
     {

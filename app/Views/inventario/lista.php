@@ -262,7 +262,11 @@ function posCatFilter() {
                         $depNombre     = is_array($producto) ? ($producto['deposito_principal'] ?? 'Principal') : ($producto->deposito_principal ?? 'Principal');
                         $stockColor    = $stock <= 0 ? 'text-red-600 font-black' : ($stockMin > 0 && $stock <= $stockMin ? 'text-amber-600 font-bold' : 'text-gray-900 font-semibold');
                     ?>
-                    <div class="text-sm <?= $stockColor ?>"><?= rtrim(rtrim(number_format((float) $stock, 2), '0'), '.') ?> <?= esc(\App\Libraries\ProductoService::abreviatura(is_array($producto) ? ($producto['unidad_medida'] ?? 'und') : ($producto->unidad_medida ?? 'und'))) ?></div>
+                    <?php $umProd = is_array($producto) ? ($producto['unidad_medida'] ?? 'und') : ($producto->unidad_medida ?? 'und'); ?>
+                    <div class="text-sm <?= $stockColor ?>"><?= rtrim(rtrim(number_format((float) $stock, 2), '0'), '.') ?> <?= esc(\App\Libraries\ProductoService::abreviatura($umProd)) ?></div>
+                    <?php if ($dStock = \App\Libraries\ProductoService::desglose((float) $stock, (array) (is_array($producto) ? ($producto['presentaciones'] ?? []) : ($producto->presentaciones ?? [])), $umProd)): ?>
+                    <div class="text-xs font-medium text-sky-700"><?= esc($dStock) ?></div>
+                    <?php endif; ?>
                     <div class="text-xs text-gray-400 mt-0.5">
                         <?php if ($cantDepositos == 1): ?>
                             <?= esc($depNombre) ?>

@@ -67,7 +67,7 @@ class ProductoController extends BaseController
         return $this->render('inventario.lista', [
             'page_title'         => 'Inventario',
             'page_subtitle'      => 'Gestión de productos',
-            'productos'          => Fila::lista($productos),
+            'productos'          => Fila::lista($this->conPresentaciones($productos)),
             'pagination'         => paginacion($total, $page, $porPagina),
             'totalProductos'     => (int) Db::value("SELECT COUNT(DISTINCT p.producto_id) FROM productos p JOIN inventario i ON i.producto_id = p.producto_id AND i.deposito_id = ? WHERE p.empresa_id = ?", $statsParams),
             'totalCategorias'    => (int) Db::value("SELECT COUNT(*) FROM categorias_productos WHERE empresa_id = ?", [$empresaId]),
@@ -274,6 +274,22 @@ class ProductoController extends BaseController
 
         $cantidad   = (float) ($this->request->getPost('cantidad') ?? 0);
         $depositoId = (int) $this->request->getPost('deposito_id');
+        $costoPost  = ver_costos() ? (float) ($this->request->getPost('costo') ?? 0) : 0.0;
+
+        // Cantidad en una presentación (bandeja, caja…): se pasa a unidades base; el costo escrito es por esa presentación
+        $unidadId = (int) ($this->request->getPost('unidad_id') ?? 0);
+        $etiqueta = 'unidades';
+        if ($unidadId) {
+            $u = Db::row("SELECT nombre, factor_conversion FROM productos_unidades WHERE unidad_id = ? AND producto_id = ?", [$unidadId, $productoId]);
+            if (!$u || (float) $u['factor_conversion'] <= 0) {
+                $this->error('La presentación elegida no es de este producto.');
+                return redirect()->to("/inventario/{$productoId}");
+            }
+            $factor    = (float) $u['factor_conversion'];
+            $etiqueta  = "unidades ({$cantidad} × {$u['nombre']})";
+            $cantidad  = round($cantidad * $factor, 2);
+            $costoPost = $costoPost > 0 ? $costoPost / $factor : 0.0;
+        }
 
         if (!SucursalService::puedeUsarDeposito($depositoId, (int) $this->sucursalId())) {
             $this->error('Ese depósito no pertenece a tu sucursal o no tienes acceso.');
@@ -283,15 +299,33 @@ class ProductoController extends BaseController
         try {
             Db::begin();
             // Sin costos.ver se usa el costo del producto (agregarStock lo toma si viene 0)
-            ProductoService::agregarStock($productoId, $depositoId, $cantidad, ver_costos() ? (float) ($this->request->getPost('costo') ?? 0) : 0.0);
+            ProductoService::agregarStock($productoId, $depositoId, $cantidad, $costoPost);
             Db::commit();
-            $this->success("Se agregaron {$cantidad} unidades al inventario.");
+            $this->success("Se agregaron {$cantidad} {$etiqueta} al inventario.");
         } catch (\InvalidArgumentException $e) {
             Db::rollback();
             $this->error($e->getMessage());
         }
 
         return redirect()->to("/inventario/{$productoId}");
+    }
+
+    /** Agrega 'presentaciones' (bandeja, caja…) a cada fila, para mostrar el stock desglosado. */
+    private function conPresentaciones(array $productos): array
+    {
+        if (!$productos) return $productos;
+        $ids  = array_map(fn ($p) => (int) $p['producto_id'], $productos);
+        $pres = [];
+        foreach (Db::all(
+            "SELECT producto_id, nombre, factor_conversion FROM productos_unidades WHERE producto_id IN (" . implode(',', array_fill(0, count($ids), '?')) . ")",
+            $ids
+        ) as $u) {
+            $pres[(int) $u['producto_id']][] = $u;
+        }
+        foreach ($productos as &$p) {
+            $p['presentaciones'] = $pres[(int) $p['producto_id']] ?? [];
+        }
+        return $productos;
     }
 
     /** GET muestra el formulario; POST guarda los precios A/B/C/promocional. */

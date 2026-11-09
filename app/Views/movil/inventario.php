@@ -53,7 +53,11 @@ $this->extend('layouts/movil');
     </div>
 
     <label class="field-label">Cantidad</label>
-    <input class="field-input mb-3" type="number" inputmode="decimal" id="mov-cantidad" min="0.01" step="any" required>
+    <div class="flex gap-2 mb-3">
+      <input class="field-input flex-1" type="number" inputmode="decimal" id="mov-cantidad" min="0.01" step="any" required oninput="movTotal()">
+      <select id="mov-factor" class="field-input" style="width:auto; font-family:'Inter'; display:none" onchange="movTotal()"></select>
+    </div>
+    <p class="text-xs -mt-2 mb-3" id="mov-total" style="color:var(--navy)"></p>
 
     <label class="field-label">Motivo (opcional)</label>
     <input class="field-input mb-5" style="font-family:'Inter'" id="mov-motivo" placeholder="Ej: Merma, Devolución, Conteo">
@@ -162,7 +166,8 @@ const lista = new ListaProductos({
   renderItem: function (p) {
     const estado = estadoStock(p);
     const colores = coloresStock(estado);
-    const etiqueta = estado === 'agotado' ? 'Agotado' : numero(p.existencia) + ' ' + (p.um || 'uds');
+    const dg = desglose(p.existencia, p.unidades, p.um);
+    const etiqueta = estado === 'agotado' ? 'Agotado' : numero(p.existencia) + ' ' + (p.um || 'uds') + (dg ? ' · ' + esc(dg) : '');
     let detalle = esc(p.codigo || '') + (p.ubicacion ? ' · 📍 ' + esc(p.ubicacion) : '');
     if (PUEDE_EDITAR && p.costo !== undefined) detalle += ' · Costo ' + dinero(p.costo);
     const vence = p.vence
@@ -237,6 +242,15 @@ function filtrarCategoria(id) {
 
 // ── Movimientos ──────────────────────────────────────────────────────────────
 
+let movUm = 'uds';
+function movCantidadBase() {
+  return Math.round((parseFloat(document.getElementById('mov-cantidad').value) || 0) * parseFloat(document.getElementById('mov-factor').value || 1) * 100) / 100;
+}
+function movTotal() {
+  const f = parseFloat(document.getElementById('mov-factor').value || 1);
+  document.getElementById('mov-total').textContent = f > 1 && movCantidadBase() > 0 ? '= ' + numero(movCantidadBase()) + ' ' + movUm : '';
+}
+
 function abrirMovimiento(id) {
   const p = lista.get(id);
   if (!p) return;
@@ -246,7 +260,14 @@ function abrirMovimiento(id) {
   }
   movProductoId = id;
   document.getElementById('mov-producto-nombre').textContent = p.nombre;
-  document.getElementById('mov-producto-stock').textContent = numero(p.existencia);
+  const d = desglose(p.existencia, p.unidades, p.um);
+  document.getElementById('mov-producto-stock').textContent = numero(p.existencia) + ' ' + (p.um || 'uds') + (d ? ' (' + d + ')' : '');
+  // Entrada/salida en bandejas, cajas…: se convierte a unidades base al guardar
+  const sel = document.getElementById('mov-factor');
+  sel.innerHTML = '<option value="1">' + esc(p.um || 'uds') + '</option>' + (p.unidades || []).map(function (u) { return '<option value="' + u.factor + '">' + esc(u.nombre) + ' ×' + numero(u.factor) + '</option>'; }).join('');
+  sel.style.display = (p.unidades || []).length ? '' : 'none';
+  movUm = p.um || 'uds';
+  document.getElementById('mov-total').textContent = '';
   document.getElementById('mov-cantidad').value = '';
   document.getElementById('mov-motivo').value = '';
   elegirTipoMovimiento('entrada');
@@ -275,7 +296,7 @@ async function guardarMovimiento(ev) {
       body: {
         producto_id: movProductoId,
         tipo: movTipo,
-        cantidad: parseFloat(document.getElementById('mov-cantidad').value),
+        cantidad: movCantidadBase(),
         motivo: document.getElementById('mov-motivo').value.trim(),
       },
     });

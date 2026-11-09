@@ -26,6 +26,27 @@ function numero(valor) {
   return Number.isInteger(n) ? String(n) : n.toFixed(2);
 }
 
+// Reparte una cantidad en unidades base entre sus presentaciones (de mayor a menor), sin las que no alcanzan:
+// desglose(290, [{nombre:'Caja',factor:360},{nombre:'Bandeja',factor:30}], 'uds') → "9 bandejas y 20 unidades".
+// '' si no hay presentaciones que quepan. Misma lógica que ProductoService::desglose().
+function desglose(cantidad, pres, um) {
+  let resto = Math.round(Number(cantidad || 0) * 100) / 100;
+  const lista = (pres || []).filter(function (p) { return p.factor > 1; }).sort(function (a, b) { return b.factor - a.factor; });
+  if (!lista.length || resto < lista[lista.length - 1].factor) return '';
+  const partes = [];
+  lista.forEach(function (p) {
+    const n = Math.floor((resto + 0.0001) / p.factor);
+    if (n > 0) {
+      const nombre = p.nombre.toLowerCase();
+      partes.push(n + ' ' + (n > 1 && !/s$/.test(nombre) ? nombre + (/[aeiou]$/.test(nombre) ? 's' : 'es') : nombre));
+      resto = Math.round((resto - n * p.factor) * 100) / 100;
+    }
+  });
+  if (resto > 0) partes.push(numero(resto) + ' ' + (!um || um === 'uds' ? (resto === 1 ? 'unidad' : 'unidades') : um));
+  const ultimo = partes.pop();
+  return partes.length ? partes.join(', ') + ' y ' + ultimo : ultimo;
+}
+
 function debounce(fn, ms) {
   let t = null;
   return function () {

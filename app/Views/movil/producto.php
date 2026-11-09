@@ -16,6 +16,7 @@ $tipos = [
 $vence = \App\Libraries\InventarioService::estadoVencimiento($inv['fecha_vencimiento'] ?? null);
 $colorVence = fn (?array $v) => !$v ? 'var(--ink-soft)' : ($v['nivel'] === 'vencido' ? 'var(--red)' : ($v['nivel'] === 'pronto' ? 'var(--orange)' : 'var(--ink)'));
 $um = \App\Libraries\ProductoService::abreviatura($p['unidad_medida'] ?? 'und');
+$desglose = fn (float $cant): string => \App\Libraries\ProductoService::desglose($cant, $unidades, $p['unidad_medida'] ?? 'und');
 $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.');
 ?>
 <?php $this->section('content'); ?>
@@ -52,6 +53,7 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
     <div class="rounded-xl py-2" style="background:var(--navy-light)">
       <p class="text-[10px]" style="color:var(--ink-soft)">Aquí hay</p>
       <p class="font-mono text-sm font-semibold"><?= $num($existencia) ?> <span class="text-[10px] font-normal"><?= $um ?></span></p>
+      <?php if ($d = $desglose($existencia)): ?><p class="text-[10px] leading-tight px-1" style="color:var(--navy)"><?= esc($d) ?></p><?php endif; ?>
     </div>
     <div class="rounded-xl py-2" style="background:var(--navy-light)">
       <p class="text-[10px]" style="color:var(--ink-soft)">Vendido 30 días</p>
@@ -104,7 +106,7 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
         <p class="text-xs truncate" style="color:var(--ink-soft)"><?= esc($s['deposito']) ?><?= $s['ubicacion'] ? ' · 📍 ' . esc($s['ubicacion']) : '' ?></p>
         <?php if ($sv = \App\Libraries\InventarioService::estadoVencimiento($s['fecha_vencimiento'])): ?><p class="text-[11px]" style="color:<?= $colorVence($sv) ?>">⏳ <?= esc($sv['texto']) ?></p><?php endif; ?>
       </div>
-      <p class="font-mono text-sm font-semibold flex-shrink-0" style="color:<?= (float) $s['existencia'] <= 0 ? 'var(--red)' : 'var(--ink)' ?>"><?= $num($s['existencia']) ?> <span class="text-[10px] font-normal"><?= $um ?></span></p>
+      <p class="font-mono text-sm font-semibold flex-shrink-0" style="color:<?= (float) $s['existencia'] <= 0 ? 'var(--red)' : 'var(--ink)' ?>"><?= $num($s['existencia']) ?> <span class="text-[10px] font-normal"><?= $um ?></span><?php if ($ds = $desglose((float) $s['existencia'])): ?><span class="block text-[10px] font-normal text-right" style="color:var(--navy)"><?= esc($ds) ?></span><?php endif; ?></p>
     </div>
   <?php endforeach; ?>
 </div>
@@ -159,7 +161,16 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
       <button type="button" id="mov-btn-salida" onclick="elegirTipo('salida')" class="flex-1 py-2.5 rounded-xl text-sm font-medium border">− Salida</button>
     </div>
     <label class="field-label">Cantidad</label>
-    <input class="field-input mb-3" type="number" inputmode="decimal" id="mov-cantidad" min="0.01" step="any" required>
+    <div class="flex gap-2 mb-3">
+      <input class="field-input flex-1" type="number" inputmode="decimal" id="mov-cantidad" min="0.01" step="any" required oninput="movTotal()">
+      <?php if ($unidades): ?>
+      <select id="mov-factor" class="field-input" style="width:auto; font-family:'Inter'" onchange="movTotal()">
+        <option value="1"><?= $um ?></option>
+        <?php foreach ($unidades as $u): ?><option value="<?= (float) $u['factor_conversion'] ?>"><?= esc($u['nombre']) ?> ×<?= $num($u['factor_conversion']) ?></option><?php endforeach; ?>
+      </select>
+      <?php endif; ?>
+    </div>
+    <p class="text-xs -mt-2 mb-3" id="mov-total" style="color:var(--navy)"></p>
     <label class="field-label">Motivo (opcional)</label>
     <input class="field-input mb-5" style="font-family:'Inter'" id="mov-motivo" placeholder="Ej: Merma, Devolución, Conteo">
     <button type="submit" id="mov-guardar" class="btn-primario">Guardar movimiento</button>
@@ -184,6 +195,15 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerr
 <?php if ($puedeAjustar && !$p['maneja_lotes']): ?>
 <script>
 let movTipo = 'entrada';
+// Lo escrito puede estar en bandejas, cajas…: se envía en unidades base
+function movCantidadBase() {
+  const f = document.getElementById('mov-factor');
+  return Math.round((parseFloat(document.getElementById('mov-cantidad').value) || 0) * (f ? parseFloat(f.value) : 1) * 100) / 100;
+}
+function movTotal() {
+  const f = document.getElementById('mov-factor');
+  document.getElementById('mov-total').textContent = f && parseFloat(f.value) > 1 && movCantidadBase() > 0 ? '= ' + numero(movCantidadBase()) + ' <?= $um ?>' : '';
+}
 function elegirTipo(tipo) {
   movTipo = tipo;
   document.getElementById('mov-btn-entrada').style.cssText = tipo === 'entrada'
@@ -198,7 +218,7 @@ async function guardarMovimiento(ev) {
   try {
     await api('/m/api/movimiento', { method: 'POST', body: {
       producto_id: <?= (int) $p['producto_id'] ?>, tipo: movTipo,
-      cantidad: parseFloat(document.getElementById('mov-cantidad').value),
+      cantidad: movCantidadBase(),
       motivo: document.getElementById('mov-motivo').value.trim(),
     }});
     location.reload();

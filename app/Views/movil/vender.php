@@ -260,12 +260,9 @@ function baseEnCarrito(productoId) {
 const um = function (p) { return p.um || 'uds'; };
 
 function textoStock(p) {
-  // "141 uds (5 cajas de 24 + 21)" con la presentación más grande; "23.5 lb" si se vende por peso
-  const grande = (p.unidades || []).slice().sort(function (a, b) { return b.factor - a.factor; })[0];
-  if (!grande || grande.factor <= 1 || p.existencia < grande.factor) return numero(p.existencia) + ' ' + um(p);
-  const n = Math.floor(p.existencia / grande.factor);
-  const resto = redondear(p.existencia - n * grande.factor);
-  return numero(p.existencia) + ' ' + um(p) + ' (' + n + ' ' + grande.nombre.toLowerCase() + (n === 1 ? '' : 's') + ' de ' + numero(grande.factor) + (resto > 0 ? ' + ' + numero(resto) : '') + ')';
+  // "300 uds (10 bandejas)" o "23.5 lb" (desglose() de app.js)
+  const d = desglose(p.existencia, p.unidades, um(p));
+  return numero(p.existencia) + ' ' + um(p) + (d ? ' (' + d + ')' : '');
 }
 
 const lista = new ListaProductos({

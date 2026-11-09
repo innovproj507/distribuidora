@@ -1,6 +1,6 @@
 // Service worker de la PWA móvil. Se sirve desde /m/sw.js (MovilController::serviceWorker)
 // para que su alcance sea /m/. Bump CACHE_NAME cuando cambien app.css / app.js.
-const CACHE_NAME = 'movil-v2';
+const CACHE_NAME = 'movil-v3';
 const ASSETS_ESTATICOS = [
   '/movil/app.css',
   '/movil/app.js',

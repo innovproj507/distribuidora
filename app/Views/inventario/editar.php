@@ -182,6 +182,7 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
                 <div class="bg-gray-50 border border-gray-100 px-4 py-2 rounded-xl">
                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider"><?= esc($inv['deposito_nombre']) ?></p>
                     <p class="text-lg font-black text-slate-800"><?= rtrim(rtrim(number_format((float) $inv['existencia'], 2), '0'), '.') ?> <span class="text-xs font-normal text-gray-400"><?= esc(\App\Libraries\ProductoService::abreviatura($producto->unidad_medida ?? 'und')) ?></span></p>
+                    <?php if ($dInv = \App\Libraries\ProductoService::desglose((float) $inv['existencia'], $unidades ?? [], $producto->unidad_medida ?? 'und')): ?><p class="text-xs font-medium text-sky-700"><?= esc($dInv) ?></p><?php endif; ?>
                     <?php if ($editable): ?>
                         <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-1">Vence</label>
                         <input type="date" name="vence[<?= (int) $inv['deposito_id'] ?>]" value="<?= esc($inv['fecha_vencimiento'] ?? '', 'attr') ?>" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white">

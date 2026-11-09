@@ -64,6 +64,19 @@ $edita = $abierto && $puedeContar;
   <?php endif; ?>
 </div>
 
+<!-- Sheet: contar por presentación (cajas, bandejas… + sueltos) -->
+<div id="sheet-bulto" class="sheet" style="transform:translateY(110%)">
+  <div class="sheet-handle"></div>
+  <div class="flex items-center justify-between mb-1">
+    <h2 class="font-head text-lg font-semibold truncate pr-2" id="bulto-nombre">Producto</h2>
+    <button type="button" onclick="cerrarSheet('sheet-bulto')" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:var(--navy-light); color:var(--navy)">✕</button>
+  </div>
+  <p class="text-xs mb-3" style="color:var(--ink-soft)">Escribe cuántos hay de cada uno; el sistema suma el total en unidades.</p>
+  <div id="bulto-campos" class="flex flex-col gap-2 mb-3"></div>
+  <p class="font-mono text-sm font-semibold mb-3" id="bulto-total" style="color:var(--teal-dark)"></p>
+  <button type="button" onclick="usarBulto()" class="btn-primario">Usar este total</button>
+</div>
+
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
@@ -82,6 +95,41 @@ function difTexto(i) {
   return d === 0 ? 'Cuadra ✓' : (d > 0 ? 'Sobran ' : 'Faltan ') + numero(Math.abs(d)) + ' (sistema ' + numero(i.sistema) + ')';
 }
 function difColor(i) { return i.diferencia === 0 ? 'var(--green)' : 'var(--red)'; }
+// "= 10 bandejas" bajo lo contado (si el producto tiene presentaciones)
+function textoBulto(i) {
+  const t = i.contada !== null && i.contada !== undefined ? desglose(i.contada, i.pres, i.um) : '';
+  return t ? '= ' + t : '';
+}
+let bultoId = null;
+function abrirBulto(id) {
+  const i = ITEMS.find(function (x) { return x.id === id; });
+  bultoId = id;
+  document.getElementById('bulto-nombre').textContent = i.nombre;
+  const filas = i.pres.concat([{ nombre: 'Sueltos (' + (i.um || 'uds') + ')', factor: 1 }]);
+  document.getElementById('bulto-campos').innerHTML = filas.map(function (p) {
+    return '<label class="flex items-center gap-3"><span class="flex-1 text-sm">' + esc(p.nombre) + (p.factor > 1 ? ' <span class="text-xs" style="color:var(--ink-soft)">× ' + numero(p.factor) + '</span>' : '') + '</span>' +
+      '<input type="number" inputmode="decimal" step="any" min="0" data-factor="' + p.factor + '" class="field-input bulto-campo" style="width:96px; text-align:right; padding:8px" placeholder="0" oninput="totalBulto()"></label>';
+  }).join('');
+  totalBulto();
+  abrirSheet('sheet-bulto');
+  setTimeout(function () { const c = document.querySelector('.bulto-campo'); if (c) c.focus(); }, 300);
+}
+function totalBulto() {
+  let t = 0;
+  document.querySelectorAll('.bulto-campo').forEach(function (el) { t += (parseFloat(el.value) || 0) * parseFloat(el.dataset.factor); });
+  t = Math.round(t * 100) / 100;
+  const i = ITEMS.find(function (x) { return x.id === bultoId; });
+  document.getElementById('bulto-total').textContent = 'Total: ' + numero(t) + ' ' + ((i && i.um) || 'uds');
+  return t;
+}
+function usarBulto() {
+  const t = totalBulto();
+  const campo = document.querySelector('#lista-conteo input[data-id="' + bultoId + '"]');
+  cerrarSheet('sheet-bulto');
+  if (!campo) return;
+  campo.value = t;
+  anotar(bultoId, campo);
+}
 function venceColor(v) { return !v ? 'var(--ink-soft)' : (v.nivel === 'vencido' ? 'var(--red)' : (v.nivel === 'pronto' ? 'var(--orange)' : 'var(--ink-soft)')); }
 // Línea de vencimiento: editable (fecha) mientras el conteo está abierto, solo texto si no
 function venceHtml(i) {
@@ -124,7 +172,10 @@ function pintar() {
     html += '<div class="card !p-3 flex items-center gap-3" id="p-' + i.id + '">' +
       '<div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">' + esc(i.nombre) + '</p>' +
       '<p class="text-xs truncate" style="color:var(--ink-soft)">' + esc(i.codigo || '') + (i.barras ? ' · ▮▯▮ ' + esc(i.barras) : '') + '</p>' +
-      '<p class="text-[11px] font-medium" id="d-' + i.id + '" style="color:' + (i.diferencia === null ? 'var(--ink-soft)' : difColor(i)) + '">' + esc(difTexto(i)) + '</p>' + venceHtml(i) + '</div>' +
+      '<p class="text-[11px] font-medium" id="d-' + i.id + '" style="color:' + (i.diferencia === null ? 'var(--ink-soft)' : difColor(i)) + '">' + esc(difTexto(i)) + '</p>' +
+      '<p class="text-[11px]" id="x-' + i.id + '" style="color:var(--navy)">' + esc(textoBulto(i)) + '</p>' +
+      (EDITA && i.pres && i.pres.length ? '<button type="button" onclick="abrirBulto(' + i.id + ')" class="text-[11px] font-semibold mt-1 px-2 py-1 rounded-lg" style="background:var(--navy-light); color:var(--navy)">📦 Contar por ' + esc(i.pres.map(function (p) { return p.nombre.toLowerCase(); }).join(' / ')) + '</button>' : '') +
+      venceHtml(i) + '</div>' +
       (EDITA
         ? '<input type="number" inputmode="decimal" step="any" min="0" data-id="' + i.id + '" value="' + (i.contada === null ? '' : i.contada) + '" placeholder="—" onchange="anotar(' + i.id + ', this)" onkeydown="siguiente(event)" class="field-input" style="width:84px; text-align:right; padding:8px">'
         : '<span class="font-mono text-sm font-semibold">' + (i.contada === null ? '—' : numero(i.contada)) + '</span>') +
@@ -158,6 +209,8 @@ async function anotar(id, input) {
     if (ub && ub.trim() && valor !== null) i.ubicacion = ub.trim();
     const d = document.getElementById('d-' + id);
     d.textContent = difTexto(i); d.style.color = i.diferencia === null ? 'var(--ink-soft)' : difColor(i);
+    const x = document.getElementById('x-' + id);
+    if (x) x.textContent = textoBulto(i);
     actualizarResumen(r.resumen);
   } catch (e) { toast(e.message, 'error'); }
 }

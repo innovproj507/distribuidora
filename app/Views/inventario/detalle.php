@@ -123,7 +123,9 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
                     <div class="text-[11px] <?= $vInv['nivel'] === 'vencido' ? 'text-red-600' : ($vInv['nivel'] === 'pronto' ? 'text-orange-600' : 'text-gray-400') ?>"><i class="fas fa-hourglass-half mr-1"></i><?= esc($vInv['texto']) ?></div>
                     <?php endif; ?>
                 </div>
-                <div class="text-sm font-semibold <?= (float) $inv['existencia'] <= 0 ? 'text-red-600' : 'text-gray-900' ?>"><?= $num($inv['existencia']) ?></div>
+                <div class="text-sm font-semibold text-right <?= (float) $inv['existencia'] <= 0 ? 'text-red-600' : 'text-gray-900' ?>"><?= $num($inv['existencia']) ?> <span class="text-xs font-normal text-gray-400"><?= esc(\App\Libraries\ProductoService::abreviatura($producto->unidad_medida ?? 'und')) ?></span>
+                    <?php if ($dInv = \App\Libraries\ProductoService::desglose((float) $inv['existencia'], $unidades ?? [], $producto->unidad_medida ?? 'und')): ?><div class="text-xs font-medium text-sky-700"><?= esc($dInv) ?></div><?php endif; ?>
+                </div>
             </div>
             <?php endforeach; ?>
             <?php if (empty($inventarios)): ?>
@@ -181,11 +183,21 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
         </div>
         <div>
             <label class="block text-xs font-semibold text-gray-500 mb-1">Cantidad *</label>
-            <input type="number" name="cantidad" min="0.01" step="any" required placeholder="0" class="<?= $campo ?> font-bold">
+            <div class="flex gap-2">
+                <input type="number" name="cantidad" min="0.01" step="any" required placeholder="0" class="<?= $campo ?> font-bold">
+                <?php if (!empty($unidades)): ?>
+                <select name="unidad_id" class="<?= $campo ?> !w-auto" title="En qué se cuenta lo que entra">
+                    <option value=""><?= esc(\App\Libraries\ProductoService::abreviatura($producto->unidad_medida ?? 'und')) ?></option>
+                    <?php foreach ($unidades as $u): ?>
+                        <option value="<?= (int) $u['unidad_id'] ?>"><?= esc($u['nombre']) ?> ×<?= $num($u['factor_conversion']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php endif; ?>
+            </div>
         </div>
         <?php if (ver_costos()): ?>
         <div>
-            <label class="block text-xs font-semibold text-gray-500 mb-1">Costo <span class="font-normal text-gray-400">(opcional)</span></label>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Costo <span class="font-normal text-gray-400">(opcional<?= !empty($unidades) ? ', de lo elegido: unidad, caja…' : '' ?>)</span></label>
             <input type="number" name="costo" step="0.01" min="0" placeholder="<?= $costo > 0 ? number_format($costo, 2) : '0.00' ?>" class="<?= $campo ?>">
         </div>
         <?php else: ?>

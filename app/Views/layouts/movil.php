@@ -93,7 +93,7 @@ $inicial     = mb_strtoupper(mb_substr($auth['name'] ?? 'U', 0, 1, 'UTF-8'), 'UT
 
 <div id="sheet-backdrop" class="sheet-backdrop" onclick="cerrarSheets()"></div>
 
-<script src="/movil/app.js?v=2"></script>
+<script src="/movil/app.js?v=3"></script>
 <?= $this->renderSection('extra_js') ?>
 </body>
 </html>

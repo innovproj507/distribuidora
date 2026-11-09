@@ -688,7 +688,7 @@ class MovilController extends BaseController
 
         $items = Db::all(
             "SELECT cd.producto_id, cd.cantidad_sistema, cd.cantidad_contada, cd.diferencia, cd.estado, cd.costo_unitario,
-                    p.nombre, p.codigo, p.codigo_barras, COALESCE(i.ubicacion, '') AS ubicacion, i.fecha_vencimiento
+                    p.nombre, p.codigo, p.codigo_barras, p.unidad_medida, COALESCE(i.ubicacion, '') AS ubicacion, i.fecha_vencimiento
              FROM conteo_detalle cd
              JOIN productos p ON p.producto_id = cd.producto_id
              LEFT JOIN inventario i ON i.producto_id = cd.producto_id AND i.deposito_id = ?
@@ -696,9 +696,21 @@ class MovilController extends BaseController
              ORDER BY (COALESCE(i.ubicacion, '') = ''), i.ubicacion, p.nombre",
             [$conteo['deposito_id'], $id]
         );
+        // Presentaciones (bandeja, caja…) para contar por bulto: se convierten a unidades base en el celular
+        $pres = [];
+        if ($items) {
+            $ids = array_map(fn ($i) => (int) $i['producto_id'], $items);
+            foreach (Db::all(
+                "SELECT producto_id, nombre, factor_conversion FROM productos_unidades
+                 WHERE producto_id IN (" . implode(',', array_fill(0, count($ids), '?')) . ") AND factor_conversion > 1 ORDER BY factor_conversion DESC",
+                $ids
+            ) as $u) {
+                $pres[(int) $u['producto_id']][] = ['nombre' => $u['nombre'], 'factor' => (float) $u['factor_conversion']];
+            }
+        }
         // Conteo a ciegas: mientras el producto no esté contado no se envía lo que dice el sistema
         $verCostos = ver_costos();
-        $items = array_map(function (array $i) use ($abierto, $verCostos): array {
+        $items = array_map(function (array $i) use ($abierto, $verCostos, $pres): array {
             $contado = $i['estado'] !== 'pendiente';
             return [
                 'id'         => (int) $i['producto_id'],
@@ -713,6 +725,8 @@ class MovilController extends BaseController
                 'diferencia' => $contado && $i['diferencia'] !== null ? (float) $i['diferencia'] : null,
                 'vence'      => $i['fecha_vencimiento'],
                 'venceInfo'  => \App\Libraries\InventarioService::estadoVencimiento($i['fecha_vencimiento']),
+                'pres'       => $pres[(int) $i['producto_id']] ?? [],
+                'um'         => \App\Libraries\ProductoService::abreviatura($i['unidad_medida'] ?? 'und'),
             ];
         }, $items);
 
