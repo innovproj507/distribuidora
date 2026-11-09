@@ -29,7 +29,7 @@ $inicial     = mb_strtoupper(mb_substr($auth['name'] ?? 'U', 0, 1, 'UTF-8'), 'UT
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/movil/app.css?v=2">
+<link rel="stylesheet" href="/movil/app.css?v=4">
 </head>
 <body class="pb-24">
 
@@ -93,7 +93,20 @@ $inicial     = mb_strtoupper(mb_substr($auth['name'] ?? 'U', 0, 1, 'UTF-8'), 'UT
 
 <div id="sheet-backdrop" class="sheet-backdrop" onclick="cerrarSheets()"></div>
 
-<script src="/movil/app.js?v=3"></script>
+<script src="/movil/app.js?v=4"></script>
+<script>
+// Seguro contra caché vieja: si llegó un app.js anterior (le falta desglose), actualiza el service worker y recarga una vez
+(function () {
+  if (typeof desglose === 'function') return;
+  try { if (sessionStorage.getItem('movil_recarga')) return; sessionStorage.setItem('movil_recarga', '1'); } catch (e) { return; }
+  const recargar = function () { setTimeout(function () { location.reload(); }, 800); };
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistration('/m/').then(function (r) { return r ? r.update() : null; }).then(recargar, recargar);
+  } else {
+    recargar();
+  }
+})();
+</script>
 <?= $this->renderSection('extra_js') ?>
 </body>
 </html>

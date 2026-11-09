@@ -1,16 +1,10 @@
 // Service worker de la PWA móvil. Se sirve desde /m/sw.js (MovilController::serviceWorker)
-// para que su alcance sea /m/. Bump CACHE_NAME cuando cambien app.css / app.js.
-const CACHE_NAME = 'movil-v3';
-const ASSETS_ESTATICOS = [
-  '/movil/app.css',
-  '/movil/app.js',
-  '/movil/icons/icon-192.png',
-];
+// para que su alcance sea /m/. Bump CACHE_NAME y el ?v= de app.css / app.js en layouts/movil.php
+// cuando cambien: los archivos de /movil/ se guardan por URL exacta (con su ?v=), así una versión
+// nueva nunca se confunde con la vieja guardada.
+const CACHE_NAME = 'movil-v4';
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_ESTATICOS))
-  );
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
@@ -35,8 +29,15 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.pathname.startsWith('/movil/')) {
+    // cache-first por URL exacta; si no está, se baja saltando la caché HTTP del navegador y se guarda
     event.respondWith(
-      caches.match(event.request, { ignoreSearch: true }).then((cached) => cached || fetch(event.request))
+      caches.match(event.request).then((cached) => cached || fetch(event.request, { cache: 'reload' }).then((resp) => {
+        if (resp.ok) {
+          const copia = resp.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copia));
+        }
+        return resp;
+      }))
     );
     return;
   }
