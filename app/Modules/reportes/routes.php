@@ -11,6 +11,7 @@ $routes->group('reportes', ['filter' => ['auth', 'sucursal', 'permiso:reportes.v
     $routes->get('ventas', 'ReporteController::ventasPorPeriodo');
     $routes->get('productos-vendidos', 'ReporteController::productosMasVendidos');
     $routes->get('inventario', 'ReporteController::inventarioActual');
+    $routes->get('conteo', 'ReporteController::conteo');
     $routes->get('clientes-top', 'ReporteController::clientesTop');
 });
 

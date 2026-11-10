@@ -32,8 +32,20 @@
                 <i class="fas fa-boxes-stacked text-lg"></i>
             </div>
             <div>
-                <h3 class="font-semibold text-gray-800">Inventario Actual</h3>
-                <p class="text-sm text-gray-400">Existencias y valorización</p>
+                <h3 class="font-semibold text-gray-800">Inventario General</h3>
+                <p class="text-sm text-gray-400">Existencias por tienda, valor y resumen por categoría</p>
+            </div>
+        </div>
+    </a>
+
+    <a href="/reportes/conteo" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 hover:shadow-md transition group">
+        <div class="flex items-center gap-4">
+            <div class="h-12 w-12 rounded-xl bg-violet-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-violet-500/30">
+                <i class="fas fa-clipboard-check text-lg"></i>
+            </div>
+            <div>
+                <h3 class="font-semibold text-gray-800">Último Inventario Físico</h3>
+                <p class="text-sm text-gray-400">Contado vs sistema: faltantes y sobrantes</p>
             </div>
         </div>
     </a>
