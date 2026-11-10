@@ -81,8 +81,11 @@ $totalPorCobrar = array_sum(array_map(fn ($c) => (float) $c['saldo_pendiente'], 
     <div class="card !p-3"><p class="text-xs" style="color:var(--ink-soft)">Saldo pendiente</p><p class="font-mono font-semibold" id="det-saldo"></p></div>
     <div class="card !p-3"><p class="text-xs" style="color:var(--ink-soft)">Crédito disponible</p><p class="font-mono font-semibold" id="det-disponible"></p></div>
   </div>
+  <a id="det-cobrar" href="#" class="block w-full py-3 rounded-xl font-semibold text-center text-white mb-3" style="background:var(--teal); display:none">Cobrar abono</a>
+  <p class="text-xs font-semibold uppercase mb-2" style="color:var(--ink-soft)">Historial</p>
+  <div id="det-historial" class="flex flex-col gap-2 mb-3" style="max-height:42vh; overflow-y:auto"></div>
   <?php if (!in_array(\App\Libraries\Auth::rol(), \App\Filters\SoloMovilFilter::ROLES, true)): ?>
-  <a id="det-web" href="#" class="block w-full py-3 rounded-xl font-medium text-center" style="background:var(--navy-light); color:var(--navy)">Ver historial completo (web)</a>
+  <a id="det-web" href="#" class="block text-center text-xs py-2" style="color:var(--ink-soft)">Abrir en la versión web</a>
   <?php endif; ?>
 </div>
 
@@ -131,7 +134,70 @@ function verCliente(c) {
   document.getElementById('det-disponible').textContent = c.limite > 0 ? dinero(Math.max(0, c.limite - c.saldo)) : 'Sin crédito';
   const web = document.getElementById('det-web');
   if (web) web.href = '/clientes/' + c.id;
+  document.getElementById('det-cobrar').style.display = 'none';
+  document.getElementById('det-historial').innerHTML = '<p class="text-xs text-center py-3" style="color:var(--ink-soft)">Cargando…</p>';
   abrirSheet('sheet-detalle');
+  cargarHistorial(c.id);
+}
+
+function fechaCorta(f) {
+  const p = String(f || '').substr(0, 10).split('-');
+  return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0].substr(2) : '';
+}
+
+async function cargarHistorial(id) {
+  const caja = document.getElementById('det-historial');
+  try {
+    const d = await api('/m/api/cliente/' + id + '/historial');
+    document.getElementById('det-saldo').textContent = dinero(d.saldo);
+    const cobrar = document.getElementById('det-cobrar');
+    if (d.puedeCobrar && d.saldo > 0) {
+      cobrar.href = '/m/cobrar?cliente=' + id;
+      cobrar.style.display = 'block';
+    }
+    caja.innerHTML = d.movimientos.map(filaHistorial).join('') ||
+      '<p class="text-xs text-center py-3" style="color:var(--ink-soft)">Sin movimientos todavía.</p>';
+  } catch (e) {
+    caja.innerHTML = '<p class="text-xs text-center py-3" style="color:var(--red)">' + esc(e.message) + '</p>';
+  }
+}
+
+function etiqueta(texto, fondo, color) {
+  return '<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" style="background:' + fondo + '; color:' + color + '">' + esc(texto) + '</span>';
+}
+
+function filaHistorial(m) {
+  let icono, titulo, detalle, monto, estado = '', anulada = m.estado === 'anulada';
+  if (m.tipo === 'abono') {
+    icono = '💵';
+    titulo = 'Abono ' + m.numero;
+    detalle = m.forma + (m.aplicado ? ' · a ' + m.aplicado : '') + (m.referencia ? ' · ' + m.referencia : '');
+    monto = '<span style="color:var(--green)">−' + dinero(m.monto) + '</span>';
+  } else if (m.tipo === 'saldo') {
+    icono = '📒';
+    titulo = 'Saldo anterior ' + m.numero;
+    detalle = m.referencia || 'Deuda de antes del sistema';
+    monto = dinero(m.monto);
+  } else {
+    icono = '🧾';
+    titulo = 'Compra ' + m.numero;
+    detalle = m.tienda || '';
+    monto = dinero(m.monto);
+    if (!anulada && m.credito <= 0) estado = etiqueta('Contado', 'var(--navy-light)', 'var(--navy)');
+  }
+  if (anulada) {
+    estado = etiqueta('Anulada', '#eee', '#888');
+  } else if (m.tipo !== 'abono' && m.falta > 0) {
+    estado = etiqueta('Debe ' + dinero(m.falta), 'var(--orange-light)', 'var(--orange)');
+  } else if (m.tipo !== 'abono' && (m.estado === 'pagada' && (m.tipo === 'saldo' || m.credito > 0))) {
+    estado = etiqueta('Pagada', 'var(--green-light)', 'var(--green)');
+  }
+  const abrir = m.tipo === 'venta' && m.ver ? ' onclick="location.href=\'/m/ventas?venta=' + Number(m.id) + '\'" style="cursor:pointer"' : '';
+  return '<div class="card !p-3 flex items-center gap-3' + (anulada ? ' opacity-50' : '') + '"' + abrir + '>' +
+    '<div class="text-lg">' + icono + '</div>' +
+    '<div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">' + esc(titulo) + '</p>' +
+    '<p class="text-xs truncate" style="color:var(--ink-soft)">' + fechaCorta(m.fecha) + (detalle ? ' · ' + esc(detalle) : '') + '</p></div>' +
+    '<div class="text-right flex-shrink-0"><p class="font-mono text-sm font-semibold">' + monto + '</p>' + estado + '</div></div>';
 }
 
 async function crearCliente(ev) {

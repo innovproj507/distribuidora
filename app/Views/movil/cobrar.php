@@ -90,7 +90,7 @@ $cobradoHoy = array_sum(array_map(fn ($c) => (float) $c['total'], $cobrosHoy));
     <div class="flex justify-between text-sm mb-2"><span>Saldo restante</span><span class="font-mono font-semibold" id="rc-saldo"></span></div>
     <p class="text-xs" id="rc-aplicado" style="color:var(--ink-soft)"></p>
   </div>
-  <button type="button" onclick="location.reload()" class="btn-primario">Listo</button>
+  <button type="button" onclick="location.href = location.pathname" class="btn-primario">Listo</button>
 </div>
 
 <?php $this->endSection(); ?>
@@ -145,5 +145,11 @@ async function confirmarCobro() {
   } catch (e) { toast(e.message, 'error'); }
   finally { boton.disabled = false; boton.textContent = 'Registrar cobro'; }
 }
+
+// /m/cobrar?cliente=ID abre directamente el cobro de ese cliente (botón "Cobrar abono" de Clientes)
+(function () {
+  const id = parseInt(new URLSearchParams(location.search).get('cliente'), 10);
+  if (id > 0) abrirCobro(id);
+})();
 </script>
 <?php $this->endSection(); ?>
