@@ -181,8 +181,8 @@
 
                 <!-- Saldo -->
                 <td class="px-5 py-3.5 text-right text-sm font-bold
-                    <?= ((float)($cliente->saldo ?? 0)) > 0 ? 'text-red-600' : 'text-gray-500' ?>">
-                    $<?= number_format((float)($cliente->saldo ?? 0), 2) ?>
+                    <?= ((float)($cliente->saldo_pendiente ?? 0)) > 0 ? 'text-red-600' : 'text-gray-500' ?>">
+                    $<?= number_format((float)($cliente->saldo_pendiente ?? 0), 2) ?>
                 </td>
 
                 <!-- Acciones -->

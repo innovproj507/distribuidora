@@ -477,6 +477,63 @@ class MovilApiController extends BaseController
         ]);
     }
 
+    /**
+     * GET /m/api/cliente/{id}/historial — movimientos del cliente, el más reciente primero:
+     * compras (ventas, de todas las tiendas), saldos anteriores y abonos.
+     */
+    public function clienteHistorial(int $id)
+    {
+        if (!Auth::can('clientes.ver')) return $this->json(['error' => 'Sin permiso.'], 403);
+        $empresa = $this->empresaId();
+        $cliente = Db::row("SELECT cliente_id, saldo_pendiente FROM clientes WHERE cliente_id = ? AND empresa_id = ?", [$id, $empresa]);
+        if (!$cliente) return $this->json(['error' => 'Cliente no encontrado.'], 404);
+
+        $mov = [];
+        foreach (Db::all(
+            "SELECT v.venta_id, v.numero_factura, v.fecha, v.total, v.estado, v.sucursal_id, b.nombre AS tienda,
+                    COALESCE((SELECT SUM(monto) FROM ventas_pagos WHERE venta_id = v.venta_id AND forma_pago = 'CREDITO'), 0) AS credito,
+                    COALESCE((SELECT SUM(monto) FROM cobros_ventas WHERE venta_id = v.venta_id), 0) AS abonado
+             FROM ventas v LEFT JOIN branches b ON b.sucursal_id = v.sucursal_id
+             WHERE v.cliente_id = ? AND v.empresa_id = ? ORDER BY v.fecha DESC LIMIT 60",
+            [$id, $empresa]
+        ) as $v) {
+            $credito = (float) $v['credito'];
+            $mov[] = [
+                'tipo' => 'venta', 'id' => (int) $v['venta_id'], 'numero' => $v['numero_factura'], 'fecha' => $v['fecha'],
+                'monto' => (float) $v['total'], 'estado' => $v['estado'], 'tienda' => $v['tienda'],
+                'credito' => $credito, 'falta' => $v['estado'] === 'pendiente' ? max(0, round($credito - (float) $v['abonado'], 2)) : 0,
+                'ver' => (int) $v['sucursal_id'] === (int) $this->sucursalId(),
+            ];
+        }
+        foreach (\App\Libraries\SaldoAnteriorService::delCliente($id, $empresa) as $s) {
+            $mov[] = [
+                'tipo' => 'saldo', 'id' => (int) $s['saldo_id'], 'numero' => $s['numero'], 'fecha' => $s['fecha'] . ' 00:00:00',
+                'monto' => (float) $s['monto'], 'estado' => $s['estado'], 'referencia' => $s['referencia'],
+                'falta' => $s['estado'] === 'pendiente' ? max(0, round((float) $s['monto'] - (float) $s['abonado'], 2)) : 0,
+            ];
+        }
+        foreach (Db::all(
+            "SELECT c.cobro_id, c.numero, c.fecha, c.monto, c.forma_pago, c.referencia,
+                    (SELECT GROUP_CONCAT(COALESCE(v.numero_factura, s.numero) SEPARATOR ', ')
+                     FROM cobros_ventas cv LEFT JOIN ventas v ON v.venta_id = cv.venta_id LEFT JOIN saldos_anteriores s ON s.saldo_id = cv.saldo_id
+                     WHERE cv.cobro_id = c.cobro_id) AS aplicado
+             FROM cobros c WHERE c.cliente_id = ? AND c.empresa_id = ? ORDER BY c.fecha DESC LIMIT 60",
+            [$id, $empresa]
+        ) as $c) {
+            $mov[] = [
+                'tipo' => 'abono', 'id' => (int) $c['cobro_id'], 'numero' => $c['numero'], 'fecha' => $c['fecha'],
+                'monto' => (float) $c['monto'], 'forma' => $c['forma_pago'], 'referencia' => $c['referencia'], 'aplicado' => $c['aplicado'],
+            ];
+        }
+        usort($mov, fn ($a, $b) => strcmp($b['fecha'], $a['fecha']));
+
+        return $this->json([
+            'saldo'       => (float) $cliente['saldo_pendiente'],
+            'movimientos' => $mov,
+            'puedeCobrar' => Auth::can('ventas.crear') || Auth::can('pos.usar'),
+        ]);
+    }
+
     /** POST /m/api/cobro {cliente_id, monto, forma_pago, referencia?, venta_id?} */
     public function crearCobro()
     {
