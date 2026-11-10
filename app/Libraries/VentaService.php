@@ -188,6 +188,21 @@ final class VentaService
                 $pagos[$i]['monto'] = round((float) $pagos[$i]['monto'] - $quitar, 2);
                 $exceso            -= $quitar;
             }
+
+            // Pagó de más por Yappy / transferencia y se le dio el vuelto en efectivo: el pago queda por lo
+            // que de verdad entró (cuadra con la cuenta) y el vuelto sale de la caja como salida de efectivo.
+            $exceso = round($exceso, 2);
+            if ($exceso > 0.005) {
+                $digital = array_sum(array_map(fn ($p) => in_array($p['forma_pago'], ['YAPPY', 'TRANSFERENCIA'], true) ? (float) $p['monto'] : 0.0, $pagos));
+                if ($digital + 0.005 < $exceso) {
+                    throw new \RuntimeException('Solo se puede dar vuelto del efectivo o de un pago por Yappy / transferencia.');
+                }
+                if (!$cajaId) {
+                    throw new \RuntimeException('Para dar vuelto en efectivo abre tu caja primero.');
+                }
+                $formasVuelto = implode('/', array_unique(array_map(fn ($p) => $p['forma_pago'], array_filter($pagos, fn ($p) => in_array($p['forma_pago'], ['YAPPY', 'TRANSFERENCIA'], true)))));
+                CajaService::movimiento($cajaId, 'salida', $exceso, 'Vuelto en efectivo de pago ' . ucfirst(strtolower($formasVuelto)) . " (venta {$numeroFactura})");
+            }
         }
 
         if ($hayCredito) {

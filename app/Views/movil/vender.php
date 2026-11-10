@@ -116,6 +116,16 @@ $puedeDescontar = $maxDescuentoPct > 0;
   </div>
 
   <div id="bloque-referencia" class="mb-3" style="display:none">
+    <div id="bloque-recibido-digital" class="flex items-end gap-3 mb-2">
+      <div class="flex-1">
+        <label class="field-label">Monto recibido <span class="font-normal" style="color:var(--ink-soft)">(si pagó de más)</span></label>
+        <input type="number" inputmode="decimal" step="0.01" min="0" id="recibido-digital" class="field-input" placeholder="0.00" oninput="renderTotales()">
+      </div>
+      <div class="flex-1 text-right pb-2">
+        <span class="text-xs" style="color:var(--ink-soft)">Vuelto en efectivo</span>
+        <p class="font-mono font-semibold" id="vuelto-digital">$0.00</p>
+      </div>
+    </div>
     <label class="field-label" id="ref-etiqueta">Referencia</label>
     <input type="text" id="pago-referencia" maxlength="100" class="field-input mb-2" style="font-family:'Inter'" placeholder="Nº de comprobante o confirmación" autocomplete="off">
     <label class="field-label">Notas</label>
@@ -530,6 +540,8 @@ function renderTotales() {
   // Efectivo: vuelto y botones de billete (exacto + los billetes que alcanzan)
   const recibido = parseFloat(document.getElementById('monto-recibido').value) || 0;
   document.getElementById('monto-vuelto').textContent = dinero(Math.max(0, recibido - t.total));
+  const recDig = parseFloat(document.getElementById('recibido-digital').value) || 0;
+  document.getElementById('vuelto-digital').textContent = dinero(recDig > 0 ? Math.max(0, recDig - t.total) : 0);
   const sugeridos = [];
   if (t.total > 0) {
     [1, 5, 10, 20, 50, 100].forEach(function (b) {
@@ -602,6 +614,8 @@ function elegirForma(forma) {
   document.getElementById('bloque-mixto').style.display = forma === 'MIXTO' ? 'block' : 'none';
   // Yappy / transferencia (o mixto que los incluya): referencia del comprobante y notas
   document.getElementById('bloque-referencia').style.display = ['YAPPY', 'TRANSFERENCIA', 'MIXTO'].indexOf(forma) !== -1 ? 'block' : 'none';
+  // "Monto recibido" + vuelto en efectivo solo con un único pago digital (en mixto el vuelto sale del efectivo)
+  document.getElementById('bloque-recibido-digital').style.display = forma === 'YAPPY' || forma === 'TRANSFERENCIA' ? 'flex' : 'none';
   document.getElementById('ref-etiqueta').textContent = forma === 'YAPPY' ? 'Referencia de Yappy' : (forma === 'TRANSFERENCIA' ? 'Referencia de la transferencia' : 'Referencia (Yappy / transferencia)');
   cambiarCliente();
   renderTotales();
@@ -654,6 +668,7 @@ function vaciarCarrito() {
   if (da && da.checked) { da.checked = false; document.getElementById('bloque-descuento').style.display = 'none'; }
   document.getElementById('pago-referencia').value = '';
   document.getElementById('pago-notas').value = '';
+  document.getElementById('recibido-digital').value = '';
   quitarComprobante();
   document.querySelectorAll('.mx-monto').forEach(function (el) { el.value = ''; });
   elegirForma('EFECTIVO');
@@ -809,6 +824,20 @@ async function confirmarVenta() {
     // Monto 0 = el servidor registra el pago por el total exacto. El vuelto se calcula aquí.
     pagos = [{ forma_pago: formaPago, monto: 0 }];
     vuelto = formaPago === 'EFECTIVO' && recibido > 0 ? Math.max(0, recibido - t.total) : 0;
+
+    // Yappy / transferencia por más del total: el pago va por lo recibido y el servidor saca el vuelto de la caja
+    if (formaPago === 'YAPPY' || formaPago === 'TRANSFERENCIA') {
+      const recDig = redondear(parseFloat(document.getElementById('recibido-digital').value) || 0);
+      if (recDig > 0 && recDig < t.total - 0.005) {
+        toast('El monto recibido es menor al total.', 'error');
+        return;
+      }
+      if (recDig > t.total + 0.005) {
+        pagos = [{ forma_pago: formaPago, monto: recDig }];
+        vuelto = redondear(recDig - t.total);
+        if (!confirm('Recibido ' + dinero(recDig) + ' por ' + (formaPago === 'YAPPY' ? 'Yappy' : 'transferencia') + '. Vas a dar ' + dinero(vuelto) + ' de vuelto en EFECTIVO de la caja. ¿Continuar?')) return;
+      }
+    }
   }
 
   // Referencia del comprobante: va en las líneas de Yappy / transferencia; las notas, en la venta
