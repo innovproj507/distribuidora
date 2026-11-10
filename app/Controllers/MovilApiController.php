@@ -227,12 +227,63 @@ class MovilApiController extends BaseController
         return $this->json(['success' => true, 'existencia' => $existencia]);
     }
 
+    /**
+     * POST /m/api/venta/{id}/comprobante (multipart "foto") — foto del comprobante de Yappy/transferencia.
+     * Solo quien hizo la venta (o quien puede anular ventas), en la sucursal activa. Se guarda fuera de public/.
+     */
+    public function subirComprobante(int $id)
+    {
+        $v = Db::row("SELECT venta_id, vendedor_id, comprobante FROM ventas WHERE venta_id = ? AND sucursal_id = ?", [$id, $this->sucursalId()]);
+        if (!$v) return $this->json(['error' => 'Venta no encontrada.'], 404);
+        if ((int) $v['vendedor_id'] !== (int) Auth::id() && !Auth::can('ventas.anular')) {
+            return $this->json(['error' => 'Sin permiso para esta venta.'], 403);
+        }
+
+        $file = $this->request->getFile('foto');
+        if ($file === null || !$file->isValid() || $file->hasMoved()) {
+            return $this->json(['error' => 'No llegó la foto.'], 422);
+        }
+        $tipos = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+        $mime  = $file->getMimeType();
+        if (!isset($tipos[$mime]) || $file->getSize() > 8 * 1024 * 1024) {
+            return $this->json(['error' => 'La foto debe ser JPG, PNG o WEBP de menos de 8 MB.'], 422);
+        }
+
+        $sub    = date('Y/m');
+        $nombre = 'v' . $id . '_' . bin2hex(random_bytes(8)) . '.' . $tipos[$mime];
+        $file->move(WRITEPATH . 'uploads/comprobantes/' . $sub, $nombre);
+        if ($v['comprobante']) {
+            @unlink(WRITEPATH . 'uploads/comprobantes/' . $v['comprobante']); // se reemplaza la anterior
+        }
+        Db::update('ventas', ['comprobante' => $sub . '/' . $nombre], ['venta_id' => $id]);
+        AuditService::log('ventas.comprobante', "Comprobante de pago adjuntado a la venta #{$id}", $id, 'venta', [], $this->empresaId());
+        return $this->json(['success' => true]);
+    }
+
+    /** GET /m/api/venta/{id}/comprobante — muestra la foto (ventas de las sucursales del usuario). */
+    public function verComprobante(int $id)
+    {
+        if (!Auth::can('ventas.ver') && !Auth::can('pos.usar')) return $this->json(['error' => 'Sin permiso.'], 403);
+        $sucursales = array_map('intval', array_column(\App\Libraries\SucursalService::disponibles((int) $this->empresaId()), 'sucursal_id')) ?: [0];
+        $ruta = Db::value(
+            "SELECT comprobante FROM ventas WHERE venta_id = ? AND sucursal_id IN (" . implode(',', array_fill(0, count($sucursales), '?')) . ")",
+            array_merge([$id], $sucursales)
+        );
+        $archivo = $ruta ? realpath(WRITEPATH . 'uploads/comprobantes/' . $ruta) : false;
+        $base    = realpath(WRITEPATH . 'uploads/comprobantes');
+        if (!$archivo || !$base || !str_starts_with($archivo, $base) || !is_file($archivo)) {
+            return $this->response->setStatusCode(404)->setBody('Sin comprobante.');
+        }
+        $mime = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp'][strtolower(pathinfo($archivo, PATHINFO_EXTENSION))] ?? 'application/octet-stream';
+        return $this->response->setHeader('Content-Type', $mime)->setHeader('Cache-Control', 'private, max-age=86400')->setBody((string) file_get_contents($archivo));
+    }
+
     /** GET /m/api/venta/{id} — cabecera, ítems y pagos de una venta de la sucursal. */
     public function venta(int $id)
     {
         if (!Auth::can('ventas.ver')) return $this->json(['error' => 'Sin permiso.'], 403);
         $v = Db::row(
-            "SELECT v.venta_id, v.numero_factura, v.subtotal, v.itbms, v.descuento, v.total, v.estado, v.forma_pago, v.fecha, v.notas, c.nombre AS cliente_nombre
+            "SELECT v.venta_id, v.numero_factura, v.subtotal, v.itbms, v.descuento, v.total, v.estado, v.forma_pago, v.fecha, v.notas, (v.comprobante IS NOT NULL) AS tiene_comprobante, c.nombre AS cliente_nombre
              FROM ventas v LEFT JOIN clientes c ON v.cliente_id = c.cliente_id WHERE v.venta_id = ? AND v.sucursal_id = ?",
             [$id, $this->sucursalId()]
         );

@@ -57,7 +57,9 @@ foreach ($ventas as $v) {
     <div class="flex justify-between text-xs mb-2"><span>ITBMS</span><span class="font-mono" id="v-itbms"></span></div>
     <div class="flex justify-between items-center"><span class="text-sm font-medium">Total</span><span class="font-mono text-xl font-semibold" id="v-total"></span></div>
   </div>
-  <p class="text-xs mb-3" id="v-pagos" style="color:var(--ink-soft)"></p>
+  <p class="text-xs mb-1" id="v-pagos" style="color:var(--ink-soft)"></p>
+  <a id="v-comprobante" href="#" target="_blank" class="text-xs font-semibold mb-3" style="color:var(--navy); display:none">📎 Ver comprobante de pago</a>
+  <div class="mb-2"></div>
   <button type="button" onclick="compartirTicket()" class="block w-full py-3 rounded-xl font-medium text-center text-white mb-2" style="background:var(--green)">📤 Compartir ticket (WhatsApp…)</button>
   <?php if (!in_array(\App\Libraries\Auth::rol(), \App\Filters\SoloMovilFilter::ROLES, true)): ?>
   <a id="v-web" href="#" class="block w-full py-3 rounded-xl font-medium text-center" style="background:var(--navy-light); color:var(--navy)">Imprimir / anular (versión web)</a>
@@ -121,6 +123,9 @@ async function verVenta(id) {
     document.getElementById('v-total').textContent = dinero(v.total);
     document.getElementById('v-pagos').textContent = 'Pagos: ' + (v.pagos.length ? v.pagos.map(function (p) { return p.forma_pago + ' ' + dinero(p.monto) + (p.referencia ? ' (ref. ' + p.referencia + ')' : ''); }).join(' · ') : v.forma_pago)
       + (v.notas && v.notas !== 'Venta desde móvil' ? ' — ' + v.notas.replace(/^Venta desde móvil — /, '') : '');
+    const comp = document.getElementById('v-comprobante');
+    comp.style.display = Number(v.tiene_comprobante) ? 'inline-block' : 'none';
+    comp.href = '/m/api/venta/' + Number(id) + '/comprobante';
     const web = document.getElementById('v-web');
     if (web) web.href = '/ventas/venta/' + id;
     ventaActual = v;

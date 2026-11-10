@@ -119,7 +119,21 @@ $puedeDescontar = $maxDescuentoPct > 0;
     <label class="field-label" id="ref-etiqueta">Referencia</label>
     <input type="text" id="pago-referencia" maxlength="100" class="field-input mb-2" style="font-family:'Inter'" placeholder="Nº de comprobante o confirmación" autocomplete="off">
     <label class="field-label">Notas</label>
-    <input type="text" id="pago-notas" maxlength="250" class="field-input" style="font-family:'Inter'" placeholder="Ej: pagó desde el Yappy de su esposa" autocomplete="off">
+    <input type="text" id="pago-notas" maxlength="250" class="field-input mb-2" style="font-family:'Inter'" placeholder="Ej: pagó desde el Yappy de su esposa" autocomplete="off">
+    <label class="field-label">Foto del comprobante</label>
+    <div class="flex items-center gap-2">
+      <label class="flex-1 text-center py-2.5 rounded-xl text-sm font-medium cursor-pointer" style="background:var(--navy-light); color:var(--navy)">📷 Tomar foto
+        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="elegirComprobante(this)">
+      </label>
+      <label class="flex-1 text-center py-2.5 rounded-xl text-sm font-medium cursor-pointer" style="background:var(--navy-light); color:var(--navy)">🖼️ Galería
+        <input type="file" accept="image/*" class="hidden" onchange="elegirComprobante(this)">
+      </label>
+    </div>
+    <div id="comprobante-previa" class="mt-2 items-center gap-2" style="display:none">
+      <img id="comprobante-img" alt="Comprobante" class="w-14 h-14 rounded-lg object-cover border" style="border-color:var(--line)">
+      <span class="text-xs flex-1" style="color:var(--ink-soft)">Se adjunta al cobrar</span>
+      <button type="button" onclick="quitarComprobante()" class="text-xs font-semibold px-2 py-1 rounded-lg" style="color:var(--red)">Quitar</button>
+    </div>
   </div>
 
   <div id="bloque-mixto" class="mb-3" style="display:none">
@@ -235,6 +249,7 @@ $puedeDescontar = $maxDescuentoPct > 0;
 
 <?php $this->section('extra_js'); ?>
 <script src="/assets/js/escaner.js?v=1"></script>
+<script src="/assets/js/foto-producto.js?v=1"></script>
 <script>
 const ITBMS_RATE  = <?= json_encode($itbmsRate) ?>;
 const DEPOSITO_ID = <?= json_encode((int) ($deposito_actual['deposito_id'] ?? 0)) ?>;
@@ -410,6 +425,42 @@ function fijarCantidad(k, valor) {
   }
   item.cantidad = redondear(n);
   actualizarCarrito();
+}
+
+// ── Foto del comprobante (Yappy / transferencia): se reduce y se sube después de cobrar ──
+let comprobanteArchivo = null;
+
+async function elegirComprobante(input) {
+  const f = input.files && input.files[0];
+  input.value = '';
+  if (!f) return;
+  try {
+    comprobanteArchivo = window.FotoProducto ? await FotoProducto.reducir(f) : f;
+  } catch (e) {
+    comprobanteArchivo = f;
+  }
+  document.getElementById('comprobante-img').src = URL.createObjectURL(comprobanteArchivo);
+  document.getElementById('comprobante-previa').style.display = 'flex';
+}
+
+function quitarComprobante() {
+  comprobanteArchivo = null;
+  document.getElementById('comprobante-previa').style.display = 'none';
+  document.getElementById('comprobante-img').removeAttribute('src');
+}
+
+async function subirComprobante(ventaId, archivo) {
+  const datos = new FormData();
+  datos.append('foto', archivo, 'comprobante.jpg');
+  try {
+    const r = await fetch('/m/api/venta/' + ventaId + '/comprobante', {
+      method: 'POST', credentials: 'same-origin', body: datos,
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF_TOKEN },
+    });
+    if (!r.ok) throw new Error((await r.json().catch(function () { return {}; })).error || 'No se pudo subir');
+  } catch (e) {
+    toast('La venta se guardó, pero no se pudo subir el comprobante: ' + e.message, 'error');
+  }
 }
 
 function activarDescuento(si) {
@@ -603,6 +654,7 @@ function vaciarCarrito() {
   if (da && da.checked) { da.checked = false; document.getElementById('bloque-descuento').style.display = 'none'; }
   document.getElementById('pago-referencia').value = '';
   document.getElementById('pago-notas').value = '';
+  quitarComprobante();
   document.querySelectorAll('.mx-monto').forEach(function (el) { el.value = ''; });
   elegirForma('EFECTIVO');
   actualizarCarrito();
@@ -795,6 +847,11 @@ async function confirmarVenta() {
     // Vendida: el carrito guardado se borra ya (si se cierra la app aquí, no se vuelve a cobrar)
     Object.keys(carrito).forEach(function (k) { delete carrito[k]; });
     escribirLocal(KEY_CARRITO, null);
+    // Comprobante solo si la forma de pago lo usa (si cambió a efectivo, no se sube)
+    if (comprobanteArchivo && ['YAPPY', 'TRANSFERENCIA', 'MIXTO'].indexOf(formaPago) !== -1) {
+      boton.textContent = 'Subiendo comprobante…';
+      await subirComprobante(res.venta_id, comprobanteArchivo);
+    }
     cerrarSheet('sheet-carrito');
     document.getElementById('exito-factura').textContent = res.numero_factura;
     document.getElementById('exito-total').textContent = dinero(res.total);

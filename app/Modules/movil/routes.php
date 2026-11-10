@@ -50,6 +50,8 @@ $routes->group('m', ['filter' => ['movilauth', 'sucursal']], static function ($r
     $routes->post('api/traslado', 'MovilApiController::enviarTraslado');
     $routes->post('api/traslado/(:num)/recibir', 'MovilApiController::recibirTraslado/$1');
     $routes->get('api/venta/(:num)', 'MovilApiController::venta/$1');
+    $routes->post('api/venta/(:num)/comprobante', 'MovilApiController::subirComprobante/$1');
+    $routes->get('api/venta/(:num)/comprobante', 'MovilApiController::verComprobante/$1');
     $routes->post('api/alerta/(:num)/resolver', 'MovilApiController::resolverAlerta/$1');
     $routes->post('logout', 'MovilController::logout');
     $routes->get('logout', static fn () => redirect()->to('/m/mas'));

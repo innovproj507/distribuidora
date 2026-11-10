@@ -90,6 +90,15 @@ $bc = match($venta['estado']) {
                     <span class="text-sm text-gray-600 uppercase"><?= esc($venta['forma_pago'] ?? '—') ?></span>
                 <?php endif; ?>
             </div>
+            <?php if (!empty($venta['comprobante'])): ?>
+            <div class="flex items-start gap-4 py-2">
+                <label class="text-sm font-semibold text-gray-600 w-36 shrink-0">Comprobante</label>
+                <a href="/m/api/venta/<?= (int) $venta['venta_id'] ?>/comprobante" target="_blank" class="block">
+                    <img src="/m/api/venta/<?= (int) $venta['venta_id'] ?>/comprobante" alt="Comprobante de pago" class="w-28 h-28 object-cover rounded-xl border border-gray-200 hover:opacity-90">
+                    <span class="text-xs text-sky-600 font-semibold">Ver en grande</span>
+                </a>
+            </div>
+            <?php endif; ?>
             <?php if (!empty($venta['notas'])): ?>
             <div class="flex items-start gap-4 py-2">
                 <label class="text-sm font-semibold text-gray-600 w-36 shrink-0">Notas</label>
