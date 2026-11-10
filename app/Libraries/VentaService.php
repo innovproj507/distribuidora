@@ -33,11 +33,14 @@ final class VentaService
         // Pagos: [{forma_pago, monto}] o forma_pago suelto (modo de un solo pago)
         $pagos = $data['pagos'] ?? null;
         if (empty($pagos) || !is_array($pagos)) {
-            $pagos = [['forma_pago' => $data['forma_pago'] ?? 'EFECTIVO', 'monto' => 0]];
+            $pagos = [['forma_pago' => $data['forma_pago'] ?? 'EFECTIVO', 'monto' => 0, 'referencia' => $data['referencia'] ?? null]];
         }
         foreach ($pagos as &$pg) {
             $pg['forma_pago'] = strtoupper(trim($pg['forma_pago'] ?? 'EFECTIVO'));
             $pg['monto']      = (float) ($pg['monto'] ?? 0);
+            // Nº de comprobante (Yappy, transferencia…), opcional
+            $ref              = trim((string) ($pg['referencia'] ?? ''));
+            $pg['referencia'] = $ref !== '' ? mb_substr($ref, 0, 100) : null;
         }
         unset($pg);
 
@@ -213,7 +216,7 @@ final class VentaService
 
         foreach ($pagos as $pg) {
             if ($pg['monto'] > 0) {
-                Db::insert('ventas_pagos', ['venta_id' => $ventaId, 'forma_pago' => $pg['forma_pago'], 'monto' => round($pg['monto'], 2)]);
+                Db::insert('ventas_pagos', ['venta_id' => $ventaId, 'forma_pago' => $pg['forma_pago'], 'monto' => round($pg['monto'], 2), 'referencia' => $pg['referencia']]);
             }
         }
 

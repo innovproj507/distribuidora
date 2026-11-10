@@ -83,12 +83,19 @@ $bc = match($venta['estado']) {
                                 <?= esc(strtoupper($pg['forma_pago'])) ?>
                                 <span>$<?= number_format((float)$pg['monto'], 2) ?></span>
                             </span>
+                            <?php if (!empty($pg['referencia'])): ?><span class="text-xs text-gray-500">Ref: <span class="font-mono"><?= esc($pg['referencia']) ?></span></span><?php endif; ?>
                         <?php endforeach; ?>
                     </div>
                 <?php else: ?>
                     <span class="text-sm text-gray-600 uppercase"><?= esc($venta['forma_pago'] ?? '—') ?></span>
                 <?php endif; ?>
             </div>
+            <?php if (!empty($venta['notas'])): ?>
+            <div class="flex items-start gap-4 py-2">
+                <label class="text-sm font-semibold text-gray-600 w-36 shrink-0">Notas</label>
+                <span class="text-sm text-gray-600"><?= esc($venta['notas']) ?></span>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>

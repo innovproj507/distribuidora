@@ -270,7 +270,7 @@ class VentaController extends BaseController
                  WHERE d.venta_id = ?",
                 [$ventaId]
             ),
-            'pagos_venta' => Db::all("SELECT forma_pago, monto FROM ventas_pagos WHERE venta_id = ? ORDER BY pago_id", [$ventaId]),
+            'pagos_venta' => Db::all("SELECT forma_pago, monto, referencia FROM ventas_pagos WHERE venta_id = ? ORDER BY pago_id", [$ventaId]),
         ]);
     }
 

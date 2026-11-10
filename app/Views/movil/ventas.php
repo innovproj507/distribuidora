@@ -119,7 +119,8 @@ async function verVenta(id) {
     document.getElementById('v-sub').textContent = dinero(v.subtotal);
     document.getElementById('v-itbms').textContent = dinero(v.itbms);
     document.getElementById('v-total').textContent = dinero(v.total);
-    document.getElementById('v-pagos').textContent = 'Pagos: ' + (v.pagos.length ? v.pagos.map(function (p) { return p.forma_pago + ' ' + dinero(p.monto); }).join(' · ') : v.forma_pago);
+    document.getElementById('v-pagos').textContent = 'Pagos: ' + (v.pagos.length ? v.pagos.map(function (p) { return p.forma_pago + ' ' + dinero(p.monto) + (p.referencia ? ' (ref. ' + p.referencia + ')' : ''); }).join(' · ') : v.forma_pago)
+      + (v.notas && v.notas !== 'Venta desde móvil' ? ' — ' + v.notas.replace(/^Venta desde móvil — /, '') : '');
     const web = document.getElementById('v-web');
     if (web) web.href = '/ventas/venta/' + id;
     ventaActual = v;

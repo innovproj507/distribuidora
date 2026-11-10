@@ -78,8 +78,11 @@ $puedeDescontar = $maxDescuentoPct > 0;
   <p id="cliente-credito" class="text-xs mb-3" style="color:var(--ink-soft)"></p>
 
   <?php if ($puedeDescontar): ?>
-  <label class="field-label">Descuento al total <span class="font-normal" style="color:var(--ink-soft)">(máx. <?= (int) $maxDescuentoPct ?>%)</span></label>
-  <div class="flex gap-2 mb-3">
+  <label class="flex items-center gap-2 text-sm font-medium mb-2 select-none">
+    <input type="checkbox" id="desc-activo" onchange="activarDescuento(this.checked)" style="width:18px; height:18px">
+    Aplicar descuento <span class="text-xs font-normal" style="color:var(--ink-soft)">(máx. <?= (int) $maxDescuentoPct ?>%)</span>
+  </label>
+  <div class="flex gap-2 mb-3" id="bloque-descuento" style="display:none">
     <input type="number" inputmode="decimal" step="0.01" min="0" id="desc-valor" class="field-input flex-1" placeholder="0" oninput="renderTotales()">
     <div class="flex rounded-xl overflow-hidden border flex-shrink-0" style="border-color:var(--line)">
       <button type="button" id="desc-pct" onclick="tipoDescuento('%')" class="w-11 text-sm font-semibold">%</button>
@@ -110,6 +113,13 @@ $puedeDescontar = $maxDescuentoPct > 0;
       </div>
     </div>
     <div id="billetes" class="flex flex-wrap gap-1.5 mt-2"></div>
+  </div>
+
+  <div id="bloque-referencia" class="mb-3" style="display:none">
+    <label class="field-label" id="ref-etiqueta">Referencia</label>
+    <input type="text" id="pago-referencia" maxlength="100" class="field-input mb-2" style="font-family:'Inter'" placeholder="Nº de comprobante o confirmación" autocomplete="off">
+    <label class="field-label">Notas</label>
+    <input type="text" id="pago-notas" maxlength="250" class="field-input" style="font-family:'Inter'" placeholder="Ej: pagó desde el Yappy de su esposa" autocomplete="off">
   </div>
 
   <div id="bloque-mixto" class="mb-3" style="display:none">
@@ -402,9 +412,17 @@ function fijarCantidad(k, valor) {
   actualizarCarrito();
 }
 
+function activarDescuento(si) {
+  document.getElementById('bloque-descuento').style.display = si ? 'flex' : 'none';
+  if (!si) document.getElementById('desc-valor').value = '';
+  else document.getElementById('desc-valor').focus();
+  renderTotales();
+}
+
 function descuentoMonto(subtotal) {
   const el = document.getElementById('desc-valor');
-  if (!el) return 0;
+  const activo = document.getElementById('desc-activo');
+  if (!el || (activo && !activo.checked)) return 0;
   const v = parseFloat(el.value) || 0;
   if (v <= 0) return 0;
   return redondear(Math.min(subtotal, descTipo === '%' ? subtotal * v / 100 : v));
@@ -531,6 +549,9 @@ function elegirForma(forma) {
   document.getElementById('forma-pago').value = forma;
   document.getElementById('bloque-efectivo').style.display = forma === 'EFECTIVO' ? 'block' : 'none';
   document.getElementById('bloque-mixto').style.display = forma === 'MIXTO' ? 'block' : 'none';
+  // Yappy / transferencia (o mixto que los incluya): referencia del comprobante y notas
+  document.getElementById('bloque-referencia').style.display = ['YAPPY', 'TRANSFERENCIA', 'MIXTO'].indexOf(forma) !== -1 ? 'block' : 'none';
+  document.getElementById('ref-etiqueta').textContent = forma === 'YAPPY' ? 'Referencia de Yappy' : (forma === 'TRANSFERENCIA' ? 'Referencia de la transferencia' : 'Referencia (Yappy / transferencia)');
   cambiarCliente();
   renderTotales();
 }
@@ -578,6 +599,10 @@ function vaciarCarrito() {
   document.getElementById('carrito-cliente').value = '';
   const dv = document.getElementById('desc-valor');
   if (dv) dv.value = '';
+  const da = document.getElementById('desc-activo');
+  if (da && da.checked) { da.checked = false; document.getElementById('bloque-descuento').style.display = 'none'; }
+  document.getElementById('pago-referencia').value = '';
+  document.getElementById('pago-notas').value = '';
   document.querySelectorAll('.mx-monto').forEach(function (el) { el.value = ''; });
   elegirForma('EFECTIVO');
   actualizarCarrito();
@@ -734,13 +759,20 @@ async function confirmarVenta() {
     vuelto = formaPago === 'EFECTIVO' && recibido > 0 ? Math.max(0, recibido - t.total) : 0;
   }
 
+  // Referencia del comprobante: va en las líneas de Yappy / transferencia; las notas, en la venta
+  const referencia = document.getElementById('pago-referencia').value.trim();
+  const notasPago  = document.getElementById('pago-notas').value.trim();
+  if (referencia) {
+    pagos.forEach(function (p) { if (p.forma_pago === 'YAPPY' || p.forma_pago === 'TRANSFERENCIA') p.referencia = referencia; });
+  }
+
   const payload = {
     tipo: 'venta',
     cliente_id: cliente ? cliente.id : null,
     pagos: pagos,
     forma_pago: formaPago,
     descuento: t.desc,
-    notas: 'Venta desde móvil',
+    notas: notasPago ? 'Venta desde móvil — ' + notasPago : 'Venta desde móvil',
     aplicar_itbms: true,
     items: claves.map(function (k) {
       const it = carrito[k];

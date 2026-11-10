@@ -232,7 +232,7 @@ class MovilApiController extends BaseController
     {
         if (!Auth::can('ventas.ver')) return $this->json(['error' => 'Sin permiso.'], 403);
         $v = Db::row(
-            "SELECT v.venta_id, v.numero_factura, v.subtotal, v.itbms, v.descuento, v.total, v.estado, v.forma_pago, v.fecha, c.nombre AS cliente_nombre
+            "SELECT v.venta_id, v.numero_factura, v.subtotal, v.itbms, v.descuento, v.total, v.estado, v.forma_pago, v.fecha, v.notas, c.nombre AS cliente_nombre
              FROM ventas v LEFT JOIN clientes c ON v.cliente_id = c.cliente_id WHERE v.venta_id = ? AND v.sucursal_id = ?",
             [$id, $this->sucursalId()]
         );
@@ -241,7 +241,7 @@ class MovilApiController extends BaseController
             "SELECT p.nombre, d.cantidad, d.unidad_nombre, d.precio, d.total_linea FROM ventas_detalle d JOIN productos p ON p.producto_id = d.producto_id WHERE d.venta_id = ?",
             [$id]
         );
-        $v['pagos'] = Db::all("SELECT forma_pago, monto FROM ventas_pagos WHERE venta_id = ?", [$id]);
+        $v['pagos'] = Db::all("SELECT forma_pago, monto, referencia FROM ventas_pagos WHERE venta_id = ?", [$id]);
         return $this->json($v);
     }
 
