@@ -54,7 +54,8 @@ class VentaController extends BaseController
         $total  = (int) Db::value("SELECT COUNT(*) FROM ventas v LEFT JOIN clientes c ON v.cliente_id = c.cliente_id WHERE {$where}", $params);
 
         $ventas = Db::all(
-            "SELECT v.*, c.nombre AS cliente_nombre, u.username AS vendedor_nombre
+            "SELECT v.*, c.nombre AS cliente_nombre, u.username AS vendedor_nombre,
+                    (SELECT GROUP_CONCAT(DISTINCT forma_pago ORDER BY monto DESC SEPARATOR ',') FROM ventas_pagos WHERE venta_id = v.venta_id) AS formas_pago
              FROM ventas v
              LEFT JOIN clientes c ON v.cliente_id = c.cliente_id
              LEFT JOIN users u ON v.vendedor_id = u.id

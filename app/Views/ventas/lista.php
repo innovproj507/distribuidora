@@ -133,7 +133,7 @@ $clientes_json = json_encode(array_map(function($c) use ($cliente_actual, &$clie
                 <th class="px-5 py-3.5 bg-gray-50/80 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Factura</th>
                 <th class="px-5 py-3.5 bg-gray-50/80 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Fecha</th>
                 <th class="px-5 py-3.5 bg-gray-50/80 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Cliente</th>
-                <th class="px-5 py-3.5 bg-gray-50/80 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Vendedor</th>
+                <th class="px-5 py-3.5 bg-gray-50/80 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Forma de pago</th>
                 <th class="px-5 py-3.5 bg-gray-50/80 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
                 <th class="px-5 py-3.5 bg-gray-50/80 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Estado</th>
                 <th class="px-5 py-3.5 bg-gray-50/80 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Acciones</th>
@@ -150,7 +150,17 @@ $clientes_json = json_encode(array_map(function($c) use ($cliente_actual, &$clie
                 </td>
                 <td class="px-5 py-3.5 whitespace-nowrap text-sm text-gray-600"><?= date("d/m/Y H:i", strtotime($venta['fecha'])) ?></td>
                 <td class="px-5 py-3.5 whitespace-nowrap text-sm text-gray-900"><?= esc($venta['cliente_nombre'] ?: "Consumidor Final") ?></td>
-                <td class="px-5 py-3.5 whitespace-nowrap text-sm text-gray-600"><?= esc($venta['vendedor_nombre'] ?? '') ?></td>
+                <td class="px-5 py-3.5 whitespace-nowrap text-sm">
+                    <?php
+                    // Formas de pago de la venta (ventas_pagos); las viejas sin pagos usan ventas.forma_pago
+                    $formasPago = array_filter(explode(',', (string) ($venta['formas_pago'] ?: $venta['forma_pago'])));
+                    $estiloPago = ['EFECTIVO' => 'bg-emerald-50 text-emerald-700', 'YAPPY' => 'bg-sky-50 text-sky-700', 'TRANSFERENCIA' => 'bg-indigo-50 text-indigo-700',
+                                   'TARJETA' => 'bg-violet-50 text-violet-700', 'CREDITO' => 'bg-amber-50 text-amber-700', 'CHEQUE' => 'bg-gray-100 text-gray-700'];
+                    $nombrePago = ['EFECTIVO' => 'Efectivo', 'YAPPY' => 'Yappy', 'TRANSFERENCIA' => 'Transferencia', 'TARJETA' => 'Tarjeta', 'CREDITO' => 'Crédito', 'CHEQUE' => 'Cheque', 'MIXTO' => 'Mixto'];
+                    foreach ($formasPago as $fp): $fp = strtoupper(trim($fp)); ?>
+                        <span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold mr-0.5 <?= $estiloPago[$fp] ?? 'bg-gray-100 text-gray-700' ?>"><?= esc($nombrePago[$fp] ?? ucfirst(strtolower($fp))) ?></span>
+                    <?php endforeach; ?>
+                </td>
                 <td class="px-5 py-3.5 whitespace-nowrap text-sm font-bold text-gray-900">$<?= number_format((float)$venta['total'], 2) ?></td>
                 <td class="px-5 py-3.5 whitespace-nowrap">
                     <?php
