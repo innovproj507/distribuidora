@@ -195,7 +195,7 @@ class CompraController extends BaseController
                 'codigo'         => $codigo,
                 'costo'          => $costo,
                 'categoria_id'   => !empty($data['categoria_id']) ? (int) $data['categoria_id'] : null,
-                'itbms'          => 7,
+                'itbms'          => 0, // ningún producto lleva ITBMS (ver ProductoService)
                 'estado'         => 'activo',
                 'fecha_creacion' => date('Y-m-d H:i:s'),
             ]);

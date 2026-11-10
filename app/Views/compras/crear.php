@@ -375,7 +375,11 @@
                     <span>Importe base:</span>
                     <span class="font-semibold text-gray-700" x-text="'$' + totals.subtotal.toFixed(2)">$0.00</span>
                 </div>
-                <div class="flex items-center justify-between gap-16 text-sm text-gray-500">
+                <label class="flex items-center justify-end gap-2 text-xs text-gray-500 cursor-pointer select-none">
+                    <input type="checkbox" x-model="compra.con_itbms" @change="updateTotals()" class="rounded border-gray-300 text-sky-500 focus:ring-sky-400">
+                    El proveedor cobra ITBMS
+                </label>
+                <div class="flex items-center justify-between gap-16 text-sm text-gray-500" x-show="compra.con_itbms">
                     <span>ITBMS (7%):</span>
                     <span class="font-semibold text-gray-700" x-text="'$' + totals.itbms.toFixed(2)">$0.00</span>
                 </div>
@@ -416,7 +420,8 @@ function compraForm() {
             fecha_compra: new Date().toISOString().split('T')[0],
             fecha_esperada: '',
             terminos: '',
-            notas: ''
+            notas: '',
+            con_itbms: false
         },
         totals: { subtotal: 0, itbms: 0, total: 0 },
 
@@ -574,7 +579,7 @@ function compraForm() {
             let sub = 0;
             this.items.forEach(i => { sub += i.cantidad * i.costo; });
             this.totals.subtotal = sub;
-            this.totals.itbms    = sub * 0.07;
+            this.totals.itbms    = this.compra.con_itbms ? Math.round(sub * 7) / 100 : 0;
             this.totals.total    = sub + this.totals.itbms;
         },
 

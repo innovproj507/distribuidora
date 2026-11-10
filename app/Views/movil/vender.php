@@ -89,13 +89,14 @@ $puedeDescontar = $maxDescuentoPct > 0;
   <?php endif; ?>
 
   <label class="field-label">Forma de pago</label>
-  <div class="grid grid-cols-5 gap-1.5 mb-3">
-    <button type="button" class="chip-pago chip-forma activo" data-forma="EFECTIVO" onclick="elegirForma('EFECTIVO')">Efectivo</button>
-    <button type="button" class="chip-pago chip-forma" data-forma="YAPPY" onclick="elegirForma('YAPPY')">Yappy</button>
-    <button type="button" class="chip-pago chip-forma" data-forma="TARJETA" onclick="elegirForma('TARJETA')">Tarjeta</button>
-    <button type="button" class="chip-pago chip-forma" data-forma="CREDITO" onclick="elegirForma('CREDITO')">Crédito</button>
-    <button type="button" class="chip-pago chip-forma" data-forma="MIXTO" onclick="elegirForma('MIXTO')">Mixto</button>
-  </div>
+  <select id="forma-pago" class="field-input mb-3" style="font-family:'Inter'" onchange="elegirForma(this.value)">
+    <option value="EFECTIVO">💵 Efectivo</option>
+    <option value="YAPPY">📱 Yappy</option>
+    <option value="TRANSFERENCIA">🏦 Transferencia</option>
+    <option value="TARJETA">💳 Tarjeta</option>
+    <option value="CREDITO">📒 Crédito (fiado)</option>
+    <option value="MIXTO">➗ Mixto (varias formas)</option>
+  </select>
 
   <div id="bloque-efectivo" class="mb-3">
     <div class="flex items-end gap-3">
@@ -114,7 +115,7 @@ $puedeDescontar = $maxDescuentoPct > 0;
   <div id="bloque-mixto" class="mb-3" style="display:none">
     <p class="text-[11px] mb-2" style="color:var(--ink-soft)">Reparte el total entre varias formas. El vuelto sale del efectivo.</p>
     <div class="grid grid-cols-2 gap-2">
-      <?php foreach (['EFECTIVO' => 'Efectivo', 'YAPPY' => 'Yappy', 'TARJETA' => 'Tarjeta', 'CREDITO' => 'Crédito'] as $forma => $etiqueta): ?>
+      <?php foreach (['EFECTIVO' => 'Efectivo', 'YAPPY' => 'Yappy', 'TRANSFERENCIA' => 'Transferencia', 'TARJETA' => 'Tarjeta', 'CREDITO' => 'Crédito'] as $forma => $etiqueta): ?>
         <div>
           <label class="text-[11px]" style="color:var(--ink-soft)"><?= $etiqueta ?></label>
           <input type="number" inputmode="decimal" step="0.01" min="0" data-mixto="<?= $forma ?>" class="field-input mx-monto" style="padding:8px" placeholder="0.00" oninput="renderTotales()" onfocus="completarMixto(this)">
@@ -503,7 +504,7 @@ function tipoDescuento(tipo) {
 }
 
 function montosMixto() {
-  const m = { EFECTIVO: 0, YAPPY: 0, TARJETA: 0, CREDITO: 0, suma: 0 };
+  const m = { EFECTIVO: 0, YAPPY: 0, TRANSFERENCIA: 0, TARJETA: 0, CREDITO: 0, suma: 0 };
   document.querySelectorAll('.mx-monto').forEach(function (el) {
     const v = redondear(parseFloat(el.value) || 0);
     m[el.dataset.mixto] = v;
@@ -527,9 +528,7 @@ function abrirCarrito() {
 
 function elegirForma(forma) {
   formaPago = forma;
-  document.querySelectorAll('.chip-forma').forEach(function (b) {
-    b.classList.toggle('activo', b.dataset.forma === forma);
-  });
+  document.getElementById('forma-pago').value = forma;
   document.getElementById('bloque-efectivo').style.display = forma === 'EFECTIVO' ? 'block' : 'none';
   document.getElementById('bloque-mixto').style.display = forma === 'MIXTO' ? 'block' : 'none';
   cambiarCliente();
@@ -719,7 +718,7 @@ async function confirmarVenta() {
       if (!cliente) { toast('Elige un cliente para la parte a crédito.', 'error'); return; }
       if (m.CREDITO > cliente.disponible + 0.01) { toast('Crédito insuficiente. Disponible: ' + dinero(cliente.disponible), 'error'); return; }
     }
-    pagos = ['EFECTIVO', 'YAPPY', 'TARJETA', 'CREDITO'].filter(function (f) { return m[f] > 0; }).map(function (f) { return { forma_pago: f, monto: m[f] }; });
+    pagos = ['EFECTIVO', 'YAPPY', 'TRANSFERENCIA', 'TARJETA', 'CREDITO'].filter(function (f) { return m[f] > 0; }).map(function (f) { return { forma_pago: f, monto: m[f] }; });
     vuelto = Math.max(0, exceso);
   } else {
     if (formaPago === 'CREDITO') {
