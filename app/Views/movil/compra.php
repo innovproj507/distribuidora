@@ -8,6 +8,8 @@ $estadoCompra = [
     'cancelada'             => ['Cancelada', 'var(--red-light)',    'var(--red)'],
 ];
 $ec = $estadoCompra[$compra['estado']] ?? [ucfirst((string) $compra['estado']), 'var(--line)', 'var(--ink-soft)'];
+// Quien no crea compras (encargado) solo confirma la recepción: cantidades fijas (el servidor también lo impone)
+$soloConfirma = !\App\Libraries\Auth::can('compras.crear');
 ?>
 <?php $this->section('content'); ?>
 
@@ -44,7 +46,11 @@ $ec = $estadoCompra[$compra['estado']] ?? [ucfirst((string) $compra['estado']), 
 
 <h2 class="font-head text-sm font-semibold mb-2"><?= $puedeRecibir ? 'Recepción' : 'Productos' ?></h2>
 <?php if ($puedeRecibir): ?>
+  <?php if ($soloConfirma): ?>
+  <p class="text-xs mb-2" style="color:var(--ink-soft)">Revisa que llegó exactamente lo enviado y confirma. Si algo no cuadra, avisa al gerente antes de registrar.</p>
+  <?php else: ?>
   <p class="text-xs mb-2" style="color:var(--ink-soft)">Escribe lo que realmente llegó. Lo que no llegue queda pendiente para la próxima entrega.</p>
+  <?php endif; ?>
 <?php endif; ?>
 <div class="flex flex-col gap-2 mb-4">
   <?php foreach ($lineas as $l):
@@ -57,8 +63,9 @@ $ec = $estadoCompra[$compra['estado']] ?? [ucfirst((string) $compra['estado']), 
       </div>
       <?php if ($puedeRecibir && $pend > 0): ?>
         <div class="flex flex-col items-end gap-1 flex-shrink-0">
-          <input type="number" inputmode="decimal" min="0" step="any" value="<?= $pend ?>" data-detalle="<?= (int) $l['detalle_id'] ?>" data-pend="<?= $pend ?>" data-factor="1" class="field-input rec-linea" style="width:84px; text-align:right; padding:6px 8px">
-          <?php if (!empty($l['pres'])): ?>
+          <input type="number" inputmode="decimal" min="0" step="any" value="<?= $pend ?>" data-detalle="<?= (int) $l['detalle_id'] ?>" data-pend="<?= $pend ?>" data-factor="1" class="field-input rec-linea"
+                 <?= $soloConfirma ? 'readonly' : '' ?> style="width:84px; text-align:right; padding:6px 8px<?= $soloConfirma ? '; background:var(--line); color:var(--ink-soft)' : '' ?>">
+          <?php if (!empty($l['pres']) && !$soloConfirma): ?>
             <select onchange="cambiarUnidadRecepcion(this)" class="text-[11px] rounded-lg border bg-white px-1 py-1" style="border-color:var(--line); max-width:96px">
               <option value="1">uds</option>
               <?php foreach ($l['pres'] as $p): ?><option value="<?= (float) $p['factor'] ?>"><?= esc(mb_strtolower($p['nombre'])) ?> ×<?= (float) $p['factor'] ?></option><?php endforeach; ?>

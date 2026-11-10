@@ -258,6 +258,10 @@ class MovilApiController extends BaseController
         foreach ((array) ($entrada['recibidas'] ?? []) as $detalleId => $cantidad) {
             $recibidas[(int) $detalleId] = (float) $cantidad;
         }
+        if (!Auth::can('compras.crear')) {
+            // El encargado solo confirma la recepción: entra exactamente lo enviado
+            $recibidas = \App\Libraries\CompraService::todoPendiente($id);
+        }
         try {
             // Vencimiento opcional por línea {detalle_id: 'Y-m-d'}: se valida antes de tocar nada
             $vencimientos = [];

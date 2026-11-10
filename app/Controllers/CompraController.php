@@ -213,7 +213,10 @@ class CompraController extends BaseController
             return redirect()->to($compra ? "/compras/{$id}" : '/compras');
         }
 
-        $recibidas = (array) ($this->request->getPost('cantidad_recibida') ?? []);
+        // Quien no crea compras (encargado) solo confirma: entra exactamente lo enviado
+        $recibidas = \App\Libraries\Auth::can('compras.crear')
+            ? (array) ($this->request->getPost('cantidad_recibida') ?? [])
+            : CompraService::todoPendiente($id);
         $depositoId = (int) ($this->request->getPost('deposito_id') ?? 0) ?: (int) $compra['deposito_id'];
         if (!\App\Libraries\SucursalService::puedeUsarDeposito($depositoId, (int) $compra['sucursal_id'])) {
             $this->error('Ese depósito no pertenece a la sucursal de la compra o no tienes acceso.');

@@ -164,6 +164,19 @@ final class CompraService
     }
 
     /**
+     * Lo que falta por recibir de cada línea (detalle_id → cantidad). Quien no crea compras
+     * (encargado) solo confirma la recepción: recibe exactamente lo enviado, sin cambiar cantidades.
+     */
+    public static function todoPendiente(int $compraId): array
+    {
+        $r = [];
+        foreach (Db::all("SELECT detalle_id, cantidad - cantidad_recibida AS pend FROM compras_detalle WHERE compra_id = ? AND cantidad > cantidad_recibida", [$compraId]) as $l) {
+            $r[(int) $l['detalle_id']] = (float) $l['pend'];
+        }
+        return $r;
+    }
+
+    /**
      * Recibe líneas pendientes de una compra. $recibidas: detalle_id → cantidad (tope: lo pendiente).
      * Actualiza el estado de la compra. El llamador abre y cierra la transacción.
      *

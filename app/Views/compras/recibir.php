@@ -65,7 +65,8 @@
                                    min="0"
                                    max="<?= $pendiente ?>"
                                    step="0.01"
-                                   class="w-24 text-center border rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                                   <?= \App\Libraries\Auth::can('compras.crear') ? '' : 'readonly title="Llega exactamente lo enviado"' ?>
+                                   class="w-24 text-center border rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 <?= \App\Libraries\Auth::can('compras.crear') ? '' : 'bg-gray-100 text-gray-500' ?>">
                         </td>
                     </tr>
                     <?php endforeach; ?>
