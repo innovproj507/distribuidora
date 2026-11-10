@@ -29,6 +29,13 @@ $cancelada = $est === 'cancelada';
             <i class="fas fa-truck-loading"></i> Registrar Recepción
         </a>
         <?php endif; ?>
+        <?php if (($compra['estado'] ?? '') === 'pendiente' && \App\Libraries\Auth::can('compras.crear')
+                  && array_sum(array_map(fn ($d) => (float) $d['cantidad_recibida'], $detalles ?? [])) <= 0): ?>
+        <a href="/compras/<?= (int) $compra['compra_id'] ?>/editar"
+           class="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 transition shadow-sm">
+            <i class="fas fa-pen"></i> Editar / agregar productos
+        </a>
+        <?php endif; ?>
         <a href="/compras" class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
             Volver
         </a>

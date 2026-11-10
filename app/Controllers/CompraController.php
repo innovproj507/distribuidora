@@ -79,6 +79,80 @@ class CompraController extends BaseController
         ]);
     }
 
+    /** Editar una orden pendiente (agregar más productos antes de recibir). Usa el mismo formulario de Nueva Compra. */
+    public function editar(int $id)
+    {
+        $compra = $this->buscar($id);
+        $recibido = $compra ? (float) Db::value("SELECT COALESCE(SUM(cantidad_recibida), 0) FROM compras_detalle WHERE compra_id = ?", [$id]) : 0;
+        if (!$compra || $compra['estado'] !== 'pendiente' || $recibido > 0) {
+            $this->error('Solo se puede editar una orden pendiente que todavía no tiene nada recibido.');
+            return redirect()->to($compra ? "/compras/{$id}" : '/compras');
+        }
+
+        $lineas = Db::all(
+            "SELECT cd.producto_id, cd.cantidad, cd.costo, p.nombre, p.codigo,
+                    (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND tipo_precio = 'a') AS precio_a,
+                    (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND tipo_precio = 'b') AS precio_b,
+                    (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND tipo_precio = 'c') AS precio_c
+             FROM compras_detalle cd JOIN productos p ON p.producto_id = cd.producto_id
+             WHERE cd.compra_id = ? ORDER BY cd.detalle_id",
+            [$id]
+        );
+        $items = array_map(function (array $l) use ($compra): array {
+            $costo  = (float) $l['costo'];
+            $precio = (float) $l['precio_a'];
+            return [
+                'producto_id' => (int) $l['producto_id'], 'nombre' => $l['nombre'], 'codigo' => $l['codigo'],
+                'cantidad' => (float) $l['cantidad'], 'costo' => $costo,
+                'margen_pct' => $costo > 0 && $precio > 0 ? round(($precio / $costo - 1) * 100, 2) : 0,
+                'precio_a' => $precio, 'precio_b' => (float) $l['precio_b'], 'precio_c' => (float) $l['precio_c'],
+                'deposito_id' => (int) $compra['deposito_id'], 'itbms' => 0,
+            ];
+        }, $lineas);
+
+        $empresa = Db::row("SELECT margen_precio_a, margen_precio_b, margen_precio_c FROM companies WHERE empresa_id = ?", [$this->empresaId()]);
+        return $this->render('compras.crear', [
+            'page_title'      => 'Editar orden ' . ($compra['numero_factura_proveedor'] ?: '#' . $id),
+            'page_subtitle'   => 'Agregar o cambiar productos antes de recibir',
+            'proveedores'     => Fila::lista(Db::all("SELECT * FROM proveedores WHERE empresa_id = ? AND (estado = 'activo' OR proveedor_id = ?) ORDER BY nombre", [$this->empresaId(), (int) $compra['proveedor_id']])),
+            'depositos'       => Fila::lista(Db::all("SELECT * FROM depositos WHERE sucursal_id = ? AND estado = 'activo' ORDER BY es_principal DESC, nombre", [(int) $compra['sucursal_id']])),
+            'categorias'      => Db::all("SELECT categoria_id, nombre FROM categorias_productos WHERE empresa_id = ? ORDER BY nombre", [$this->empresaId()]),
+            'margen_precio_a' => (float) ($empresa['margen_precio_a'] ?? 35),
+            'margen_precio_b' => (float) ($empresa['margen_precio_b'] ?? 20),
+            'margen_precio_c' => (float) ($empresa['margen_precio_c'] ?? 10),
+            'editar'          => [
+                'compra_id' => $id,
+                'compra'    => [
+                    'proveedor_id'   => $compra['proveedor_id'] !== null ? (string) $compra['proveedor_id'] : '',
+                    'numero_factura' => (string) ($compra['numero_factura_proveedor'] ?? ''),
+                    'fecha_compra'   => substr((string) $compra['fecha_compra'], 0, 10),
+                    'fecha_esperada' => '',
+                    'terminos'       => '',
+                    'notas'          => (string) ($compra['notas'] ?? ''),
+                    'con_itbms'      => (float) $compra['monto_itbms'] > 0,
+                ],
+                'items' => $items,
+            ],
+        ]);
+    }
+
+    /** POST JSON (mismo formato que guardar) → reemplaza las líneas de la orden pendiente. */
+    public function actualizar(int $id)
+    {
+        $data = $this->jsonInput();
+        try {
+            Db::begin();
+            CompraService::actualizarPendiente($id, $data, ['empresa_id' => $this->empresaId(), 'sucursal_id' => $this->sucursalId()]);
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            log_message('error', 'Editar compra: ' . $e->getMessage());
+            return $this->json(['error' => $e instanceof \RuntimeException ? $e->getMessage() : 'No se pudo guardar la orden.'], $e instanceof \RuntimeException ? 422 : 500);
+        }
+        AuditService::log('compras.editar', "Orden de compra #{$id} editada (" . count($data['items'] ?? []) . ' productos)', $id, 'compra', ['total' => $data['total'] ?? 0], $this->empresaId());
+        return $this->json(['success' => true, 'compra_id' => $id]);
+    }
+
     public function detalle(int $id)
     {
         $compra = $this->buscar($id);

@@ -1,5 +1,6 @@
 <?php $this->extend('layouts/app'); ?>
 <?php $this->section('content'); ?>
+<?php $editar = $editar ?? null; // orden pendiente que se está editando (CompraController::editar) ?>
 
 <div x-data="compraForm()">
 
@@ -7,7 +8,7 @@
     <p class="text-xs text-gray-400 mb-2">
         <a href="/compras" class="hover:text-sky-500 transition-colors">Compras</a>
         <span class="mx-1">/</span>
-        <span class="text-gray-600 font-medium">Nueva Orden</span>
+        <span class="text-gray-600 font-medium"><?= $editar ? 'Editar orden' : 'Nueva Orden' ?></span>
     </p>
 
     <!-- Barra de acciones + pipeline de estado -->
@@ -15,13 +16,13 @@
         <div class="flex items-center gap-2">
             <button @click="saveCompra(false)"
                 class="bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold py-2 px-5 rounded-lg shadow-sm transition-colors flex items-center gap-2">
-                <i class="fas fa-clock text-xs"></i> Orden Pendiente
+                <i class="fas fa-clock text-xs"></i> <?= $editar ? 'Guardar orden' : 'Orden Pendiente' ?>
             </button>
             <button @click="saveCompra(true)"
                 class="bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold py-2 px-5 rounded-lg shadow-sm transition-colors flex items-center gap-2">
-                <i class="fas fa-save text-xs"></i> Recibir Ahora
+                <i class="fas fa-save text-xs"></i> <?= $editar ? 'Guardar y recibir' : 'Recibir Ahora' ?>
             </button>
-            <a href="/compras"
+            <a href="<?= $editar ? '/compras/' . (int) $editar['compra_id'] : '/compras' ?>"
                 class="text-sm font-medium text-gray-500 hover:text-red-500 py-2 px-4 rounded-lg border border-gray-200 hover:border-red-200 transition-colors">
                 Cancelar
             </a>
@@ -46,8 +47,8 @@
 
         <!-- Título grande -->
         <div class="px-8 pt-7 pb-5">
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Nueva Orden de Compra</p>
-            <h1 class="text-3xl font-bold text-gray-800">Nueva Compra</h1>
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1"><?= $editar ? 'Orden de compra pendiente' : 'Nueva Orden de Compra' ?></p>
+            <h1 class="text-3xl font-bold text-gray-800"><?= $editar ? 'Editar orden' : 'Nueva Compra' ?></h1>
         </div>
 
         <!-- Campos del encabezado: 2 columnas -->
@@ -413,8 +414,9 @@ function compraForm() {
         margenDefaultA: <?= json_encode($margen_precio_a ?? 35) ?>,
         margenDefaultB: <?= json_encode($margen_precio_b ?? 20) ?>,
         margenDefaultC: <?= json_encode($margen_precio_c ?? 10) ?>,
-        items: [],
-        compra: {
+        compraId: <?= $editar ? (int) $editar['compra_id'] : 'null' ?>,
+        items: <?= $editar ? json_encode($editar['items'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : '[]' ?>,
+        compra: <?= $editar ? json_encode($editar['compra'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : "{
             proveedor_id: '',
             numero_factura: '',
             fecha_compra: new Date().toISOString().split('T')[0],
@@ -422,8 +424,12 @@ function compraForm() {
             terminos: '',
             notas: '',
             con_itbms: false
-        },
+        }" ?>,
         totals: { subtotal: 0, itbms: 0, total: 0 },
+
+        init() {
+            this.updateTotals();
+        },
 
         async buscarProductos() {
             if (this.searchQuery.length < 2) { this.resultados = []; this.buscado = false; return; }
@@ -587,11 +593,14 @@ function compraForm() {
             if (!this.compra.proveedor_id) return alert('Seleccione un proveedor');
             if (this.items.length === 0)   return alert('Agregue al menos un producto');
 
-            const accion = recibir ? 'registrar esta entrada de inventario' : 'guardar como orden pendiente';
+            const accion = this.compraId
+                ? (recibir ? 'guardar la orden y pasar a recibirla' : 'guardar los cambios de la orden')
+                : (recibir ? 'registrar esta entrada de inventario' : 'guardar como orden pendiente');
             if (!confirm('¿Seguro que desea ' + accion + '?')) return;
 
             try {
-                const res = await fetch('/compras/guardar', {
+                // Editando: se guarda la orden (sigue pendiente) y "recibir" lleva a la pantalla de recepción
+                const res = await fetch(this.compraId ? `/compras/${this.compraId}/actualizar` : '/compras/guardar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': '<?= csrf_hash() ?>' },
                     body: JSON.stringify({
@@ -603,7 +612,9 @@ function compraForm() {
                 });
                 const json = await res.json();
                 if (json.success) {
-                    window.location.href = recibir ? '/compras' : `/compras/${json.compra_id}`;
+                    window.location.href = this.compraId
+                        ? (recibir ? `/compras/${this.compraId}/recibir` : `/compras/${this.compraId}`)
+                        : (recibir ? '/compras' : `/compras/${json.compra_id}`);
                 } else {
                     alert('Error: ' + json.error);
                 }

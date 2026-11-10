@@ -50,6 +50,64 @@ final class CompraService
             'usuario_id'               => Auth::id(),
         ]);
 
+        self::guardarLineas($compraId, $items, $depositoPrincipal, $ctx, $esPendiente, $factura);
+
+        return $compraId;
+    }
+
+    /**
+     * Edita una orden pendiente (agregar/quitar productos, cantidades, costos, proveedor…).
+     * Solo si no se ha recibido nada: reemplaza todas sus líneas. Mismos $data que registrar().
+     */
+    public static function actualizarPendiente(int $compraId, array $data, array $ctx): void
+    {
+        $compra = Db::row("SELECT * FROM compras WHERE compra_id = ? AND empresa_id = ? FOR UPDATE", [$compraId, $ctx['empresa_id']]);
+        if (!$compra) {
+            throw new \RuntimeException('Compra no encontrada.');
+        }
+        if ($compra['estado'] !== 'pendiente'
+            || (float) Db::value("SELECT COALESCE(SUM(cantidad_recibida), 0) FROM compras_detalle WHERE compra_id = ?", [$compraId]) > 0) {
+            throw new \RuntimeException('Solo se puede editar una orden pendiente que todavía no tiene nada recibido.');
+        }
+        $items = $data['items'] ?? [];
+        if (empty($items)) {
+            throw new \RuntimeException('Agrega al menos un producto.');
+        }
+
+        $ctx['sucursal_id'] = (int) $compra['sucursal_id']; // la orden sigue en su tienda
+        $depositoPrincipal  = (int) ($items[0]['deposito_id'] ?? 0) ?: (int) $compra['deposito_id'];
+        $factura            = trim((string) ($data['numero_factura'] ?? ''));
+        $calculado          = array_sum(array_map(fn ($i) => (float) $i['cantidad'] * (float) $i['costo'], $items));
+
+        Db::update('compras', [
+            'proveedor_id'             => !empty($data['proveedor_id']) ? (int) $data['proveedor_id'] : null,
+            'deposito_id'              => $depositoPrincipal,
+            'numero_factura'           => $factura !== '' ? $factura : $compra['numero_factura'],
+            'numero_factura_proveedor' => $factura !== '' ? $factura : null,
+            'monto_subtotal'           => isset($data['subtotal']) ? (float) $data['subtotal'] : $calculado,
+            'monto_itbms'              => (float) ($data['itbms'] ?? 0),
+            'monto_total'              => isset($data['total']) ? (float) $data['total'] : $calculado,
+            'fecha_compra'             => $data['fecha_compra'] ?? $compra['fecha_compra'],
+            'notas'                    => $data['notas'] ?? '',
+        ], ['compra_id' => $compraId]);
+
+        // El reparto a otras tiendas (pedido consolidado) se conserva por producto
+        $repartos = [];
+        foreach (Db::all("SELECT producto_id, reparto FROM compras_detalle WHERE compra_id = ? AND reparto IS NOT NULL", [$compraId]) as $r) {
+            $repartos[(int) $r['producto_id']] = $r['reparto'];
+        }
+
+        Db::query("DELETE FROM compras_detalle WHERE compra_id = ?", [$compraId]);
+        self::guardarLineas($compraId, $items, $depositoPrincipal, $ctx, true, $factura);
+
+        foreach ($repartos as $productoId => $reparto) {
+            Db::query("UPDATE compras_detalle SET reparto = ? WHERE compra_id = ? AND producto_id = ?", [$reparto, $compraId, $productoId]);
+        }
+    }
+
+    /** Inserta las líneas de una compra (y la recibe si no es pendiente). */
+    private static function guardarLineas(int $compraId, array $items, int $depositoPrincipal, array $ctx, bool $esPendiente, string $factura): void
+    {
         foreach ($items as $item) {
             $productoId = (int) $item['producto_id'];
             $cantidad   = (float) $item['cantidad'];
@@ -103,8 +161,6 @@ final class CompraService
                 self::recibirLinea($productoId, $depositoId, $cantidadBase, $costoBase, $compraId, $factura, $numeroLote, $vence);
             }
         }
-
-        return $compraId;
     }
 
     /**
