@@ -106,7 +106,7 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
                 <label class="<?= $label ?>">Precio de venta ($)</label>
                 <div class="relative">
                     <span class="absolute left-3 top-2.5 text-gray-400">$</span>
-                    <input type="number" name="precio_a" x-model.number="precio" step="0.01" min="0"
+                    <input type="number" name="precio_a" x-model.number="precio" step="any" min="0"
                            class="w-full border-2 border-sky-300 rounded-xl pl-7 pr-3 py-2.5 text-2xl font-black text-sky-700 bg-white focus:ring-2 focus:ring-sky-300 focus:outline-none">
                 </div>
                 <p class="text-xs text-gray-400 mt-1">Lo que paga el cliente por cada unidad.</p>
@@ -116,7 +116,7 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
                 <label class="<?= $label ?>">Costo ($) *</label>
                 <div class="relative">
                     <span class="absolute left-3 top-2.5 text-gray-400">$</span>
-                    <input type="number" name="costo" x-model.number="costo" step="0.01" min="0" required
+                    <input type="number" name="costo" x-model.number="costo" step="any" min="0" required
                            class="w-full border-2 border-gray-200 rounded-xl pl-7 pr-3 py-2.5 text-2xl font-black text-gray-700 bg-white focus:ring-2 focus:ring-sky-300 focus:outline-none">
                 </div>
                 <p class="text-xs text-gray-400 mt-1">Lo que te cuesta cada unidad (si compras por caja: precio de la caja ÷ unidades).</p>
@@ -158,7 +158,7 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
                     </div>
                     <div class="col-span-5 sm:col-span-4">
                         <label class="text-xs font-semibold text-gray-500">Precio de la presentación ($)</label>
-                        <input type="number" x-model.number="u.precio_a" step="0.01" min="0" :placeholder="sugerido(u)" class="<?= $campo ?> font-bold text-sky-700">
+                        <input type="number" x-model.number="u.precio_a" step="any" min="0" :placeholder="sugerido(u)" class="<?= $campo ?> font-bold text-sky-700">
                     </div>
                     <div class="col-span-2 sm:col-span-1 text-center">
                         <button type="button" @click="eliminarUnidad(index)" title="Quitar" class="w-8 h-8 bg-red-100 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-all"><i class="fas fa-times text-xs"></i></button>

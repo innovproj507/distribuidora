@@ -198,7 +198,7 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
         <?php if (ver_costos()): ?>
         <div>
             <label class="block text-xs font-semibold text-gray-500 mb-1">Costo <span class="font-normal text-gray-400">(opcional<?= !empty($unidades) ? ', de lo elegido: unidad, caja…' : '' ?>)</span></label>
-            <input type="number" name="costo" step="0.01" min="0" placeholder="<?= $costo > 0 ? number_format($costo, 2) : '0.00' ?>" class="<?= $campo ?>">
+            <input type="number" name="costo" step="any" min="0" placeholder="<?= $costo > 0 ? number_format($costo, 2) : '0.00' ?>" class="<?= $campo ?>">
         </div>
         <?php else: ?>
         <div></div>

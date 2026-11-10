@@ -106,7 +106,7 @@ final class PresentacionImportService
             if ($l['error'] === '') {
                 $clave = $p['producto_id'] . '|' . mb_strtolower($nombre);
                 $l['factor'] = round($factor, 2);
-                $l['precio'] = round($precioN, 2);
+                $l['precio'] = round($precioN, 10);
                 if (isset($vistos[$clave])) {
                     $l['error'] = "Repetida: \"{$nombre}\" ya está en la fila {$vistos[$clave]} para este producto.";
                 } elseif ($u = $existentes[$clave] ?? null) {

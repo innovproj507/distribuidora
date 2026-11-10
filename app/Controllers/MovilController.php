@@ -378,7 +378,7 @@ class MovilController extends BaseController
             }
             $nombres[mb_strtolower($nombre)] = true;
 
-            $datos     = ['nombre' => $nombre, 'factor_conversion' => $factor, 'precio_a' => max(0, round((float) ($f['precio'] ?? 0), 2))];
+            $datos     = ['nombre' => $nombre, 'factor_conversion' => $factor, 'precio_a' => max(0, round((float) ($f['precio'] ?? 0), 10))];
             $unidadId  = (int) ($f['unidad_id'] ?? 0);
             if ($unidadId && in_array($unidadId, $actuales, true)) {
                 Db::update('productos_unidades', $datos, ['unidad_id' => $unidadId]);
@@ -626,8 +626,9 @@ class MovilController extends BaseController
                  LEFT JOIN productos p ON a.producto_id = p.producto_id
                  LEFT JOIN depositos d ON a.deposito_id = d.deposito_id
                  WHERE a.empresa_id = ? AND a.estado = 'activa'
+                   AND a.deposito_id IN (SELECT deposito_id FROM depositos WHERE sucursal_id = ?)
                  ORDER BY FIELD(a.prioridad, 'critica', 'alta', 'media', 'baja') LIMIT 100",
-                [$this->empresaId()]
+                [$this->empresaId(), (int) $this->sucursalId()]
             ),
             'puedeResolver' => Auth::can('alertas.resolver'),
         ]);

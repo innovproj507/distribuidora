@@ -64,12 +64,12 @@ $v = fn (string $campo, $def = '') => old($campo, $def);
     <div class="grid <?= ver_costos() ? 'grid-cols-2' : 'grid-cols-1' ?> gap-2">
       <div>
         <label class="field-label">Precio de venta <span class="um-txt"></span></label>
-        <input class="field-input mb-1" type="number" inputmode="decimal" step="0.01" min="0" name="precio" id="f-precio" value="<?= esc((string) $v('precio'), 'attr') ?>" oninput="margen()">
+        <input class="field-input mb-1" type="number" inputmode="decimal" step="any" min="0" name="precio" id="f-precio" value="<?= esc((string) $v('precio'), 'attr') ?>" oninput="margen()">
       </div>
       <?php if (ver_costos()): ?>
       <div>
         <label class="field-label">Costo</label>
-        <input class="field-input mb-1" type="number" inputmode="decimal" step="0.0001" min="0" name="costo" id="f-costo" value="<?= esc((string) $v('costo'), 'attr') ?>" oninput="margen()">
+        <input class="field-input mb-1" type="number" inputmode="decimal" step="any" min="0" name="costo" id="f-costo" value="<?= esc((string) $v('costo'), 'attr') ?>" oninput="margen()">
       </div>
       <?php endif; ?>
     </div>

@@ -398,7 +398,7 @@ class MovilApiController extends BaseController
         }
         Db::insert('productos_unidades', [
             'producto_id' => $id, 'nombre' => $nombre, 'factor_conversion' => $factor,
-            'precio_a' => max(0, round((float) ($d['precio'] ?? 0), 2)), 'precio_b' => 0, 'precio_c' => 0, 'codigo_barras' => '',
+            'precio_a' => max(0, round((float) ($d['precio'] ?? 0), 10)), 'precio_b' => 0, 'precio_c' => 0, 'codigo_barras' => '',
         ]);
         AuditService::log('productos.editar', "Presentación \"{$nombre}\" (×{$factor}) agregada (móvil)", $id, 'producto', [], $this->empresaId());
         return $this->json(['success' => true, 'unidades' => $this->presentacionesDe($id)]);

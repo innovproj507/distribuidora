@@ -162,7 +162,7 @@ function renderCompra() {
         '<div><label class="field-label">Cantidad</label>' +
           '<input type="number" inputmode="decimal" min="0.01" step="any" class="field-input !py-2" value="' + it.cantidad + '" oninput="actualizarLinea(' + id + ', \'cantidad\', this.value)"></div>' +
         '<div><label class="field-label">Costo unit.</label>' +
-          '<input type="number" inputmode="decimal" min="0" step="0.01" class="field-input !py-2" value="' + it.costo + '" oninput="actualizarLinea(' + id + ', \'costo\', this.value)"></div>' +
+          '<input type="number" inputmode="decimal" min="0" step="any" class="field-input !py-2" value="' + it.costo + '" oninput="actualizarLinea(' + id + ', \'costo\', this.value)"></div>' +
         '<p class="font-mono text-sm font-semibold text-right pb-2" id="linea-' + id + '">' + dinero(it.cantidad * it.costo) + '</p>' +
       '</div>' +
     '</div>';

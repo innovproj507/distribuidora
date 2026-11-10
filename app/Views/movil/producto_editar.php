@@ -66,12 +66,12 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
     <div class="grid <?= ver_costos() ? 'grid-cols-2' : 'grid-cols-1' ?> gap-2">
       <div>
         <label class="field-label">Precio de venta <span class="um-txt"></span></label>
-        <input class="field-input mb-1" type="number" inputmode="decimal" step="0.01" min="0" name="precio" id="f-precio" value="<?= esc((string) $v('precio', $precio > 0 ? number_format($precio, 2, '.', '') : ''), 'attr') ?>" oninput="margen()">
+        <input class="field-input mb-1" type="number" inputmode="decimal" step="any" min="0" name="precio" id="f-precio" value="<?= esc((string) $v('precio', $precio > 0 ? rtrim(rtrim(number_format($precio, 10, '.', ''), '0'), '.') : ''), 'attr') ?>" oninput="margen()">
       </div>
       <?php if (ver_costos()): ?>
       <div>
         <label class="field-label">Costo <span class="um-txt"></span></label>
-        <input class="field-input mb-1" type="number" inputmode="decimal" step="0.0001" min="0" name="costo" id="f-costo" value="<?= esc((string) $v('costo', (float) $p['costo']), 'attr') ?>" oninput="margen()">
+        <input class="field-input mb-1" type="number" inputmode="decimal" step="any" min="0" name="costo" id="f-costo" value="<?= esc((string) $v('costo', (float) $p['costo']), 'attr') ?>" oninput="margen()">
       </div>
       <?php endif; ?>
     </div>
@@ -199,7 +199,7 @@ function agregarPres(u) {
       '<div style="width:70px"><label class="text-[11px]" style="color:var(--ink-soft)">Trae</label>' +
         '<input class="field-input" style="padding:8px; text-align:center" type="number" inputmode="decimal" step="any" min="0" name="pres[' + n + '][factor]" placeholder="4" value="' + esc(String(u.factor)) + '" oninput="pintarPres(this)"></div>' +
       '<div style="width:86px"><label class="text-[11px]" style="color:var(--ink-soft)">Precio $</label>' +
-        '<input class="field-input" style="padding:8px; text-align:right" type="number" inputmode="decimal" step="0.01" min="0" name="pres[' + n + '][precio]" value="' + esc(String(u.precio)) + '" oninput="pintarPres(this)"></div>' +
+        '<input class="field-input" style="padding:8px; text-align:right" type="number" inputmode="decimal" step="any" min="0" name="pres[' + n + '][precio]" value="' + esc(String(u.precio)) + '" oninput="pintarPres(this)"></div>' +
       '<button type="button" onclick="this.closest(\'.rounded-xl\').remove()" class="w-8 h-9 rounded-lg flex-shrink-0" style="background:var(--red-light); color:var(--red)" title="Quitar">✕</button>' +
     '</div>' +
     '<p class="text-[11px] mt-1 pres-info" style="color:var(--ink-soft)"></p>';

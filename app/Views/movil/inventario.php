@@ -84,7 +84,7 @@ $this->extend('layouts/movil');
     <input id="pp-nueva-factor" type="number" inputmode="decimal" min="0" step="any" class="field-input" placeholder="Unidades que trae">
   </div>
   <datalist id="pp-sugerencias"><option value="Docena"><option value="Caja"><option value="Bulto"><option value="Paca"><option value="Saco"></datalist>
-  <input id="pp-nueva-precio" type="number" inputmode="decimal" min="0" step="0.01" class="field-input mb-3" placeholder="Precio de venta (vacío = unidad × cantidad)">
+  <input id="pp-nueva-precio" type="number" inputmode="decimal" min="0" step="any" class="field-input mb-3" placeholder="Precio de venta (vacío = unidad × cantidad)">
   <button type="button" onclick="agregarPresentacion()" class="btn-primario">Agregar</button>
 </div>
 <?php endif; ?>

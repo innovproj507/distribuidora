@@ -21,9 +21,10 @@ class AlertaController extends BaseController
              LEFT JOIN productos p ON a.producto_id = p.producto_id
              LEFT JOIN depositos d ON a.deposito_id = d.deposito_id
              WHERE a.empresa_id = ? AND a.estado = 'activa'
+               AND a.deposito_id IN (SELECT deposito_id FROM depositos WHERE sucursal_id = ?)
              ORDER BY FIELD(a.prioridad, 'critica', 'alta', 'media', 'baja'),
                       FIELD(a.tipo, 'lote_vencido', 'vencimiento_proximo', 'stock_minimo', 'stock_exceso', 'rotacion_lenta')",
-            [$empresaId]
+            [$empresaId, (int) $this->sucursalId()] // solo las de la tienda activa
         );
 
         $resumen = ['critica' => 0, 'alta' => 0, 'media' => 0, 'baja' => 0, 'por_tipo' => []];
@@ -52,8 +53,9 @@ class AlertaController extends BaseController
 
     public function resolverTodas()
     {
-        $sql    = "UPDATE alertas_inventario SET estado = 'resuelta', fecha_lectura = NOW() WHERE empresa_id = ? AND estado = 'activa'";
-        $params = [$this->empresaId()];
+        $sql    = "UPDATE alertas_inventario SET estado = 'resuelta', fecha_lectura = NOW() WHERE empresa_id = ? AND estado = 'activa'
+                   AND deposito_id IN (SELECT deposito_id FROM depositos WHERE sucursal_id = ?)";
+        $params = [$this->empresaId(), (int) $this->sucursalId()];
         if (($tipo = (string) ($this->request->getPost('tipo') ?? '')) !== '') {
             $sql .= ' AND tipo = ?';
             $params[] = $tipo;

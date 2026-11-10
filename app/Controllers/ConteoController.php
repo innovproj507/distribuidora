@@ -28,9 +28,9 @@ class ConteoController extends BaseController
                  FROM inventario_conteos c
                  JOIN depositos d ON c.deposito_id = d.deposito_id
                  LEFT JOIN users u ON c.usuario_id = u.id
-                 WHERE c.empresa_id = ?
+                 WHERE c.empresa_id = ? AND c.sucursal_id = ?
                  ORDER BY c.fecha_registro DESC",
-                [$this->empresaId()]
+                [$this->empresaId(), (int) $this->sucursalId()]
             ),
         ]);
     }

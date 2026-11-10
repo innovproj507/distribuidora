@@ -244,7 +244,7 @@
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
                                         <label class="block text-xs font-semibold text-gray-600 mb-1">Costo ($)</label>
-                                        <input type="number" step="0.0001" min="0" x-model.number="nuevoProducto.costo"
+                                        <input type="number" step="any" min="0" x-model.number="nuevoProducto.costo"
                                             placeholder="0.00"
                                             class="w-full py-2 px-3 text-sm rounded-lg border border-gray-200 focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400 outline-none">
                                     </div>
@@ -309,7 +309,7 @@
                                             class="w-20 text-center text-sm py-1 bg-gray-50 rounded border-gray-200 focus:border-sky-400 focus:ring-0">
                                     </td>
                                     <td class="py-3 px-3 text-center">
-                                        <input type="number" step="0.0001" x-model.number="item.costo" @input="recalcPrecioA(item); updateTotals()"
+                                        <input type="number" step="any" x-model.number="item.costo" @input="recalcPrecioA(item); updateTotals()"
                                             class="w-24 text-center text-sm py-1 bg-gray-50 rounded border-gray-200 focus:border-sky-400 focus:ring-0 font-semibold text-sky-600">
                                     </td>
                                     <td class="py-3 px-3 text-center">
@@ -320,7 +320,7 @@
                                         </div>
                                     </td>
                                     <td class="py-3 px-3 text-center">
-                                        <input type="number" step="0.01" min="0" x-model.number="item.precio_a" @input="recalcMargen(item)"
+                                        <input type="number" step="any" min="0" x-model.number="item.precio_a" @input="recalcMargen(item)"
                                             class="w-22 text-center text-sm py-1 bg-sky-50 rounded border-sky-200 focus:border-sky-400 focus:ring-0 font-semibold text-sky-700">
                                     </td>
                                     <td class="py-3 px-3">
