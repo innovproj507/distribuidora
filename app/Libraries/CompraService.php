@@ -31,7 +31,7 @@ final class CompraService
         $factura           = trim((string) ($data['numero_factura'] ?? ''));
 
         // Si no vienen totales se calculan de las líneas
-        $calculado = array_sum(array_map(fn ($i) => (float) $i['cantidad'] * (float) $i['costo'], $items));
+        $calculado = round(array_sum(array_map(fn ($i) => round((float) $i['cantidad'] * (float) $i['costo'], 2), $items)), 2);
         $total     = isset($data['total']) ? (float) $data['total'] : $calculado;
 
         $compraId = Db::insert('compras', [
@@ -77,7 +77,7 @@ final class CompraService
         $ctx['sucursal_id'] = (int) $compra['sucursal_id']; // la orden sigue en su tienda
         $depositoPrincipal  = (int) ($items[0]['deposito_id'] ?? 0) ?: (int) $compra['deposito_id'];
         $factura            = trim((string) ($data['numero_factura'] ?? ''));
-        $calculado          = array_sum(array_map(fn ($i) => (float) $i['cantidad'] * (float) $i['costo'], $items));
+        $calculado          = round(array_sum(array_map(fn ($i) => round((float) $i['cantidad'] * (float) $i['costo'], 2), $items)), 2);
 
         Db::update('compras', [
             'proveedor_id'             => !empty($data['proveedor_id']) ? (int) $data['proveedor_id'] : null,

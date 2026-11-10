@@ -331,8 +331,12 @@
                                             <?php endforeach; ?>
                                         </select>
                                     </td>
-                                    <td class="py-3 pl-3 text-right text-sm font-semibold text-gray-700"
-                                        x-text="'$' + (item.cantidad * item.costo).toFixed(2)"></td>
+                                    <td class="py-3 pl-3 text-right">
+                                        <!-- Importe de la fila (como en la factura): al cambiarlo se recalcula el costo unitario exacto -->
+                                        <input type="number" step="any" min="0" :value="importe(item).toFixed(2)" @change="fijarImporte(item, $event.target.value)"
+                                            title="Escribe el total de la fila de la factura y el costo unitario se calcula solo"
+                                            class="w-24 text-right text-sm py-1 bg-gray-50 rounded border-gray-200 focus:border-sky-400 focus:ring-0 font-semibold text-gray-700">
+                                    </td>
                                     <td class="py-3 text-center">
                                         <button @click="removeItem(index)" class="text-gray-300 hover:text-red-400 transition-colors text-sm">
                                             <i class="fas fa-times"></i>
@@ -581,9 +585,26 @@ function compraForm() {
             this.updateTotals();
         },
 
+        // Importe de una fila en centavos, igual que en la factura del proveedor
+        importe(item) {
+            return Math.round((parseFloat(item.cantidad) || 0) * (parseFloat(item.costo) || 0) * 100) / 100;
+        },
+
+        // Se escribe el total de la fila (ej. $25.00 por 24 unidades) y el costo unitario queda exacto (1.0416666667)
+        fijarImporte(item, valor) {
+            const total = parseFloat(valor);
+            const cant  = parseFloat(item.cantidad) || 0;
+            if (!(total >= 0) || cant <= 0) return;
+            item.costo = Math.round(total / cant * 1e10) / 1e10;
+            this.recalcPrecioA(item);
+            this.updateTotals();
+        },
+
         updateTotals() {
             let sub = 0;
-            this.items.forEach(i => { sub += i.cantidad * i.costo; });
+            // El total es la suma de las filas ya redondeadas, como en la factura (antes podía dar 842.49 con filas que suman 842.50)
+            this.items.forEach(i => { sub += this.importe(i); });
+            sub = Math.round(sub * 100) / 100;
             this.totals.subtotal = sub;
             this.totals.itbms    = this.compra.con_itbms ? Math.round(sub * 7) / 100 : 0;
             this.totals.total    = sub + this.totals.itbms;
