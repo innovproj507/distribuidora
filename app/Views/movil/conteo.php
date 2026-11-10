@@ -133,6 +133,7 @@ function usarBulto() {
 function venceColor(v) { return !v ? 'var(--ink-soft)' : (v.nivel === 'vencido' ? 'var(--red)' : (v.nivel === 'pronto' ? 'var(--orange)' : 'var(--ink-soft)')); }
 // Línea de vencimiento: editable (fecha) mientras el conteo está abierto, solo texto si no
 function venceHtml(i) {
+  if (!i.cv) return ''; // el producto no lleva fecha de vencimiento
   if (EDITA) {
     return '<label class="flex items-center gap-1 mt-1 text-[11px]" style="color:' + venceColor(i.venceInfo) + '"><span id="v-' + i.id + '">⏳ ' + (i.venceInfo ? esc(i.venceInfo.texto) : 'Vence:') + '</span>' +
       '<input type="date" value="' + esc(i.vence || '') + '" onchange="guardarVence(' + i.id + ', this.value)" class="border rounded-md px-1" style="border-color:var(--line); font-size:11px; max-width:7.5rem"></label>';

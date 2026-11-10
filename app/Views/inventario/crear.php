@@ -217,13 +217,20 @@
         <!-- Tab: Stock Inicial -->
         <div x-show="tab === 'stock'" class="p-6">
             <p class="text-xs text-gray-400 mb-4">Se generará un registro de inventario para cada depósito con stock mayor a cero.</p>
+            <label class="flex items-center gap-3 cursor-pointer select-none mb-4">
+                <input type="checkbox" name="controla_vencimiento" value="1"
+                       onchange="document.querySelectorAll('.campo-vence').forEach(el => el.style.display = this.checked ? '' : 'none')"
+                       class="w-4 h-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500">
+                <span class="text-sm font-semibold text-gray-700">⏳ Lleva fecha de vencimiento</span>
+                <span class="text-xs text-gray-400">(solo los marcados piden la fecha al recibir compras y al contar)</span>
+            </label>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-100">
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-6 py-3 text-left text-[10px] font-black text-gray-500 uppercase tracking-wider">Depósito</th>
                             <th class="px-6 py-3 text-left text-[10px] font-black text-gray-500 uppercase tracking-wider">Stock Inicial</th>
-                            <th class="px-6 py-3 text-left text-[10px] font-black text-gray-500 uppercase tracking-wider">Vence (opcional)</th>
+                            <th class="campo-vence px-6 py-3 text-left text-[10px] font-black text-gray-500 uppercase tracking-wider" style="display:none">Vence</th>
                             <th class="px-6 py-3 text-left text-[10px] font-black text-gray-500 uppercase tracking-wider">Estado</th>
                         </tr>
                     </thead>
@@ -241,7 +248,7 @@
                                     <span class="absolute right-3 top-2.5 text-[9px] font-black text-slate-400 uppercase">UNDS</span>
                                 </div>
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="campo-vence px-6 py-4" style="display:none">
                                 <input type="date" name="vence[<?= (int) $dep['deposito_id'] ?>]"
                                        class="px-3 py-2 border border-gray-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-sky-500 bg-white focus:outline-none">
                             </td>

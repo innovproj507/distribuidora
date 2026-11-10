@@ -15,7 +15,7 @@ final class ProductoService
     private const CAMPOS = [
         'codigo', 'nombre', 'descripcion', 'categoria_id', 'costo', 'itbms', 'estado',
         'maneja_lotes', 'stock_minimo', 'codigo_barras', 'marca', 'proveedor_id',
-        'supplier_part_no', 'imagen_principal', 'unidad_medida',
+        'supplier_part_no', 'imagen_principal', 'unidad_medida', 'controla_vencimiento',
     ];
 
     /**

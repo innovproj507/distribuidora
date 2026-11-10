@@ -52,7 +52,8 @@ $ec = $estadoCompra[$compra['estado']] ?? [ucfirst((string) $compra['estado']), 
     <div class="card !p-3 flex items-center gap-3">
       <div class="flex-1 min-w-0">
         <p class="text-sm truncate"><?= esc($l['nombre']) ?></p>
-        <p class="text-xs font-mono" style="color:var(--ink-soft)">Pedido <?= (float) $l['cantidad'] ?> · recibido <?= (float) $l['cantidad_recibida'] ?> uds<?= ver_costos() ? ' · $' . number_format((float) $l['costo'], 2) . ' c/u' : '' ?></p>
+        <p class="text-xs font-mono" style="color:var(--ink-soft)">Pedido <?= (float) $l['cantidad'] ?> · recibido <?= (float) $l['cantidad_recibida'] ?> uds<?= ver_costos() ? ' · costo $' . number_format((float) $l['costo'], 2) : '' ?></p>
+        <p class="text-xs font-mono" style="color:<?= (float) $l['precio_venta'] > 0 ? 'var(--teal-dark)' : 'var(--orange)' ?>">Precio de venta <?= (float) $l['precio_venta'] > 0 ? '$' . number_format((float) $l['precio_venta'], 2) : 'sin precio' ?></p>
       </div>
       <?php if ($puedeRecibir && $pend > 0): ?>
         <div class="flex flex-col items-end gap-1 flex-shrink-0">
@@ -63,9 +64,11 @@ $ec = $estadoCompra[$compra['estado']] ?? [ucfirst((string) $compra['estado']), 
               <?php foreach ($l['pres'] as $p): ?><option value="<?= (float) $p['factor'] ?>"><?= esc(mb_strtolower($p['nombre'])) ?> ×<?= (float) $p['factor'] ?></option><?php endforeach; ?>
             </select>
           <?php endif; ?>
-          <label class="flex items-center gap-1 text-[11px]" style="color:var(--ink-soft)">⏳
-            <input type="date" data-detalle="<?= (int) $l['detalle_id'] ?>" class="rec-vence border rounded-md px-1" title="Vence (opcional)" style="border-color:var(--line); font-size:11px; max-width:7.5rem">
+          <?php if (!empty($l['controla_vencimiento'])): ?>
+          <label class="flex items-center gap-1 text-[11px]" style="color:var(--ink-soft)">⏳ Vence
+            <input type="date" data-detalle="<?= (int) $l['detalle_id'] ?>" class="rec-vence border rounded-md px-1" style="border-color:var(--line); font-size:11px; max-width:7.5rem">
           </label>
+          <?php endif; ?>
         </div>
       <?php endif; ?>
     </div>

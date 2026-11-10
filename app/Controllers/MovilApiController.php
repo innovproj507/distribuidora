@@ -269,7 +269,11 @@ class MovilApiController extends BaseController
             Db::begin();
             $estado = \App\Libraries\CompraService::recibirPendientes($id, $compra, $recibidas, (int) $compra['deposito_id']);
             foreach ($vencimientos as $detalleId => $f) {
-                $productoId = Db::value("SELECT producto_id FROM compras_detalle WHERE detalle_id = ? AND compra_id = ?", [$detalleId, $id]);
+                $productoId = Db::value(
+                    "SELECT d.producto_id FROM compras_detalle d JOIN productos p ON p.producto_id = d.producto_id
+                     WHERE d.detalle_id = ? AND d.compra_id = ? AND p.controla_vencimiento = 1",
+                    [$detalleId, $id]
+                );
                 if ($productoId) {
                     InventarioService::fijarVencimiento((int) $productoId, (int) $compra['deposito_id'], $f);
                 }

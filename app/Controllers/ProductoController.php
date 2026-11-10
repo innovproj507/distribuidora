@@ -453,6 +453,7 @@ class ProductoController extends BaseController
             'itbms'            => 0.0, // el negocio no cobra ITBMS: ningún producto lo lleva
             'stock_minimo'     => (float) $post('stock_minimo', 0),
             'maneja_lotes'     => $post('maneja_lotes', '0') === '1' ? 1 : 0,
+            'controla_vencimiento' => $post('controla_vencimiento', '0') === '1' || $post('maneja_lotes', '0') === '1' ? 1 : 0,
             'estado'           => $estado,
             'descripcion'      => $post('descripcion') ?: null,
             'codigo_barras'    => $post('codigo_barras') ?: null,
@@ -509,6 +510,11 @@ class ProductoController extends BaseController
 
     private function guardarVencimientos(int $productoId, array $vencimientos): void
     {
+        // Producto que no lleva vencimiento: se borran las fechas que tuviera
+        if (!Db::value("SELECT controla_vencimiento FROM productos WHERE producto_id = ?", [$productoId])) {
+            Db::query("UPDATE inventario SET fecha_vencimiento = NULL WHERE producto_id = ?", [$productoId]);
+            return;
+        }
         foreach ($vencimientos as $depositoId => $fecha) {
             \App\Libraries\InventarioService::fijarVencimiento($productoId, $depositoId, $fecha);
         }

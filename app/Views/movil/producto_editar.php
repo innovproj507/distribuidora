@@ -102,9 +102,18 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
         <input class="field-input mb-3" style="font-family:'Inter'" name="ubicacion" maxlength="100" placeholder="Estante A-3" value="<?= esc($v('ubicacion', $inv['ubicacion'] ?? ''), 'attr') ?>">
       </div>
     </div>
-    <label class="field-label">Vence (próximo vencimiento)</label>
-    <input class="field-input mb-1" type="date" name="fecha_vencimiento" value="<?= esc((string) $v('fecha_vencimiento', $inv['fecha_vencimiento'] ?? ''), 'attr') ?>">
-    <p class="text-[11px]" style="color:var(--ink-soft)">Déjalo vacío si no vence. Avisa 30 días antes.</p>
+    <?php $cv = !empty($p['controla_vencimiento']); ?>
+    <?php if ($completo): ?>
+    <label class="flex items-center gap-2 text-sm font-medium mb-2 select-none">
+      <input type="checkbox" name="controla_vencimiento" value="1" <?= $cv ? 'checked' : '' ?> onchange="document.getElementById('bloque-vence').style.display = this.checked ? '' : 'none'" style="width:18px; height:18px">
+      ⏳ Lleva fecha de vencimiento
+    </label>
+    <?php endif; ?>
+    <div id="bloque-vence" style="<?= $cv ? '' : 'display:none' ?>">
+      <label class="field-label">Vence (próximo vencimiento)</label>
+      <input class="field-input mb-1" type="date" name="fecha_vencimiento" value="<?= esc((string) $v('fecha_vencimiento', $inv['fecha_vencimiento'] ?? ''), 'attr') ?>">
+      <p class="text-[11px]" style="color:var(--ink-soft)">Avisa 30 días antes. Se pide también al recibir compras y al contar.</p>
+    </div>
   </div>
 
   <div class="card mb-4">

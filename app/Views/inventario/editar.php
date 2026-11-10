@@ -175,6 +175,13 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
             <h3 class="text-base font-bold text-gray-800">4. Stock por tienda</h3>
             <a href="/inventario/<?= $producto->producto_id ?>" class="text-xs font-semibold text-sky-600 hover:text-sky-800">Agregar stock o ver movimientos <i class="fas fa-arrow-right ml-1"></i></a>
         </div>
+        <label class="flex items-center gap-3 cursor-pointer select-none mb-3">
+            <input type="checkbox" name="controla_vencimiento" value="1" <?= !empty($producto->controla_vencimiento) ? 'checked' : '' ?>
+                   onchange="document.querySelectorAll('.campo-vence').forEach(el => el.style.display = this.checked ? '' : 'none')"
+                   class="w-4 h-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500">
+            <span class="text-sm font-semibold text-gray-700">⏳ Lleva fecha de vencimiento</span>
+            <span class="text-xs text-gray-400">(solo los marcados piden la fecha al recibir compras y al contar)</span>
+        </label>
         <div class="flex flex-wrap gap-3">
             <?php foreach (($inventariosActuales ?? []) as $inv):
                 $vence    = \App\Libraries\InventarioService::estadoVencimiento($inv['fecha_vencimiento'] ?? null);
@@ -184,11 +191,13 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
                     <p class="text-lg font-black text-slate-800"><?= rtrim(rtrim(number_format((float) $inv['existencia'], 2), '0'), '.') ?> <span class="text-xs font-normal text-gray-400"><?= esc(\App\Libraries\ProductoService::abreviatura($producto->unidad_medida ?? 'und')) ?></span></p>
                     <?php if ($dInv = \App\Libraries\ProductoService::desglose((float) $inv['existencia'], $unidades ?? [], $producto->unidad_medida ?? 'und')): ?><p class="text-xs font-medium text-sky-700"><?= esc($dInv) ?></p><?php endif; ?>
                     <?php if ($editable): ?>
+                        <div class="campo-vence" style="<?= empty($producto->controla_vencimiento) ? 'display:none' : '' ?>">
                         <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-1">Vence</label>
                         <input type="date" name="vence[<?= (int) $inv['deposito_id'] ?>]" value="<?= esc($inv['fecha_vencimiento'] ?? '', 'attr') ?>" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white">
+                        </div>
                     <?php endif; ?>
                     <?php if ($vence): ?>
-                        <p class="text-[11px] font-semibold mt-1 <?= $vence['nivel'] === 'vencido' ? 'text-red-600' : ($vence['nivel'] === 'pronto' ? 'text-orange-600' : 'text-gray-500') ?>"><i class="fas fa-hourglass-half mr-1"></i><?= esc($vence['texto']) ?></p>
+                        <p class="campo-vence text-[11px] font-semibold mt-1 <?= $vence['nivel'] === 'vencido' ? 'text-red-600' : ($vence['nivel'] === 'pronto' ? 'text-orange-600' : 'text-gray-500') ?>"><i class="fas fa-hourglass-half mr-1"></i><?= esc($vence['texto']) ?></p>
                     <?php endif; ?>
                 </div>
             <?php endforeach; ?>

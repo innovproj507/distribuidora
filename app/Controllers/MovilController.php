@@ -275,7 +275,8 @@ class MovilController extends BaseController
                 $datos['imagen_principal'] = $imagen;
             }
             try {
-                $vence = \App\Libraries\InventarioService::fechaVencimiento($post('fecha_vencimiento'));
+                // La fecha solo se toma si el producto lleva vencimiento (el vendedor no cambia esa marca)
+                $vence = !empty($p['controla_vencimiento']) ? \App\Libraries\InventarioService::fechaVencimiento($post('fecha_vencimiento')) : null;
             } catch (\DomainException $e) {
                 $this->error($e->getMessage());
                 return redirect()->to("/m/productos/{$id}/editar")->withInput();
@@ -283,7 +284,9 @@ class MovilController extends BaseController
             Db::begin();
             \App\Libraries\ProductoService::actualizar($id, (int) $this->empresaId(), $datos, []);
             if ($inventarioId = \App\Libraries\InventarioService::inventarioId($id, $this->depositoId())) {
-                Db::update('inventario', ['ubicacion' => $post('ubicacion') ?: null, 'fecha_vencimiento' => $vence], ['inventario_id' => $inventarioId]);
+                $inv = ['ubicacion' => $post('ubicacion') ?: null];
+                if (!empty($p['controla_vencimiento'])) $inv['fecha_vencimiento'] = $vence;
+                Db::update('inventario', $inv, ['inventario_id' => $inventarioId]);
             }
             Db::commit();
             \App\Libraries\AuditService::log('productos.editar', "Producto actualizado desde móvil (básico): {$p['nombre']} → {$datos['nombre']}", $id, 'producto', [], $this->empresaId());
@@ -310,6 +313,7 @@ class MovilController extends BaseController
             'proveedor_id'  => $proveedorId && Db::value("SELECT 1 FROM proveedores WHERE proveedor_id = ? AND empresa_id = ?", [$proveedorId, $this->empresaId()]) ? $proveedorId : null,
             'costo'         => ver_costos() ? max(0, (float) $post('costo')) : null,
             'estado'        => $post('estado') === 'inactivo' ? 'inactivo' : 'activo',
+            'controla_vencimiento' => $post('controla_vencimiento') === '1' || !empty($p['maneja_lotes']) ? 1 : 0,
         ];
         if ($datos['costo'] === null) {
             unset($datos['costo']); // sin costos.ver se conserva el costo actual
@@ -320,9 +324,13 @@ class MovilController extends BaseController
         $precio = $post('precio');
 
         try {
-            $vence = \App\Libraries\InventarioService::fechaVencimiento($post('fecha_vencimiento'));
+            $vence = $datos['controla_vencimiento'] ? \App\Libraries\InventarioService::fechaVencimiento($post('fecha_vencimiento')) : null;
             Db::begin();
             \App\Libraries\ProductoService::actualizar($id, (int) $this->empresaId(), $datos, $precio !== '' ? ['a' => max(0, (float) $precio)] : []);
+            if (!$datos['controla_vencimiento']) {
+                // Ya no lleva vencimiento: se quitan las fechas de todas las tiendas
+                Db::query("UPDATE inventario SET fecha_vencimiento = NULL WHERE producto_id = ?", [$id]);
+            }
             if ($this->request->getPost('pres_enviado')) {
                 $this->guardarPresentaciones($id, (array) ($this->request->getPost('pres') ?? []));
             }
@@ -437,6 +445,7 @@ class MovilController extends BaseController
             'itbms'         => 0.0,
             'stock_minimo'  => $minimo,
             'maneja_lotes'  => 0,
+            'controla_vencimiento' => $post('controla_vencimiento') === '1' ? 1 : 0,
             'estado'        => 'activo',
         ];
         if ($imagen = $this->subirImagen('imagen', 'productos')) {
@@ -445,7 +454,7 @@ class MovilController extends BaseController
         $precio = max(0, (float) $post('precio'));
 
         try {
-            $vence = \App\Libraries\InventarioService::fechaVencimiento($post('fecha_vencimiento'));
+            $vence = $datos['controla_vencimiento'] ? \App\Libraries\InventarioService::fechaVencimiento($post('fecha_vencimiento')) : null;
             Db::begin();
             $productoId = \App\Libraries\ProductoService::crear($empresaId, $datos, $precio > 0 ? ['a' => $precio] : [], $depositoId ? [[$depositoId, $stock]] : []);
             if ($depositoId && ($inventarioId = \App\Libraries\InventarioService::inventarioId($productoId, $depositoId))) {
@@ -688,7 +697,7 @@ class MovilController extends BaseController
 
         $items = Db::all(
             "SELECT cd.producto_id, cd.cantidad_sistema, cd.cantidad_contada, cd.diferencia, cd.estado, cd.costo_unitario,
-                    p.nombre, p.codigo, p.codigo_barras, p.unidad_medida, COALESCE(i.ubicacion, '') AS ubicacion, i.fecha_vencimiento
+                    p.nombre, p.codigo, p.codigo_barras, p.unidad_medida, p.controla_vencimiento, COALESCE(i.ubicacion, '') AS ubicacion, i.fecha_vencimiento
              FROM conteo_detalle cd
              JOIN productos p ON p.producto_id = cd.producto_id
              LEFT JOIN inventario i ON i.producto_id = cd.producto_id AND i.deposito_id = ?
@@ -724,6 +733,7 @@ class MovilController extends BaseController
                 'sistema'    => $contado || !$abierto ? (float) $i['cantidad_sistema'] : null,
                 'diferencia' => $contado && $i['diferencia'] !== null ? (float) $i['diferencia'] : null,
                 'vence'      => $i['fecha_vencimiento'],
+                'cv'         => (bool) $i['controla_vencimiento'],
                 'venceInfo'  => \App\Libraries\InventarioService::estadoVencimiento($i['fecha_vencimiento']),
                 'pres'       => $pres[(int) $i['producto_id']] ?? [],
                 'um'         => \App\Libraries\ProductoService::abreviatura($i['unidad_medida'] ?? 'und'),
@@ -748,7 +758,8 @@ class MovilController extends BaseController
     private function lineasConPresentaciones(int $compraId): array
     {
         $lineas = Db::all(
-            "SELECT d.detalle_id, d.producto_id, d.cantidad, d.cantidad_recibida, d.costo, p.nombre, p.codigo
+            "SELECT d.detalle_id, d.producto_id, d.cantidad, d.cantidad_recibida, d.costo, p.nombre, p.codigo, p.controla_vencimiento,
+                    COALESCE((SELECT precio FROM precios_productos WHERE producto_id = d.producto_id AND tipo_precio = 'a'), 0) AS precio_venta
              FROM compras_detalle d JOIN productos p ON p.producto_id = d.producto_id WHERE d.compra_id = ? ORDER BY p.nombre",
             [$compraId]
         );
