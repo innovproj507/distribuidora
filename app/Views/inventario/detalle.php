@@ -209,6 +209,56 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
     </form>
 </div>
 
+<?php if (\App\Libraries\Auth::can('inventario.ajustar') && empty($producto->maneja_lotes)): ?>
+<!-- Sacar stock sin venta: consumo de ayudantes / dueño, uso local, merma -->
+<div id="sacar-stock" class="bg-white rounded-2xl border border-gray-100 shadow-sm mb-4 print:hidden">
+    <div class="border-b border-gray-100 px-4 sm:px-6 py-3">
+        <h2 class="text-sm font-semibold text-gray-900">Sacar stock <span class="font-normal text-gray-400">(consumo, uso local, merma — no es venta, no toca la caja)</span></h2>
+    </div>
+    <form action="/inventario/<?= $id ?>/salida" method="POST" class="p-4 sm:p-6 grid sm:grid-cols-5 gap-4 items-end"
+          onsubmit="return confirm('¿Sacar este stock del inventario?')">
+        <?= csrf_field() ?>
+        <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Depósito *</label>
+            <select name="deposito_id" required class="<?= $campo ?>">
+                <?php foreach (($inventarios ?? []) as $inv): ?>
+                    <option value="<?= $inv['deposito_id'] ?>" <?= ((int) ($deposito_actual['deposito_id'] ?? 0)) === (int) $inv['deposito_id'] ? 'selected' : '' ?>><?= esc($inv['deposito_nombre'] ?? 'Depósito ' . $inv['deposito_id']) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Cantidad *</label>
+            <div class="flex gap-2">
+                <input type="number" name="cantidad" min="0.01" step="any" required placeholder="0" class="<?= $campo ?> font-bold">
+                <?php if (!empty($unidades)): ?>
+                <select name="unidad_id" class="<?= $campo ?> !w-auto">
+                    <option value=""><?= esc(\App\Libraries\ProductoService::abreviatura($producto->unidad_medida ?? 'und')) ?></option>
+                    <?php foreach ($unidades as $u): ?>
+                        <option value="<?= (int) $u['unidad_id'] ?>"><?= esc($u['nombre']) ?> ×<?= $num($u['factor_conversion']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php endif; ?>
+            </div>
+        </div>
+        <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Motivo *</label>
+            <select name="motivo" required class="<?= $campo ?>">
+                <?php foreach (\App\Controllers\ProductoController::MOTIVOS_SALIDA as $m): ?>
+                    <option value="<?= esc($m) ?>"><?= esc($m) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Detalle <span class="font-normal text-gray-400">(opcional)</span></label>
+            <input type="text" name="detalle" maxlength="200" placeholder="Ej: refresco para ayudantes" class="<?= $campo ?>">
+        </div>
+        <button type="submit" class="inline-flex items-center justify-center gap-1.5 px-5 py-2 bg-rose-500 text-white rounded-lg text-sm font-semibold hover:bg-rose-600 shadow-sm">
+            <i class="fas fa-minus"></i> Sacar stock
+        </button>
+    </form>
+</div>
+<?php endif; ?>
+
 </div>
 
 <?php $this->endSection(); ?>

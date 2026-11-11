@@ -25,6 +25,7 @@ $routes->group('', ['filter' => ['auth', 'sucursal']], static function ($routes)
     $routes->post('inventario/(:num)/eliminar', 'ProductoController::eliminar/$1', ['filter' => 'permiso:productos.eliminar']);
     $routes->match(['GET', 'POST'], 'inventario/(:num)/precios', 'ProductoController::precios/$1', ['filter' => 'permiso:productos.editar']);
     $routes->post('inventario/(:num)/stock', 'ProductoController::agregarStock/$1', ['filter' => 'permiso:inventario.ajustar']);
+    $routes->post('inventario/(:num)/salida', 'ProductoController::sacarStock/$1', ['filter' => 'permiso:inventario.ajustar']);
 
     // Categorías
     $routes->get('inventario/categorias', 'CategoriaController::index', ['filter' => 'permiso:categorias.ver']);

@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Libraries\AuditService;
 use App\Libraries\Db;
 use App\Libraries\Fila;
+use App\Libraries\InventarioService;
 use App\Libraries\ProductoService;
 use App\Libraries\SimpleXlsxWriter;
 use App\Libraries\SucursalService;
@@ -307,6 +308,82 @@ class ProductoController extends BaseController
             $this->error($e->getMessage());
         }
 
+        return redirect()->to("/inventario/{$productoId}");
+    }
+
+    /** Motivos fijos de salida de stock sin venta (para poder sumar el consumo interno por motivo). */
+    public const MOTIVOS_SALIDA = ['Consumo ayudantes', 'Consumo dueño', 'Uso local', 'Merma / dañado', 'Vencido', 'Otro'];
+
+    /**
+     * Salida de stock que no es venta: consumo de ayudantes o del dueño, uso en la tienda, merma.
+     * No toca la caja ni las ventas; queda en el kardex como 'salida' con el motivo.
+     */
+    public function sacarStock(int $productoId)
+    {
+        $producto = Db::row("SELECT producto_id, nombre, maneja_lotes FROM productos WHERE producto_id = ? AND empresa_id = ?", [$productoId, $this->empresaId()]);
+        if (!$producto) {
+            $this->error('Producto no encontrado o no autorizado.');
+            return redirect()->to('/inventario');
+        }
+        if ($producto['maneja_lotes']) {
+            $this->error('Este producto maneja lotes; su stock se mueve desde la gestión de lotes.');
+            return redirect()->to("/inventario/{$productoId}");
+        }
+
+        $cantidad   = (float) ($this->request->getPost('cantidad') ?? 0);
+        $depositoId = (int) $this->request->getPost('deposito_id');
+        $motivo     = (string) $this->request->getPost('motivo');
+        $detalle    = trim((string) ($this->request->getPost('detalle') ?? ''));
+        if (!in_array($motivo, self::MOTIVOS_SALIDA, true)) {
+            $this->error('Elige el motivo de la salida.');
+            return redirect()->to("/inventario/{$productoId}");
+        }
+        if ($motivo === 'Otro' && $detalle === '') {
+            $this->error('Escribe el detalle de la salida.');
+            return redirect()->to("/inventario/{$productoId}");
+        }
+        $texto = mb_substr($detalle !== '' ? "{$motivo}: {$detalle}" : $motivo, 0, 250);
+
+        $unidadId = (int) ($this->request->getPost('unidad_id') ?? 0);
+        $etiqueta = 'unidades';
+        if ($unidadId) {
+            $u = Db::row("SELECT nombre, factor_conversion FROM productos_unidades WHERE unidad_id = ? AND producto_id = ?", [$unidadId, $productoId]);
+            if (!$u || (float) $u['factor_conversion'] <= 0) {
+                $this->error('La presentación elegida no es de este producto.');
+                return redirect()->to("/inventario/{$productoId}");
+            }
+            $etiqueta = "unidades ({$cantidad} × {$u['nombre']})";
+            $cantidad = round($cantidad * (float) $u['factor_conversion'], 2);
+        }
+        if ($cantidad <= 0) {
+            $this->error('La cantidad debe ser mayor que cero.');
+            return redirect()->to("/inventario/{$productoId}");
+        }
+        if (!SucursalService::puedeUsarDeposito($depositoId, (int) $this->sucursalId())) {
+            $this->error('Ese depósito no pertenece a tu sucursal o no tienes acceso.');
+            return redirect()->to("/inventario/{$productoId}");
+        }
+
+        try {
+            Db::begin();
+            $inv = Db::row("SELECT inventario_id, existencia FROM inventario WHERE producto_id = ? AND deposito_id = ? FOR UPDATE", [$productoId, $depositoId]);
+            if (!$inv || $cantidad > (float) $inv['existencia'] + 0.0001) {
+                Db::rollback();
+                $this->error('No hay stock suficiente. Existencia actual: ' . (float) ($inv['existencia'] ?? 0));
+                return redirect()->to("/inventario/{$productoId}");
+            }
+            $existencia = InventarioService::registrar((int) $inv['inventario_id'], 'salida', $cantidad, null, 'salida_interna', $texto);
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            log_message('error', 'Salida de stock: ' . $e->getMessage());
+            $this->error('No se pudo registrar la salida.');
+            return redirect()->to("/inventario/{$productoId}");
+        }
+
+        AuditService::log('inventario.ajustar', "Salida de {$cantidad} uds de {$producto['nombre']} ({$texto})", $productoId, 'producto',
+            ['tipo' => 'salida', 'cantidad' => $cantidad, 'deposito_id' => $depositoId, 'existencia' => $existencia, 'motivo' => $texto], $this->empresaId());
+        $this->success("Se sacaron {$cantidad} {$etiqueta} del inventario ({$texto}).");
         return redirect()->to("/inventario/{$productoId}");
     }
 

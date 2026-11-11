@@ -172,7 +172,10 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
     </div>
     <p class="text-xs -mt-2 mb-3" id="mov-total" style="color:var(--navy)"></p>
     <label class="field-label">Motivo (opcional)</label>
-    <input class="field-input mb-5" style="font-family:'Inter'" id="mov-motivo" placeholder="Ej: Merma, Devolución, Conteo">
+    <input class="field-input mb-5" style="font-family:'Inter'" id="mov-motivo" list="mov-motivos" placeholder="Ej: Consumo ayudantes, Uso local, Merma">
+    <datalist id="mov-motivos">
+      <?php foreach (\App\Controllers\ProductoController::MOTIVOS_SALIDA as $m): ?><option value="<?= esc($m) ?>"><?php endforeach; ?>
+    </datalist>
     <button type="submit" id="mov-guardar" class="btn-primario">Guardar movimiento</button>
   </form>
 </div>
