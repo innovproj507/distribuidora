@@ -11,6 +11,13 @@
         <span class="text-gray-600 font-medium"><?= $editar ? 'Editar orden' : 'Nueva Orden' ?></span>
     </p>
 
+    <!-- Borrador recuperado del navegador -->
+    <div x-show="borradorRecuperado" x-cloak class="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <i class="fas fa-rotate-left"></i>
+        <span class="flex-1">Se recuperó la compra que estabas llenando<span x-show="borradorHora"> (guardada a las <b x-text="borradorHora"></b>)</span>. Revísala y guárdala.</span>
+        <button type="button" @click="descartarBorrador()" class="rounded-lg border border-amber-300 bg-white px-3 py-1 font-semibold hover:bg-amber-100">Descartar y empezar de nuevo</button>
+    </div>
+
     <!-- Barra de acciones + pipeline de estado -->
     <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div class="flex items-center gap-2">
@@ -431,8 +438,53 @@ function compraForm() {
         }" ?>,
         totals: { subtotal: 0, itbms: 0, total: 0 },
 
+        // Borrador en el navegador: se guarda en cada cambio y se recupera si la página se recarga,
+        // se cierra la sesión o se cambia de tienda antes de guardar (antes se perdía todo lo escrito)
+        claveBorrador: 'compra_borrador_<?= (int) \App\Libraries\Auth::id() ?>_<?= (int) ($sucursal_actual['sucursal_id'] ?? 0) ?>_<?= $editar ? (int) $editar['compra_id'] : 'nueva' ?>',
+        borradorRecuperado: false,
+        borradorHora: '',
+        guardando: false,
+
         init() {
+            this.recuperarBorrador();
             this.updateTotals();
+            this.$watch('items', () => this.guardarBorrador());
+            this.$watch('compra', () => this.guardarBorrador());
+            window.addEventListener('beforeunload', (e) => {
+                if (!this.guardando && this.items.length) { e.preventDefault(); e.returnValue = ''; }
+            });
+        },
+
+        recuperarBorrador() {
+            try {
+                const b = JSON.parse(localStorage.getItem(this.claveBorrador) || 'null');
+                if (!b || !Array.isArray(b.items) || !b.items.length) return;
+                this.items  = b.items;
+                this.compra = Object.assign({}, this.compra, b.compra || {});
+                this.borradorRecuperado = true;
+                this.borradorHora = b.hora ? new Date(b.hora).toLocaleString('es-PA', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+            } catch (e) { /* sin almacenamiento disponible */ }
+        },
+
+        guardarBorrador() {
+            try {
+                if (this.items.length) {
+                    localStorage.setItem(this.claveBorrador, JSON.stringify({ items: this.items, compra: this.compra, hora: Date.now() }));
+                } else {
+                    localStorage.removeItem(this.claveBorrador);
+                }
+            } catch (e) { /* lleno o bloqueado: se sigue sin borrador */ }
+        },
+
+        borrarBorrador() {
+            try { localStorage.removeItem(this.claveBorrador); } catch (e) {}
+        },
+
+        descartarBorrador() {
+            if (!confirm('¿Descartar la compra recuperada? Se pierde lo que tenía.')) return;
+            this.borrarBorrador();
+            this.guardando = true;
+            window.location.reload();
         },
 
         async buscarProductos() {
@@ -631,8 +683,17 @@ function compraForm() {
                         guardar_como_pendiente: !recibir
                     })
                 });
-                const json = await res.json();
+                let json;
+                try {
+                    json = await res.json();
+                } catch (e) {
+                    // La sesión venció (el servidor respondió con la página de login): lo escrito queda en el borrador
+                    alert('Tu sesión se cerró. La compra quedó guardada en este navegador: inicia sesión y vuelve a "Nueva compra" para recuperarla.');
+                    return;
+                }
                 if (json.success) {
+                    this.borrarBorrador();
+                    this.guardando = true;
                     window.location.href = this.compraId
                         ? (recibir ? `/compras/${this.compraId}/recibir` : `/compras/${this.compraId}`)
                         : (recibir ? '/compras' : `/compras/${json.compra_id}`);
