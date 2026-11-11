@@ -60,7 +60,7 @@ class VentaController extends BaseController
              LEFT JOIN clientes c ON v.cliente_id = c.cliente_id
              LEFT JOIN users u ON v.vendedor_id = u.id
              WHERE {$where}
-             ORDER BY v.fecha DESC
+             ORDER BY v.venta_id DESC
              LIMIT " . self::POR_PAGINA . " OFFSET {$offset}",
             $params
         );
