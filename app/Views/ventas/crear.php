@@ -1,5 +1,6 @@
 <?php $this->extend('layouts/app'); ?>
 <?php $this->section('content'); ?>
+<?php $puede_fecha_anterior = ($tipo_documento ?? 'venta') === 'venta' && \App\Libraries\Auth::can('ventas.fecha_anterior'); ?>
 
 <div x-data="ventasForm()">
 
@@ -218,6 +219,18 @@
                     </select>
                 </div>
 
+                <?php if ($puede_fecha_anterior): ?>
+                <div x-show="tipoDocumento === 'venta'" class="flex items-baseline gap-4">
+                    <label class="text-sm font-semibold text-gray-700 w-44 shrink-0">Fecha de la venta</label>
+                    <div class="flex-1">
+                        <input type="date" x-model="fechaVenta" max="<?= date('Y-m-d') ?>"
+                               class="w-full py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none">
+                        <p x-show="fechaVenta && fechaVenta !== hoy" class="mt-1 text-xs text-amber-700">
+                            Día anterior: solo a <b>crédito</b>. Entra en la caja de ese día de esta tienda (aunque ya esté cerrada) y no cambia su efectivo.
+                        </p>
+                    </div>
+                </div>
+                <?php endif; ?>
                 <div class="flex items-baseline gap-4">
                     <label class="text-sm font-semibold text-gray-700 w-44 shrink-0">Vencimiento</label>
                     <input type="date" value="<?= $fecha_validez ?>"
@@ -408,6 +421,8 @@
             clienteDireccion: 'Consumidor Final',
             depositoId: '<?= $depositos[0]->deposito_id ?? '' ?>',
             formaPago: 'efectivo',
+            hoy: '<?= date('Y-m-d') ?>',
+            fechaVenta: '<?= date('Y-m-d') ?>',
             estado: '<?= ($tipo_documento ?? 'venta') === 'cotizacion' ? 'pendiente' : 'pagada' ?>',
             observaciones: '',
             query: '',
@@ -545,6 +560,12 @@
 
             async procesarDocumento() {
                 if (this.items.length === 0) { this.notify('Agrega al menos un producto.', 'error'); return; }
+                const anterior = this.tipoDocumento === 'venta' && this.fechaVenta && this.fechaVenta !== this.hoy;
+                if (anterior) {
+                    if (this.formaPago !== 'credito') { this.notify('Una venta de un día anterior solo puede ser a crédito.', 'error'); return; }
+                    if (!this.clienteId) { this.notify('Elige el cliente del crédito.', 'error'); return; }
+                    if (!confirm('¿Registrar esta venta a crédito con fecha ' + this.fechaVenta.split('-').reverse().join('/') + '?')) return;
+                }
                 this.processing = true;
                 const payload = {
                     tipo: this.tipoDocumento,
@@ -555,6 +576,7 @@
                     descuento: this.descuentoGlobal,
                     notas: this.observaciones,
                     cotizacion_origen_id: this.cotizacionOrigenId,
+                    fecha: anterior ? this.fechaVenta : null,
                     items: this.items.map(i => ({
                         producto_id: i.id,
                         cantidad: i.cantidad,
@@ -588,6 +610,7 @@
     }
 </script>
 
-<?= view('cajas/_aviso_abrir', ['caja_actual' => $caja_actual ?? null, 'exigir_caja' => $exigir_caja ?? false, 'current_uri' => '/ventas/nueva']) ?>
+<?php // Quien puede cargar ventas de días anteriores no necesita caja abierta para eso (las de hoy la siguen pidiendo en el servidor) ?>
+<?= view('cajas/_aviso_abrir', ['caja_actual' => $caja_actual ?? null, 'exigir_caja' => ($exigir_caja ?? false) && !$puede_fecha_anterior, 'current_uri' => '/ventas/nueva']) ?>
 
 <?php $this->endSection(); ?>

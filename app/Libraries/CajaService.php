@@ -174,6 +174,27 @@ final class CajaService
     }
 
     /**
+     * Actualiza el resumen guardado de una caja ya cerrada después de agregarle una venta a crédito
+     * (fecha anterior): ventas, crédito y anuladas. El efectivo contado y su diferencia no cambian.
+     */
+    public static function refrescarCierre(int $cajaId): void
+    {
+        $caja = Db::row("SELECT estado, arqueo FROM cajas WHERE caja_id = ? FOR UPDATE", [$cajaId]);
+        if (!$caja || $caja['estado'] !== 'cerrada') {
+            return;
+        }
+        $r = self::resumen($cajaId);
+        $arqueo = json_decode((string) $caja['arqueo'], true) ?: [];
+        $arqueo['credito']  = $r['credito'];
+        $arqueo['ventas']   = $r['ventas'];
+        $arqueo['anuladas'] = $r['anuladas'];
+        Db::update('cajas', [
+            'total_ventas' => $r['ventas']['total'],
+            'arqueo'       => json_encode($arqueo, JSON_UNESCAPED_UNICODE),
+        ], ['caja_id' => $cajaId]);
+    }
+
+    /**
      * Cierra la caja con lo declarado por forma de pago. El efectivo puede venir como conteo de
      * billetes ($billetes: denominación => cantidad) o como monto directo en $declarado['EFECTIVO'].
      *

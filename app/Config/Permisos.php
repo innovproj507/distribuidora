@@ -136,6 +136,7 @@ class Permisos extends BaseConfig
             'ventas.ver',
             'ventas.crear',
             'ventas.anular',
+            'ventas.fecha_anterior', // ventas a crédito de días anteriores en la caja de ese día
             'descuentos.aplicar',
             'cotizaciones.ver',
             'cotizaciones.crear',

@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Libraries\AuditService;
 use App\Libraries\Auth;
+use App\Libraries\CajaService;
 use App\Libraries\Db;
 use App\Libraries\InventarioService;
 use App\Libraries\NumeracionService;
@@ -215,6 +216,16 @@ class VentaController extends BaseController
             }
         }
 
+        // Venta de un día anterior (crédito anotado a mano que no se cargó ese día): va a la caja de ese día
+        $fecha = trim((string) ($data['fecha'] ?? ''));
+        $anterior = null;
+        if ($fecha !== '' && $fecha !== date('Y-m-d')) {
+            $anterior = $this->validarFechaAnterior($fecha, $data);
+            if (is_string($anterior)) {
+                return $this->json(['error' => $anterior], 422);
+            }
+        }
+
         try {
             Db::begin();
             $resultado = VentaService::procesar($data, [
@@ -222,7 +233,19 @@ class VentaController extends BaseController
                 'sucursal_id' => $this->sucursalId(),
                 'deposito_id' => $this->depositoId(),
                 'ip'          => $this->request->getIPAddress(),
+                // Con fecha anterior la caja es la de ese día (se fija abajo), no la abierta del usuario
+                'omitir_caja' => $anterior !== null,
             ]);
+            if ($anterior !== null) {
+                Db::update('ventas', ['fecha' => $anterior['hora'], 'caja_id' => $anterior['caja_id']], ['venta_id' => $resultado['venta_id']]);
+                Db::query(
+                    "UPDATE inventario_movimientos SET fecha_registro = ? WHERE referencia_tipo = 'ventas' AND referencia_id = ?",
+                    [$anterior['hora'], $resultado['venta_id']]
+                );
+                if ($anterior['caja_id'] && $anterior['cerrada']) {
+                    CajaService::refrescarCierre((int) $anterior['caja_id']);
+                }
+            }
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollback();
@@ -232,11 +255,67 @@ class VentaController extends BaseController
 
         AuditService::log(
             'ventas.crear',
-            "Venta #{$resultado['venta_id']} creada por $" . number_format($resultado['total'], 2),
-            $resultado['venta_id'], 'venta', ['total' => $resultado['total']], $this->empresaId()
+            "Venta #{$resultado['venta_id']} creada por $" . number_format($resultado['total'], 2)
+                . ($anterior ? " con fecha {$fecha}" . ($anterior['caja_id'] ? " (caja #{$anterior['caja_id']})" : ' (sin caja ese día)') : ''),
+            $resultado['venta_id'], 'venta', ['total' => $resultado['total'], 'fecha' => $anterior ? $fecha : null], $this->empresaId()
         );
 
         return $this->json($resultado);
+    }
+
+    /**
+     * Valida una venta con fecha anterior y busca la caja de ese día en la sucursal activa.
+     * Solo a crédito: una caja cerrada ya contó su efectivo, el crédito solo se informa.
+     *
+     * @return array{caja_id: ?int, cerrada: bool, hora: string}|string mensaje de error
+     */
+    private function validarFechaAnterior(string $fecha, array $data): array|string
+    {
+        if (!Auth::can('ventas.fecha_anterior')) {
+            return 'No tienes permiso para registrar ventas de días anteriores.';
+        }
+        $d = \DateTime::createFromFormat('!Y-m-d', $fecha);
+        if (!$d || $d->format('Y-m-d') !== $fecha) {
+            return 'Fecha no válida.';
+        }
+        if ($fecha > date('Y-m-d')) {
+            return 'La fecha no puede ser futura.';
+        }
+        if ($fecha < date('Y-m-d', strtotime('-365 days'))) {
+            return 'La fecha es de hace más de un año.';
+        }
+        $formas = !empty($data['pagos']) && is_array($data['pagos'])
+            ? array_map(fn ($p) => strtoupper(trim((string) ($p['forma_pago'] ?? ''))), $data['pagos'])
+            : [strtoupper(trim((string) ($data['forma_pago'] ?? '')))];
+        if (array_diff($formas, ['CREDITO'])) {
+            return 'Una venta de un día anterior solo puede ser a crédito (el efectivo de esa caja ya se contó).';
+        }
+        if (empty($data['cliente_id'])) {
+            return 'Elige el cliente del crédito.';
+        }
+
+        // Caja de esa tienda que estaba abierta ese día (preferir la abierta ese mismo día y ya cerrada)
+        $caja = Db::row(
+            "SELECT caja_id, estado, abierta_en, cerrada_en FROM cajas
+             WHERE sucursal_id = ? AND DATE(abierta_en) <= ? AND (cerrada_en IS NULL OR DATE(cerrada_en) >= ?)
+             ORDER BY DATE(abierta_en) = ? DESC, estado = 'cerrada' DESC, caja_id DESC LIMIT 1",
+            [$this->sucursalId(), $fecha, $fecha, $fecha]
+        );
+
+        // Hora: justo antes del cierre si la caja cerró ese día; si no, mediodía
+        $hora = "{$fecha} 12:00:00";
+        if ($caja && $caja['cerrada_en'] && substr((string) $caja['cerrada_en'], 0, 10) === $fecha) {
+            $hora = date('Y-m-d H:i:s', strtotime((string) $caja['cerrada_en']) - 60);
+        }
+        if ($caja && $hora < (string) $caja['abierta_en']) {
+            $hora = (string) $caja['abierta_en'];
+        }
+
+        return [
+            'caja_id' => $caja ? (int) $caja['caja_id'] : null,
+            'cerrada' => $caja && $caja['estado'] === 'cerrada',
+            'hora'    => $hora,
+        ];
     }
 
     public function detalle(int $ventaId)
