@@ -55,7 +55,7 @@ final class CajaService
         }
         $id = self::abiertaId(isset($ctx['sucursal_id']) ? (int) $ctx['sucursal_id'] : null);
         if ($id === null && self::exigida((int) $ctx['empresa_id'])) {
-            throw new \RuntimeException('Abre tu caja antes de vender (monto inicial en efectivo).');
+            throw new \RuntimeException('Abre tu caja antes de cobrar (monto inicial en efectivo). Las ventas a crédito no necesitan caja.');
         }
         return $id;
     }

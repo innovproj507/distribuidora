@@ -226,6 +226,19 @@ class VentaController extends BaseController
             }
         }
 
+        // Venta de hoy toda a crédito sin caja propia abierta (p. ej. el admin en "Nueva venta"):
+        // no entra dinero, así que no hace falta abrir caja. Se anota en la caja abierta de la tienda
+        // (si hay) para que salga en el crédito del día; no cambia su efectivo.
+        $creditoSinCaja = false;
+        $cajaTienda     = null;
+        if ($anterior === null && self::soloCredito($data) && !CajaService::abiertaId($this->sucursalId())) {
+            $creditoSinCaja = true;
+            $cajaTienda = Db::value(
+                "SELECT caja_id FROM cajas WHERE sucursal_id = ? AND estado = 'abierta' ORDER BY caja_id DESC LIMIT 1",
+                [$this->sucursalId()]
+            );
+        }
+
         try {
             Db::begin();
             $resultado = VentaService::procesar($data, [
@@ -234,8 +247,11 @@ class VentaController extends BaseController
                 'deposito_id' => $this->depositoId(),
                 'ip'          => $this->request->getIPAddress(),
                 // Con fecha anterior la caja es la de ese día (se fija abajo), no la abierta del usuario
-                'omitir_caja' => $anterior !== null,
+                'omitir_caja' => $anterior !== null || $creditoSinCaja,
             ]);
+            if ($creditoSinCaja && $cajaTienda) {
+                Db::update('ventas', ['caja_id' => (int) $cajaTienda], ['venta_id' => $resultado['venta_id']]);
+            }
             if ($anterior !== null) {
                 Db::update('ventas', ['fecha' => $anterior['hora'], 'caja_id' => $anterior['caja_id']], ['venta_id' => $resultado['venta_id']]);
                 Db::query(
@@ -269,6 +285,15 @@ class VentaController extends BaseController
      *
      * @return array{caja_id: ?int, cerrada: bool, hora: string}|string mensaje de error
      */
+    /** ¿Todos los pagos de la venta son a CREDITO? */
+    private static function soloCredito(array $data): bool
+    {
+        $formas = !empty($data['pagos']) && is_array($data['pagos'])
+            ? array_map(fn ($p) => strtoupper(trim((string) ($p['forma_pago'] ?? ''))), $data['pagos'])
+            : [strtoupper(trim((string) ($data['forma_pago'] ?? '')))];
+        return $formas !== [] && !array_diff($formas, ['CREDITO']);
+    }
+
     private function validarFechaAnterior(string $fecha, array $data): array|string
     {
         if (!Auth::can('ventas.fecha_anterior')) {
@@ -284,10 +309,7 @@ class VentaController extends BaseController
         if ($fecha < date('Y-m-d', strtotime('-365 days'))) {
             return 'La fecha es de hace más de un año.';
         }
-        $formas = !empty($data['pagos']) && is_array($data['pagos'])
-            ? array_map(fn ($p) => strtoupper(trim((string) ($p['forma_pago'] ?? ''))), $data['pagos'])
-            : [strtoupper(trim((string) ($data['forma_pago'] ?? '')))];
-        if (array_diff($formas, ['CREDITO'])) {
+        if (!self::soloCredito($data)) {
             return 'Una venta de un día anterior solo puede ser a crédito (el efectivo de esa caja ya se contó).';
         }
         if (empty($data['cliente_id'])) {
