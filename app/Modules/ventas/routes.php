@@ -29,6 +29,7 @@ $routes->group('', ['filter' => ['auth', 'sucursal']], static function ($routes)
     $routes->get('api/productos/(:num)/stock', 'VentaController::apiVerificarStock/$1');
     $routes->get('api/depositos', 'VentaController::apiDepositos');
     $routes->post('ventas/clientes/rapido', 'VentaController::crearClienteRapido', ['filter' => 'permiso:clientes.crear,pos.usar']);
+    $routes->post('ventas/clientes/(:num)/limite', 'VentaController::limiteCredito/$1', ['filter' => 'permiso:clientes.editar']);
     $routes->get('api/clientes/(:num)/credito', 'VentaController::apiInfoCliente/$1');
 
     // Cotizaciones

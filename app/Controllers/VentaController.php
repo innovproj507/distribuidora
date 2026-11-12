@@ -514,7 +514,8 @@ class VentaController extends BaseController
                 'direccion'      => trim((string) ($data['direccion'] ?? '')),
                 'telefono'       => trim((string) ($data['telefono'] ?? '')),
                 'email'          => trim((string) ($data['email'] ?? '')),
-                'limite_credito' => is_numeric($data['limite_credito'] ?? null) ? $data['limite_credito'] : 0,
+                // El límite de crédito solo lo fija quien puede editar clientes (un cajero no se da crédito a sí mismo)
+                'limite_credito' => Auth::can('clientes.editar') && is_numeric($data['limite_credito'] ?? null) ? max(0, round((float) $data['limite_credito'], 2)) : 0,
                 'dias_credito'   => is_numeric($data['dias_credito'] ?? null) ? $data['dias_credito'] : 0,
                 'itbms'          => (($data['itbms'] ?? 'SI') === 'NO') ? 0.00 : 7.00,
                 'estado'         => ($data['estado'] ?? 'activo') === 'inactivo' ? 'inactivo' : 'activo',
@@ -527,7 +528,27 @@ class VentaController extends BaseController
             return $this->json(['error' => 'Error al crear el cliente'], 500);
         }
 
-        return $this->json(['success' => true, 'cliente_id' => $clienteId, 'nombre' => $nombre]);
+        AuditService::log('clientes.crear', "Cliente creado: {$nombre}", $clienteId, 'cliente', [], $this->empresaId());
+        $limite = (float) Db::value("SELECT limite_credito FROM clientes WHERE cliente_id = ?", [$clienteId]);
+        return $this->json(['success' => true, 'cliente_id' => $clienteId, 'nombre' => $nombre, 'codigo' => $codigo, 'limite_credito' => $limite]);
+    }
+
+    /** POST JSON {limite_credito} — sube/cambia el límite de crédito desde la venta (clientes.editar). */
+    public function limiteCredito(int $clienteId)
+    {
+        $cliente = Db::row("SELECT cliente_id, nombre, limite_credito FROM clientes WHERE cliente_id = ? AND empresa_id = ?", [$clienteId, $this->empresaId()]);
+        if (!$cliente) {
+            return $this->json(['error' => 'Cliente no encontrado.'], 404);
+        }
+        $limite = (float) ($this->jsonInput()['limite_credito'] ?? -1);
+        if ($limite < 0 || $limite > 1000000) {
+            return $this->json(['error' => 'Límite no válido.'], 422);
+        }
+        $limite = round($limite, 2);
+        Db::update('clientes', ['limite_credito' => $limite], ['cliente_id' => $clienteId]);
+        AuditService::log('clientes.editar', "Límite de crédito de {$cliente['nombre']}: $" . number_format((float) $cliente['limite_credito'], 2) . " → $" . number_format($limite, 2),
+            $clienteId, 'cliente', ['antes' => (float) $cliente['limite_credito'], 'despues' => $limite], $this->empresaId());
+        return $this->json(['success' => true, 'limite_credito' => $limite]);
     }
 
     public function apiVerificarStock(int $productoId)
