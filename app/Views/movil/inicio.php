@@ -20,6 +20,20 @@ $estadoVenta = [
 ?>
 <?php $this->section('content'); ?>
 
+<?php if (!empty($trasladosPorRecibir)): ?>
+<a href="/m/traslados" class="card block mb-4" style="border:2px solid var(--navy)">
+  <div class="flex items-center justify-between gap-3">
+    <div>
+      <p class="font-head text-base font-semibold leading-snug">
+        <?= $trasladosPorRecibir ?> traslado<?= $trasladosPorRecibir === 1 ? '' : 's' ?> por recibir
+      </p>
+      <p class="text-xs mt-2 font-medium" style="color:var(--navy)">Contar y recibir la mercancía →</p>
+    </div>
+    <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0" style="background:var(--navy-light)">🚤</div>
+  </div>
+</a>
+<?php endif; ?>
+
 <?php if ($porReabastecer > 0 && (Auth::can('productos.ver') || Auth::can('inventario.ver'))): ?>
 <a href="/m/inventario?stock_bajo=1" class="card block mb-4">
   <div class="flex items-center justify-between gap-3">

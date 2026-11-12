@@ -25,8 +25,11 @@ class Permisos extends BaseConfig
             'clientes.crear',
             'productos.ver',
             'lotes.ver',
+            // Recibe en el celular la mercancía que manda la otra tienda
+            'traslados.ver',
+            'traslados.recibir',
         ],
-    
+
         // Vendedor de tienda: trabaja solo desde la PWA (/m), fijo en su sucursal. Vende, cobra,
         // abre/cierra su caja, cuenta inventario (el ajuste lo aplica el administrador), recibe
         // traslados y compras, y edita nombre/foto/ubicación de productos. No elimina ni anula nada.

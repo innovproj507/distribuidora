@@ -110,6 +110,12 @@ class MovilController extends BaseController
                  ORDER BY v.fecha DESC LIMIT 5",
                 [$sucursalId]
             ),
+            // Traslados de otra tienda que esperan ser recibidos aquí
+            'trasladosPorRecibir' => Auth::can('traslados.ver') ? (int) Db::value(
+                "SELECT COUNT(*) FROM traslados t JOIN depositos d ON d.deposito_id = t.deposito_destino_id
+                 WHERE d.sucursal_id = ? AND t.estado = 'en_transito'",
+                [$sucursalId]
+            ) : 0,
         ]);
     }
 
