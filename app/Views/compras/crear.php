@@ -296,9 +296,10 @@
                             <tr class="border-b border-gray-100">
                                 <th class="py-2.5 pr-4 text-left text-xs font-semibold text-gray-500">Producto</th>
                                 <th class="py-2.5 px-3 text-center text-xs font-semibold text-gray-500 w-24">Cantidad</th>
-                                <th class="py-2.5 px-3 text-center text-xs font-semibold text-gray-500 w-28">Costo Unit.</th>
+                                <th class="py-2.5 px-3 text-center text-xs font-semibold text-gray-500 w-32">Presentación</th>
+                                <th class="py-2.5 px-3 text-center text-xs font-semibold text-gray-500 w-28">Costo</th>
                                 <th class="py-2.5 px-3 text-center text-xs font-semibold text-emerald-500 w-20">Margen %</th>
-                                <th class="py-2.5 px-3 text-center text-xs font-semibold text-sky-500 w-24">Precio</th>
+                                <th class="py-2.5 px-3 text-center text-xs font-semibold text-sky-500 w-24">Precio und.</th>
                                 <th class="py-2.5 px-3 text-center text-xs font-semibold text-gray-500">Depósito</th>
                                 <th class="py-2.5 pl-3 text-right text-xs font-semibold text-gray-500 w-24">Importe</th>
                                 <th class="w-8"></th>
@@ -312,12 +313,25 @@
                                         <div class="text-xs text-gray-400" x-text="item.codigo"></div>
                                     </td>
                                     <td class="py-3 px-3 text-center">
-                                        <input type="number" x-model.number="item.cantidad" @input="updateTotals()" min="1"
+                                        <input type="number" step="any" x-model.number="item.cantidad" @input="updateTotals()" min="0"
                                             class="w-20 text-center text-sm py-1 bg-gray-50 rounded border-gray-200 focus:border-sky-400 focus:ring-0">
+                                        <div x-show="(item.factor || 1) > 1" class="text-[11px] text-amber-700 font-semibold mt-0.5"
+                                             x-text="'= ' + unidadesBase(item) + ' ' + nombreBase(item)"></div>
+                                    </td>
+                                    <td class="py-3 px-3 text-center">
+                                        <!-- Como viene en la factura (caja, paca…); el inventario se guarda siempre en unidades -->
+                                        <select :value="item.factor || 1" @change="cambiarPresentacion(item, $event.target.value)"
+                                                class="text-xs py-1 bg-amber-50 rounded border-amber-200 focus:border-amber-400 focus:ring-0 font-semibold text-amber-800">
+                                            <template x-for="u in (item.unidades || [])" :key="u.factor">
+                                                <option :value="u.factor" :selected="u.factor == (item.factor || 1)"
+                                                        x-text="u.factor > 1 ? u.nombre + ' (' + u.factor + ')' : u.nombre"></option>
+                                            </template>
+                                        </select>
                                     </td>
                                     <td class="py-3 px-3 text-center">
                                         <input type="number" step="any" x-model.number="item.costo" @input="recalcPrecioA(item); updateTotals()"
                                             class="w-24 text-center text-sm py-1 bg-gray-50 rounded border-gray-200 focus:border-sky-400 focus:ring-0 font-semibold text-sky-600">
+                                        <div class="text-[11px] text-gray-400 mt-0.5" x-text="(item.factor || 1) > 1 ? 'por ' + nombrePres(item).toLowerCase() + ' · $' + costoBase(item).toFixed(4) + ' c/u' : 'por ' + nombreBase(item)"></div>
                                     </td>
                                     <td class="py-3 px-3 text-center">
                                         <div class="relative inline-flex items-center">
@@ -447,6 +461,11 @@ function compraForm() {
 
         init() {
             this.recuperarBorrador();
+            // Líneas sin presentaciones (borradores viejos): solo la unidad base
+            this.items.forEach(i => {
+                if (!Array.isArray(i.unidades) || !i.unidades.length) i.unidades = [{ nombre: 'Unidad', factor: 1 }];
+                i.factor = i.factor || 1;
+            });
             this.updateTotals();
             this.$watch('items', () => this.guardarBorrador());
             this.$watch('compra', () => this.guardarBorrador());
@@ -575,6 +594,30 @@ function compraForm() {
             this.creando = false;
         },
 
+        // Presentaciones de un producto para comprar: la unidad base (factor 1) + caja, paca… (factor > 1)
+        presentacionesDe(p) {
+            const base = { und: 'Unidad', lb: 'Libra', kg: 'Kg', oz: 'Onza', gal: 'Galón', lt: 'Litro', m: 'Metro', pie: 'Pie', yd: 'Yarda' }[p.unidad_medida || 'und'] || 'Unidad';
+            const lista = [{ nombre: base, factor: 1 }];
+            (p.unidades || []).forEach(u => {
+                const f = parseFloat(u.factor_conversion ?? u.factor) || 0;
+                if (f > 1 && !lista.some(x => x.factor === f)) lista.push({ nombre: u.nombre, factor: f });
+            });
+            return lista.sort((a, b) => a.factor - b.factor);
+        },
+        nombreBase(item) { return ((item.unidades || [])[0]?.nombre || 'Unidad').toLowerCase(); },
+        nombrePres(item) { return ((item.unidades || []).find(u => u.factor == (item.factor || 1))?.nombre) || 'Unidad'; },
+        unidadesBase(item) { return Math.round((parseFloat(item.cantidad) || 0) * (item.factor || 1) * 100) / 100; },
+        costoBase(item) { return (parseFloat(item.costo) || 0) / (item.factor || 1); },
+
+        // Al cambiar de presentación la cantidad escrita se mantiene (1 → 1 caja) y el costo pasa a ser el de esa presentación
+        cambiarPresentacion(item, valor) {
+            const nuevo = parseFloat(valor) || 1;
+            const base  = this.costoBase(item);
+            item.factor = nuevo;
+            item.costo  = Math.round(base * nuevo * 1e10) / 1e10;
+            this.updateTotals();
+        },
+
         seleccionarProducto(p) {
             const exists = this.items.find(i => i.producto_id === p.producto_id);
             if (exists) {
@@ -582,12 +625,17 @@ function compraForm() {
             } else {
                 const costo = parseFloat(p.costo || 0);
                 const margen = this.margenDefaultA;
+                const unidades = this.presentacionesDe(p);
+                // Por defecto la presentación más grande (como suele venir en la factura del proveedor)
+                const factor = unidades[unidades.length - 1].factor;
                 this.items.push({
                     producto_id: p.producto_id,
                     nombre: p.nombre,
                     codigo: p.codigo,
+                    unidades: unidades,
+                    factor: factor,
                     cantidad: 1,
-                    costo: costo,
+                    costo: Math.round(costo * factor * 1e10) / 1e10,
                     margen_pct: margen,
                     precio_a: parseFloat(p.precio_a) || parseFloat((costo * (1 + margen / 100)).toFixed(2)),
                     precio_b: parseFloat(p.precio_b) || 0,
@@ -601,14 +649,15 @@ function compraForm() {
             this.updateTotals();
         },
 
+        // El precio y el margen son por unidad base: se comparan contra el costo de una unidad
         recalcPrecioA(item) {
-            const costo  = parseFloat(item.costo)      || 0;
+            const costo  = this.costoBase(item);
             const margen = parseFloat(item.margen_pct) || 0;
             item.precio_a = parseFloat((costo * (1 + margen / 100)).toFixed(2));
         },
 
         recalcMargen(item) {
-            const costo   = parseFloat(item.costo)   || 0;
+            const costo   = this.costoBase(item);
             const precioA = parseFloat(item.precio_a) || 0;
             if (costo > 0 && precioA > 0) {
                 item.margen_pct = parseFloat(((precioA / costo - 1) * 100).toFixed(2));
@@ -617,7 +666,7 @@ function compraForm() {
 
         // Margen % de Precio 2 / Precio 3 respecto al Costo Unit. (solo lectura, informativo)
         margenDe(item, campo) {
-            const costo  = parseFloat(item.costo)  || 0;
+            const costo  = this.costoBase(item);
             const precio = parseFloat(item[campo]) || 0;
             if (costo > 0) {
                 return 'Margen ' + ((precio / costo - 1) * 100).toFixed(1) + '%';
@@ -679,7 +728,12 @@ function compraForm() {
                     body: JSON.stringify({
                         ...this.compra,
                         ...this.totals,
-                        items: this.items,
+                        // El servidor recibe unidades base: 2 cajas de 12 a $30 → 24 unidades a $2.50
+                        items: this.items.map(i => {
+                            const f = i.factor || 1;
+                            const { unidades, factor, ...linea } = i;
+                            return { ...linea, cantidad: Math.round((parseFloat(i.cantidad) || 0) * f * 100) / 100, costo: Math.round((parseFloat(i.costo) || 0) / f * 1e10) / 1e10 };
+                        }),
                         guardar_como_pendiente: !recibir
                     })
                 });

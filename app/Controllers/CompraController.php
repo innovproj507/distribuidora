@@ -90,7 +90,7 @@ class CompraController extends BaseController
         }
 
         $lineas = Db::all(
-            "SELECT cd.producto_id, cd.cantidad, cd.costo, p.nombre, p.codigo,
+            "SELECT cd.producto_id, cd.cantidad, cd.costo, p.nombre, p.codigo, p.unidad_medida,
                     (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND tipo_precio = 'a') AS precio_a,
                     (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND tipo_precio = 'b') AS precio_b,
                     (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND tipo_precio = 'c') AS precio_c
@@ -98,10 +98,17 @@ class CompraController extends BaseController
              WHERE cd.compra_id = ? ORDER BY cd.detalle_id",
             [$id]
         );
-        $items = array_map(function (array $l) use ($compra): array {
+        $nombresBase = ['und' => 'Unidad', 'lb' => 'Libra', 'kg' => 'Kg', 'oz' => 'Onza', 'gal' => 'Galón', 'lt' => 'Litro', 'm' => 'Metro', 'pie' => 'Pie', 'yd' => 'Yarda'];
+        $items = array_map(function (array $l) use ($compra, $nombresBase): array {
             $costo  = (float) $l['costo'];
             $precio = (float) $l['precio_a'];
+            // La orden guardada está en unidades base; se ofrecen las presentaciones para seguir editando
+            $unidades = [['nombre' => $nombresBase[$l['unidad_medida'] ?? 'und'] ?? 'Unidad', 'factor' => 1]];
+            foreach (Db::all("SELECT nombre, factor_conversion FROM productos_unidades WHERE producto_id = ? AND factor_conversion > 1 ORDER BY factor_conversion", [$l['producto_id']]) as $u) {
+                $unidades[] = ['nombre' => $u['nombre'], 'factor' => (float) $u['factor_conversion']];
+            }
             return [
+                'unidades' => $unidades, 'factor' => 1,
                 'producto_id' => (int) $l['producto_id'], 'nombre' => $l['nombre'], 'codigo' => $l['codigo'],
                 'cantidad' => (float) $l['cantidad'], 'costo' => $costo,
                 'margen_pct' => $costo > 0 && $precio > 0 ? round(($precio / $costo - 1) * 100, 2) : 0,
