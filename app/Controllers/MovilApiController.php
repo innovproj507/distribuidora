@@ -8,6 +8,7 @@ use App\Libraries\AuditService;
 use App\Libraries\Auth;
 use App\Libraries\Db;
 use App\Libraries\InventarioService;
+use App\Libraries\PrecioTienda;
 use App\Libraries\TrasladoService;
 
 /**
@@ -81,8 +82,9 @@ class MovilApiController extends BaseController
         $porPagina = $ids ? count($ids) : self::POR_PAGINA;
         $limite    = $porPagina + 1; // uno extra para saber si hay más
         $orden     = $porVencer ? 'i.fecha_vencimiento, p.nombre' : ($vendidos ? 'COALESCE(vv.vendidos, 0) DESC, p.nombre' : 'p.nombre');
+        $s      = (int) $this->sucursalId(); // precios y costo de esta tienda
         $filas  = Db::all(
-            "SELECT p.producto_id, p.codigo, p.codigo_barras, p.nombre, p.costo, p.maneja_lotes, p.unidad_medida,
+            "SELECT p.producto_id, p.codigo, p.codigo_barras, p.nombre, COALESCE(NULLIF(i.costo_promedio, 0), p.costo, 0) AS costo, p.maneja_lotes, p.unidad_medida,
                     p.imagen_principal, c.nombre AS categoria_nombre,
                     COALESCE(i.existencia, 0) AS existencia, COALESCE(i.minimo, 0) AS minimo, COALESCE(i.ubicacion, '') AS ubicacion, i.fecha_vencimiento,
                     COALESCE(pa.precio, 0) AS precio_a,
@@ -91,9 +93,9 @@ class MovilApiController extends BaseController
              FROM productos p
              LEFT JOIN inventario i ON i.producto_id = p.producto_id AND i.deposito_id = ?
              LEFT JOIN categorias_productos c ON c.categoria_id = p.categoria_id
-             LEFT JOIN precios_productos pa ON pa.producto_id = p.producto_id AND pa.tipo_precio = 'a'
-             LEFT JOIN precios_productos pb ON pb.producto_id = p.producto_id AND pb.tipo_precio = 'b'
-             LEFT JOIN precios_productos pc ON pc.producto_id = p.producto_id AND pc.tipo_precio = 'c'
+             LEFT JOIN precios_productos pa ON pa.producto_id = p.producto_id AND pa.tipo_precio = 'a' AND pa.sucursal_id = {$s}
+             LEFT JOIN precios_productos pb ON pb.producto_id = p.producto_id AND pb.tipo_precio = 'b' AND pb.sucursal_id = {$s}
+             LEFT JOIN precios_productos pc ON pc.producto_id = p.producto_id AND pc.tipo_precio = 'c' AND pc.sucursal_id = {$s}
              {$joinVendidos}
              WHERE " . implode(' AND ', $where) . "
              ORDER BY {$orden}
@@ -111,8 +113,9 @@ class MovilApiController extends BaseController
             $idsPagina = array_map(fn ($f) => (int) $f['producto_id'], $filas);
             $mapaPrecio = array_column($filas, 'precio_a', 'producto_id');
             foreach (Db::all(
-                "SELECT unidad_id, producto_id, nombre, factor_conversion, precio_a, codigo_barras FROM productos_unidades
-                 WHERE producto_id IN (" . implode(',', array_fill(0, count($idsPagina), '?')) . ") ORDER BY factor_conversion",
+                "SELECT u.unidad_id, u.producto_id, u.nombre, u.factor_conversion, COALESCE(x.precio_a, 0) AS precio_a, u.codigo_barras
+                 FROM productos_unidades u LEFT JOIN productos_unidades_precios x ON x.unidad_id = u.unidad_id AND x.sucursal_id = {$s}
+                 WHERE u.producto_id IN (" . implode(',', array_fill(0, count($idsPagina), '?')) . ") ORDER BY u.factor_conversion",
                 $idsPagina
             ) as $u) {
                 $factor = (float) $u['factor_conversion'];
@@ -369,7 +372,8 @@ class MovilApiController extends BaseController
     /** Presentaciones de un producto con el mismo formato que /m/api/productos. */
     private function presentacionesDe(int $productoId): array
     {
-        $precioUnidad = (float) Db::value("SELECT precio FROM precios_productos WHERE producto_id = ? AND tipo_precio = 'a'", [$productoId]);
+        $s = (int) $this->sucursalId();
+        $precioUnidad = PrecioTienda::precio($productoId, $s);
         return array_map(function (array $u) use ($precioUnidad): array {
             $factor = (float) $u['factor_conversion'];
             $propio = (float) $u['precio_a'];
@@ -377,7 +381,7 @@ class MovilApiController extends BaseController
                 'unidad_id' => (int) $u['unidad_id'], 'nombre' => $u['nombre'], 'factor' => $factor,
                 'precio'    => $propio > 0 ? $propio : round($precioUnidad * $factor, 2),
             ];
-        }, Db::all("SELECT unidad_id, nombre, factor_conversion, precio_a FROM productos_unidades WHERE producto_id = ? ORDER BY factor_conversion", [$productoId]));
+        }, PrecioTienda::unidades($productoId, $s));
     }
 
     /** POST /m/api/producto/{id}/presentacion {nombre, factor, precio?} */
@@ -396,10 +400,12 @@ class MovilApiController extends BaseController
         if (Db::value("SELECT 1 FROM productos_unidades WHERE producto_id = ? AND LOWER(nombre) = LOWER(?)", [$id, $nombre])) {
             return $this->json(['error' => "Ya existe una presentación \"{$nombre}\" para este producto."], 422);
         }
-        Db::insert('productos_unidades', [
+        $unidadId = Db::insert('productos_unidades', [
             'producto_id' => $id, 'nombre' => $nombre, 'factor_conversion' => $factor,
-            'precio_a' => max(0, round((float) ($d['precio'] ?? 0), 10)), 'precio_b' => 0, 'precio_c' => 0, 'codigo_barras' => '',
+            'precio_a' => 0, 'precio_b' => 0, 'precio_c' => 0, 'codigo_barras' => '',
         ]);
+        // Presentación nueva: mismo precio en todas las tiendas; después cada una cambia el suyo
+        PrecioTienda::fijarUnidad($unidadId, null, max(0, round((float) ($d['precio'] ?? 0), 10)));
         AuditService::log('productos.editar', "Presentación \"{$nombre}\" (×{$factor}) agregada (móvil)", $id, 'producto', [], $this->empresaId());
         return $this->json(['success' => true, 'unidades' => $this->presentacionesDe($id)]);
     }
@@ -413,6 +419,7 @@ class MovilApiController extends BaseController
              WHERE u.unidad_id = ? AND p.empresa_id = ?", [$id, $this->empresaId()]
         );
         if (!$u) return $this->json(['error' => 'Presentación no encontrada.'], 404);
+        Db::query("DELETE FROM productos_unidades_precios WHERE unidad_id = ?", [$id]);
         Db::query("DELETE FROM productos_unidades WHERE unidad_id = ?", [$id]);
         AuditService::log('productos.editar', "Presentación \"{$u['nombre']}\" quitada (móvil)", (int) $u['producto_id'], 'producto', [], $this->empresaId());
         return $this->json(['success' => true, 'unidades' => $this->presentacionesDe((int) $u['producto_id'])]);

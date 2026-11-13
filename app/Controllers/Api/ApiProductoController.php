@@ -6,18 +6,24 @@ namespace App\Controllers\Api;
 
 use App\Libraries\AuditService;
 use App\Libraries\Db;
+use App\Libraries\PrecioTienda;
 use App\Libraries\ProductoService;
 
 /** /api/v1/productos — permisos: productos.ver / crear / editar / eliminar (por ruta). */
 class ApiProductoController extends ApiController
 {
-    private const SELECT = "SELECT p.*, c.nombre AS categoria_nombre,
+    /** Producto con los precios y el costo de la tienda del usuario (cada tienda tiene los suyos). */
+    private function select(): string
+    {
+        $s = (int) $this->sucursalId();
+        return "SELECT p.*, " . PrecioTienda::sqlCosto($s) . " AS costo, c.nombre AS categoria_nombre,
                     COALESCE(pa.precio, 0) AS precio_a, COALESCE(pb.precio, 0) AS precio_b, COALESCE(pc.precio, 0) AS precio_c
              FROM productos p
              LEFT JOIN categorias_productos c ON p.categoria_id = c.categoria_id
-             LEFT JOIN precios_productos pa ON pa.producto_id = p.producto_id AND pa.tipo_precio = 'a'
-             LEFT JOIN precios_productos pb ON pb.producto_id = p.producto_id AND pb.tipo_precio = 'b'
-             LEFT JOIN precios_productos pc ON pc.producto_id = p.producto_id AND pc.tipo_precio = 'c'";
+             LEFT JOIN precios_productos pa ON pa.producto_id = p.producto_id AND pa.tipo_precio = 'a' AND pa.sucursal_id = {$s}
+             LEFT JOIN precios_productos pb ON pb.producto_id = p.producto_id AND pb.tipo_precio = 'b' AND pb.sucursal_id = {$s}
+             LEFT JOIN precios_productos pc ON pc.producto_id = p.producto_id AND pc.tipo_precio = 'c' AND pc.sucursal_id = {$s}";
+    }
 
     /** GET ?page=&per_page=&q=&categoria_id=&estado=activo|inactivo|todos */
     public function index()
@@ -43,7 +49,7 @@ class ApiProductoController extends ApiController
         $whereSql = implode(' AND ', $where);
 
         return $this->ok([
-            'productos' => Db::all(self::SELECT . " WHERE {$whereSql} ORDER BY p.nombre LIMIT {$porPagina} OFFSET {$offset}", $params),
+            'productos' => Db::all($this->select() . " WHERE {$whereSql} ORDER BY p.nombre LIMIT {$porPagina} OFFSET {$offset}", $params),
             'total'     => (int) Db::value("SELECT COUNT(*) FROM productos p WHERE {$whereSql}", $params),
             'page'      => $pagina,
             'per_page'  => $porPagina,
@@ -59,15 +65,16 @@ class ApiProductoController extends ApiController
         }
 
         $sucursalId = $this->sucursalId();
+        $s          = (int) $sucursalId;
         $productos  = Db::all(
             "SELECT p.producto_id, p.codigo, p.nombre, p.codigo_barras, p.itbms, p.maneja_lotes, p.imagen_principal, p.marca,
                     COALESCE((SELECT SUM(i.existencia) FROM inventario i JOIN depositos d ON i.deposito_id = d.deposito_id
                               WHERE i.producto_id = p.producto_id AND d.sucursal_id = ?), 0) AS stock,
                     COALESCE(pa.precio, 0) AS precio_a, COALESCE(pb.precio, 0) AS precio_b, COALESCE(pc.precio, 0) AS precio_c
              FROM productos p
-             LEFT JOIN precios_productos pa ON pa.producto_id = p.producto_id AND pa.tipo_precio = 'a'
-             LEFT JOIN precios_productos pb ON pb.producto_id = p.producto_id AND pb.tipo_precio = 'b'
-             LEFT JOIN precios_productos pc ON pc.producto_id = p.producto_id AND pc.tipo_precio = 'c'
+             LEFT JOIN precios_productos pa ON pa.producto_id = p.producto_id AND pa.tipo_precio = 'a' AND pa.sucursal_id = {$s}
+             LEFT JOIN precios_productos pb ON pb.producto_id = p.producto_id AND pb.tipo_precio = 'b' AND pb.sucursal_id = {$s}
+             LEFT JOIN precios_productos pc ON pc.producto_id = p.producto_id AND pc.tipo_precio = 'c' AND pc.sucursal_id = {$s}
              WHERE p.estado = 'activo' AND p.empresa_id = ?
                AND (p.nombre LIKE ? OR p.codigo LIKE ? OR p.codigo_barras LIKE ?)
              ORDER BY (p.codigo = ? OR p.codigo_barras = ?) DESC, p.nombre
@@ -76,7 +83,7 @@ class ApiProductoController extends ApiController
         );
 
         foreach ($productos as &$p) {
-            $p['unidades'] = Db::all("SELECT * FROM productos_unidades WHERE producto_id = ?", [$p['producto_id']]);
+            $p['unidades'] = PrecioTienda::unidades((int) $p['producto_id'], $s, 'u.unidad_id');
         }
         unset($p);
 
@@ -85,18 +92,18 @@ class ApiProductoController extends ApiController
 
     public function detalle(int $id)
     {
-        $producto = Db::row(self::SELECT . ' WHERE p.producto_id = ? AND p.empresa_id = ?', [$id, $this->empresaId()]);
+        $producto = Db::row($this->select() . ' WHERE p.producto_id = ? AND p.empresa_id = ?', [$id, $this->empresaId()]);
         if (!$producto) {
             return $this->noEncontrado('Producto no encontrado');
         }
 
-        $producto['precios']  = array_column(Db::all("SELECT tipo_precio, precio FROM precios_productos WHERE producto_id = ?", [$id]), 'precio', 'tipo_precio');
+        $producto['precios']  = PrecioTienda::precios($id, (int) $this->sucursalId());
         $producto['stock']    = Db::all(
             "SELECT i.deposito_id, d.nombre AS deposito_nombre, i.existencia, i.minimo, i.costo_promedio
              FROM inventario i JOIN depositos d ON d.deposito_id = i.deposito_id WHERE i.producto_id = ?",
             [$id]
         );
-        $producto['unidades'] = Db::all("SELECT * FROM productos_unidades WHERE producto_id = ?", [$id]);
+        $producto['unidades'] = PrecioTienda::unidades($id, (int) $this->sucursalId(), 'u.unidad_id');
 
         return $this->ok($producto);
     }

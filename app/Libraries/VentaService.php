@@ -306,12 +306,13 @@ final class VentaService
      * Precio de lista del producto para el tipo pedido (a/b/c), con respaldo en el precio A.
      * Lo usa la API para no confiar en precios enviados por el cliente.
      */
-    public static function precioLista(int $productoId, string $tipo = 'a'): float
+    public static function precioLista(int $productoId, string $tipo = 'a', ?int $sucursalId = null): float
     {
+        $sucursalId ??= PrecioTienda::sucursalActual();
         $tipo   = in_array($tipo, ['a', 'b', 'c'], true) ? $tipo : 'a';
-        $precio = (float) (Db::value("SELECT precio FROM precios_productos WHERE producto_id = ? AND tipo_precio = ?", [$productoId, $tipo]) ?? 0);
+        $precio = PrecioTienda::precio($productoId, $sucursalId, $tipo);
         if ($precio <= 0 && $tipo !== 'a') {
-            $precio = (float) (Db::value("SELECT precio FROM precios_productos WHERE producto_id = ? AND tipo_precio = 'a'", [$productoId]) ?? 0);
+            $precio = PrecioTienda::precio($productoId, $sucursalId, 'a');
         }
         return $precio;
     }

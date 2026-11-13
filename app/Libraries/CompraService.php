@@ -145,15 +145,11 @@ final class CompraService
                 'fecha_fabricacion' => !empty($item['fecha_fabricacion']) ? $item['fecha_fabricacion'] : null,
             ]);
 
-            // Precios de venta A/B/C si vienen en el ítem
+            // Precios de venta A/B/C si vienen en el ítem: solo los de la tienda que compra
             foreach (['a' => 'precio_a', 'b' => 'precio_b', 'c' => 'precio_c'] as $tipo => $campo) {
                 $precio = (float) ($item[$campo] ?? 0);
                 if ($precio > 0) {
-                    Db::query(
-                        "INSERT INTO precios_productos (producto_id, tipo_precio, precio, fecha_inicio) VALUES (?, ?, ?, CURDATE())
-                         ON DUPLICATE KEY UPDATE precio = VALUES(precio), fecha_inicio = VALUES(fecha_inicio)",
-                        [$productoId, $tipo, $precio]
-                    );
+                    PrecioTienda::fijar($productoId, $tipo, $precio, (int) $ctx['sucursal_id']);
                 }
             }
 

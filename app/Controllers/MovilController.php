@@ -188,15 +188,18 @@ class MovilController extends BaseController
         $depositoId = $this->depositoId();
         $inv        = Db::row("SELECT * FROM inventario WHERE producto_id = ? AND deposito_id = ?", [$id, $depositoId]);
         $sucursales = array_map('intval', array_column($this->session->get('sucursales_disponibles') ?? [], 'sucursal_id')) ?: [0];
+        // Precio, presentaciones y costo de la tienda activa
+        $s = (int) $this->sucursalId();
+        $p['costo'] = \App\Libraries\PrecioTienda::costo($id, $s);
 
         return $this->render('movil.producto', [
             'page_title'  => $p['nombre'],
             'headerTitle' => 'Producto',
             'activeTab'   => 'inventario',
             'p'           => $p,
-            'precio'      => (float) (Db::value("SELECT precio FROM precios_productos WHERE producto_id = ? AND tipo_precio = 'a'", [$id]) ?? 0),
+            'precio'      => \App\Libraries\PrecioTienda::precio($id, $s),
             'inv'         => $inv,
-            'unidades'    => Db::all("SELECT nombre, factor_conversion, precio_a FROM productos_unidades WHERE producto_id = ? ORDER BY factor_conversion", [$id]),
+            'unidades'    => \App\Libraries\PrecioTienda::unidades($id, $s),
             // Stock en todas las tiendas que el usuario puede ver
             'stocks'      => Db::all(
                 "SELECT d.deposito_id, d.nombre AS deposito, b.nombre AS sucursal, i.existencia, i.minimo, i.ubicacion, i.fecha_vencimiento
@@ -238,6 +241,9 @@ class MovilController extends BaseController
         }
 
         $empresaId = $this->empresaId();
+        // Se edita el precio, las presentaciones y el costo de la tienda activa (la otra no cambia)
+        $s = (int) $this->sucursalId();
+        $p['costo'] = \App\Libraries\PrecioTienda::costo($id, $s);
         return $this->render('movil.producto_editar', [
             // Sin productos.editar (vendedor): solo nombre, foto y ubicación
             'completo'    => Auth::can('productos.editar'),
@@ -245,9 +251,9 @@ class MovilController extends BaseController
             'headerTitle' => 'Editar producto',
             'activeTab'   => 'inventario',
             'p'           => $p,
-            'precio'      => (float) (Db::value("SELECT precio FROM precios_productos WHERE producto_id = ? AND tipo_precio = 'a'", [$id]) ?? 0),
+            'precio'      => \App\Libraries\PrecioTienda::precio($id, $s),
             'inv'         => Db::row("SELECT minimo, ubicacion, fecha_vencimiento FROM inventario WHERE producto_id = ? AND deposito_id = ?", [$id, $this->depositoId()]),
-            'unidades'    => Db::all("SELECT unidad_id, nombre, factor_conversion, precio_a FROM productos_unidades WHERE producto_id = ? ORDER BY factor_conversion", [$id]),
+            'unidades'    => \App\Libraries\PrecioTienda::unidades($id, $s),
             'categorias'  => Db::all("SELECT categoria_id, nombre FROM categorias_productos WHERE empresa_id = ? ORDER BY nombre", [$empresaId]),
             'proveedores' => Db::all("SELECT proveedor_id, nombre FROM proveedores WHERE empresa_id = ? AND estado = 'activo' ORDER BY nombre", [$empresaId]),
             'marcas'      => array_column(Db::all("SELECT DISTINCT nombre FROM marcas WHERE empresa_id = ? ORDER BY nombre", [$empresaId]), 'nombre'),
@@ -384,17 +390,22 @@ class MovilController extends BaseController
             }
             $nombres[mb_strtolower($nombre)] = true;
 
-            $datos     = ['nombre' => $nombre, 'factor_conversion' => $factor, 'precio_a' => max(0, round((float) ($f['precio'] ?? 0), 10))];
+            $datos     = ['nombre' => $nombre, 'factor_conversion' => $factor];
+            $precio    = max(0, round((float) ($f['precio'] ?? 0), 10));
             $unidadId  = (int) ($f['unidad_id'] ?? 0);
             if ($unidadId && in_array($unidadId, $actuales, true)) {
                 Db::update('productos_unidades', $datos, ['unidad_id' => $unidadId]);
+                // El precio es el de esta tienda; la otra conserva el suyo
+                \App\Libraries\PrecioTienda::fijarUnidad($unidadId, (int) $this->sucursalId() ?: null, $precio);
                 $quedan[] = $unidadId;
             } else {
-                Db::insert('productos_unidades', $datos + ['producto_id' => $productoId, 'precio_b' => 0, 'precio_c' => 0, 'codigo_barras' => '']);
+                $nuevo = Db::insert('productos_unidades', $datos + ['producto_id' => $productoId, 'precio_a' => 0, 'precio_b' => 0, 'precio_c' => 0, 'codigo_barras' => '']);
+                \App\Libraries\PrecioTienda::fijarUnidad($nuevo, null, $precio); // nueva: mismo precio en todas
             }
         }
 
         foreach (array_diff($actuales, $quedan) as $borrar) {
+            Db::query("DELETE FROM productos_unidades_precios WHERE unidad_id = ?", [$borrar]);
             Db::query("DELETE FROM productos_unidades WHERE unidad_id = ? AND producto_id = ?", [$borrar, $productoId]);
         }
     }
@@ -766,7 +777,8 @@ class MovilController extends BaseController
     {
         $lineas = Db::all(
             "SELECT d.detalle_id, d.producto_id, d.cantidad, d.cantidad_recibida, d.costo, p.nombre, p.codigo, p.controla_vencimiento,
-                    COALESCE((SELECT precio FROM precios_productos WHERE producto_id = d.producto_id AND tipo_precio = 'a'), 0) AS precio_venta
+                    COALESCE((SELECT pp.precio FROM precios_productos pp JOIN compras c ON c.compra_id = d.compra_id
+                              WHERE pp.producto_id = d.producto_id AND pp.tipo_precio = 'a' AND pp.sucursal_id = c.sucursal_id), 0) AS precio_venta
              FROM compras_detalle d JOIN productos p ON p.producto_id = d.producto_id WHERE d.compra_id = ? ORDER BY p.nombre",
             [$compraId]
         );

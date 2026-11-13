@@ -8,6 +8,7 @@ use App\Libraries\AuditService;
 use App\Libraries\Db;
 use App\Libraries\Fila;
 use App\Libraries\InventarioService;
+use App\Libraries\PrecioTienda;
 use App\Libraries\ProductoService;
 use App\Libraries\SimpleXlsxWriter;
 use App\Libraries\SucursalService;
@@ -44,19 +45,20 @@ class ProductoController extends BaseController
         }
 
         $total  = (int) Db::value("SELECT COUNT(*) FROM productos p WHERE {$where}", $params);
+        $s      = (int) $this->sucursalId(); // precios de esta tienda
         $offset = ($page - 1) * $porPagina;
 
         $productos = Db::all(
-            "SELECT p.*, c.nombre AS categoria_nombre, pr.nombre AS proveedor_nombre,
+            "SELECT p.*, COALESCE(NULLIF(i.costo_promedio, 0), p.costo, 0) AS costo, c.nombre AS categoria_nombre, pr.nombre AS proveedor_nombre,
                     COALESCE(i.existencia, 0) AS stock_total, COALESCE(i.costo_promedio, 0) AS costo_promedio, i.fecha_vencimiento,
                     COALESCE(pa.precio, 0) AS precio_a, COALESCE(pb.precio, 0) AS precio_b, COALESCE(pc.precio, 0) AS precio_c
              FROM productos p
              LEFT JOIN categorias_productos c ON p.categoria_id = c.categoria_id
              LEFT JOIN proveedores pr         ON p.proveedor_id = pr.proveedor_id
              LEFT JOIN inventario i           ON i.producto_id = p.producto_id AND i.deposito_id = ?
-             LEFT JOIN precios_productos pa   ON pa.producto_id = p.producto_id AND pa.tipo_precio = 'a'
-             LEFT JOIN precios_productos pb   ON pb.producto_id = p.producto_id AND pb.tipo_precio = 'b'
-             LEFT JOIN precios_productos pc   ON pc.producto_id = p.producto_id AND pc.tipo_precio = 'c'
+             LEFT JOIN precios_productos pa   ON pa.producto_id = p.producto_id AND pa.tipo_precio = 'a' AND pa.sucursal_id = {$s}
+             LEFT JOIN precios_productos pb   ON pb.producto_id = p.producto_id AND pb.tipo_precio = 'b' AND pb.sucursal_id = {$s}
+             LEFT JOIN precios_productos pc   ON pc.producto_id = p.producto_id AND pc.tipo_precio = 'c' AND pc.sucursal_id = {$s}
              WHERE {$where}
              ORDER BY p.fecha_creacion DESC
              LIMIT {$porPagina} OFFSET {$offset}",
@@ -89,17 +91,21 @@ class ProductoController extends BaseController
             return redirect()->to('/inventario');
         }
 
+        // Precio, presentaciones y costo son los de la tienda activa
+        $s = (int) $this->sucursalId();
+        $producto['costo'] = PrecioTienda::costo($productoId, $s);
+
         return $this->render('inventario.detalle', [
             'page_title'    => $producto['nombre'],
             'page_subtitle' => 'Detalle del producto',
             'producto'      => new Fila($producto),
-            'precios'       => Fila::lista(Db::all("SELECT * FROM precios_productos WHERE producto_id = ?", [$productoId])),
+            'precios'       => Fila::lista(Db::all("SELECT * FROM precios_productos WHERE producto_id = ? AND sucursal_id = ?", [$productoId, $s])),
             'inventarios'   => Db::all(
                 "SELECT i.*, d.nombre AS deposito_nombre FROM inventario i
                  LEFT JOIN depositos d ON i.deposito_id = d.deposito_id WHERE i.producto_id = ?",
                 [$productoId]
             ),
-            'unidades'  => Db::all("SELECT * FROM productos_unidades WHERE producto_id = ? ORDER BY unidad_id", [$productoId]),
+            'unidades'  => PrecioTienda::unidades($productoId, $s, 'u.unidad_id'),
             'categoria' => $producto['categoria_id'] ? Fila::o(Db::row("SELECT * FROM categorias_productos WHERE categoria_id = ?", [$producto['categoria_id']])) : null,
             'proveedor' => $producto['proveedor_id'] ? Fila::o(Db::row("SELECT * FROM proveedores WHERE proveedor_id = ?", [$producto['proveedor_id']])) : null,
         ]);
@@ -200,12 +206,16 @@ class ProductoController extends BaseController
             return redirect()->to('/inventario');
         }
 
+        // Se edita el precio, las presentaciones y el costo de la tienda activa (la otra no cambia)
+        $s = (int) $this->sucursalId();
+        $producto['costo'] = PrecioTienda::costo($productoId, $s);
+
         return $this->render('inventario.editar', $this->datosFormulario() + [
             'page_title'    => 'Editar Producto',
             'page_subtitle' => $producto['nombre'],
             'producto'      => new Fila($producto),
-            'precios'       => Fila::lista(Db::all("SELECT * FROM precios_productos WHERE producto_id = ?", [$productoId])),
-            'unidades'      => Db::all("SELECT * FROM productos_unidades WHERE producto_id = ?", [$productoId]),
+            'precios'       => Fila::lista(Db::all("SELECT * FROM precios_productos WHERE producto_id = ? AND sucursal_id = ?", [$productoId, $s])),
+            'unidades'      => PrecioTienda::unidades($productoId, $s, 'u.unidad_id'),
             'inventariosActuales' => Db::all(
                 "SELECT i.*, d.nombre AS deposito_nombre FROM inventario i
                  JOIN depositos d ON i.deposito_id = d.deposito_id WHERE i.producto_id = ?",
@@ -427,7 +437,7 @@ class ProductoController extends BaseController
             'page_title'    => 'Gestionar Precios',
             'page_subtitle' => $producto['nombre'],
             'product'       => $producto,
-            'precios'       => Db::all("SELECT * FROM precios_productos WHERE producto_id = ?", [$productoId]),
+            'precios'       => Db::all("SELECT * FROM precios_productos WHERE producto_id = ? AND sucursal_id = ?", [$productoId, (int) $this->sucursalId()]),
         ]);
     }
 
@@ -435,16 +445,18 @@ class ProductoController extends BaseController
     {
         if ($r = $this->exigir('productos.ver', '/inventario')) return $r;
 
-        // Los tipos de precio se guardan en minúscula ('a', 'b'); antes se buscaba 'A'/'B' y el Excel salía en 0
+        // Los tipos de precio se guardan en minúscula ('a', 'b'); antes se buscaba 'A'/'B' y el Excel salía en 0.
+        // Precio, costo y stock de la tienda activa (cada tienda tiene los suyos)
+        $s = (int) $this->sucursalId();
         $productos = Db::all(
             "SELECT p.codigo, p.nombre, cp.nombre AS categoria, p.marca,
                     COALESCE(pa.precio, 0) AS precio_a, COALESCE(pb.precio, 0) AS precio_b,
-                    p.costo, COALESCE(SUM(i.existencia), 0) AS stock, p.estado
+                    " . PrecioTienda::sqlCosto($s) . " AS costo, COALESCE(SUM(i.existencia), 0) AS stock, p.estado
              FROM productos p
              LEFT JOIN categorias_productos cp ON p.categoria_id = cp.categoria_id
-             LEFT JOIN precios_productos pa ON pa.producto_id = p.producto_id AND pa.tipo_precio = 'a'
-             LEFT JOIN precios_productos pb ON pb.producto_id = p.producto_id AND pb.tipo_precio = 'b'
-             LEFT JOIN inventario i ON i.producto_id = p.producto_id
+             LEFT JOIN precios_productos pa ON pa.producto_id = p.producto_id AND pa.tipo_precio = 'a' AND pa.sucursal_id = {$s}
+             LEFT JOIN precios_productos pb ON pb.producto_id = p.producto_id AND pb.tipo_precio = 'b' AND pb.sucursal_id = {$s}
+             LEFT JOIN inventario i ON i.producto_id = p.producto_id AND i.deposito_id IN (SELECT deposito_id FROM depositos WHERE sucursal_id = {$s})
              WHERE p.empresa_id = ?
              GROUP BY p.producto_id, p.codigo, p.nombre, cp.nombre, p.marca, pa.precio, pb.precio, p.costo, p.estado
              ORDER BY cp.nombre, p.nombre",

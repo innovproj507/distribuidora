@@ -63,6 +63,7 @@ $v  = fn (string $campo, $def = '') => old($campo, $def);
         <option value="<?= $clave ?>" data-abrev="<?= $abrev ?>" <?= $umActual === $clave ? 'selected' : '' ?>><?= $nombreUm ?><?= $clave !== 'und' ? " ($abrev)" : '' ?></option>
       <?php endforeach; ?>
     </select>
+    <p class="text-xs font-semibold mb-2 px-2 py-1 rounded-lg" style="background:var(--orange-light);color:var(--orange)">🏪 Precio<?= ver_costos() ? ', costo' : '' ?> y presentaciones de <?= esc($sucursal_actual['nombre'] ?? 'esta tienda') ?> (la otra tienda tiene los suyos)</p>
     <div class="grid <?= ver_costos() ? 'grid-cols-2' : 'grid-cols-1' ?> gap-2">
       <div>
         <label class="field-label">Precio de venta <span class="um-txt"></span></label>

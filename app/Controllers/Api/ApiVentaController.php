@@ -253,7 +253,7 @@ class ApiVentaController extends ApiController
                 return [[], $this->fallo("Ítem {$i}: producto #{$productoId} no existe o está inactivo.", 422)];
             }
 
-            $precio = VentaService::precioLista($productoId, strtolower((string) ($item['tipo_precio'] ?? 'a')));
+            $precio = VentaService::precioLista($productoId, strtolower((string) ($item['tipo_precio'] ?? 'a')), $this->sucursalId());
             if ($precio <= 0) {
                 return [[], $this->fallo("\"{$producto['nombre']}\" no tiene precio de venta asignado.", 422)];
             }

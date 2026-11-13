@@ -90,7 +90,7 @@ class ReporteController extends BaseController
         $g = fn (string $k) => trim((string) ($this->request->getGet($k) ?? ''));
 
         $depositos = Db::all(
-            "SELECT d.deposito_id, d.nombre, b.nombre AS sucursal FROM depositos d JOIN branches b ON b.sucursal_id = d.sucursal_id
+            "SELECT d.deposito_id, d.nombre, d.sucursal_id, b.nombre AS sucursal FROM depositos d JOIN branches b ON b.sucursal_id = d.sucursal_id
              WHERE d.sucursal_id IN ({$in}) AND d.estado = 'activo' ORDER BY b.nombre, d.es_principal DESC, d.nombre",
             $ids
         );
@@ -111,12 +111,23 @@ class ReporteController extends BaseController
         }
 
         $productos = Db::all(
-            "SELECT p.producto_id, p.codigo, p.nombre, p.unidad_medida, p.costo, p.stock_minimo, COALESCE(c.nombre, 'Sin categoría') AS categoria,
-                    COALESCE((SELECT precio FROM precios_productos WHERE producto_id = p.producto_id AND tipo_precio = 'a'), 0) AS precio
+            "SELECT p.producto_id, p.codigo, p.nombre, p.unidad_medida, p.costo, p.stock_minimo, COALESCE(c.nombre, 'Sin categoría') AS categoria
              FROM productos p LEFT JOIN categorias_productos c ON c.categoria_id = p.categoria_id
              WHERE " . implode(' AND ', $where) . " ORDER BY categoria, p.nombre",
             $params
         );
+
+        // Cada tienda tiene su precio: el valor de venta de cada depósito usa el precio de su tienda
+        $sucDeDep = array_map('intval', array_column($enUso, 'sucursal_id', 'deposito_id'));
+        $precioEn = [];
+        foreach (Db::all(
+            "SELECT producto_id, sucursal_id, precio FROM precios_productos WHERE tipo_precio = 'a' AND sucursal_id IN ({$in})",
+            $ids
+        ) as $pp) {
+            $precioEn[(int) $pp['producto_id']][(int) $pp['sucursal_id']] = (float) $pp['precio'];
+        }
+        $sucActiva = (int) $this->sucursalId();
+        $sucUnica  = count(array_unique($sucDeDep)) === 1 ? (int) reset($sucDeDep) : $sucActiva;
 
         // Existencias por depósito (una consulta) y presentaciones para el desglose
         $stock = [];
@@ -139,13 +150,14 @@ class ReporteController extends BaseController
         foreach ($productos as $p) {
             $pid = (int) $p['producto_id'];
             $porDep = [];
-            $total = $valorCosto = $minimo = 0.0;
+            $total = $valorCosto = $valorVenta = $minimo = 0.0;
             foreach ($depIds as $d) {
                 $i = $stock[$pid][$d] ?? null;
                 $e = $i ? (float) $i['existencia'] : 0.0;
                 $porDep[$d] = $e;
                 $total += $e;
                 $valorCosto += $e * (float) ($i['costo_promedio'] ?? 0 ?: $p['costo']);
+                $valorVenta += max(0, $e) * ($precioEn[$pid][$sucDeDep[$d] ?? 0] ?? 0.0);
                 $minimo += $i ? (float) $i['minimo'] : 0.0;
             }
             if ($minimo <= 0) $minimo = (float) $p['stock_minimo'];
@@ -155,11 +167,14 @@ class ReporteController extends BaseController
             if ($filtroStock === 'bajo' && $estado !== 'bajo') continue;
 
             $uno = $depositoId ? ($stock[$pid][$depositoId] ?? null) : null;
+            // Precio y costo mostrados: los de la tienda si el reporte es de una sola; si junta varias, el promedio ponderado
+            $p['precio'] = $total > 0 && count(array_unique($sucDeDep)) > 1 ? $valorVenta / $total : ($precioEn[$pid][$sucUnica] ?? 0.0);
+            if ($total > 0) $p['costo'] = $valorCosto / $total;
             $fila = $p + [
                 'por_deposito' => $porDep, 'total' => $total, 'minimo' => $minimo, 'estado_stock' => $estado,
                 'desglose' => ProductoService::desglose($total, $pres[$pid] ?? [], $p['unidad_medida']),
                 'um' => ProductoService::abreviatura($p['unidad_medida'] ?? 'und'),
-                'valor_venta' => max(0, $total) * (float) $p['precio'], 'valor_costo' => max(0, $valorCosto),
+                'valor_venta' => $valorVenta, 'valor_costo' => max(0, $valorCosto),
                 'ubicacion' => $uno['ubicacion'] ?? '', 'vence' => $uno['fecha_vencimiento'] ?? null,
             ];
             $filas[] = $fila;
@@ -239,7 +254,7 @@ class ReporteController extends BaseController
         $lineas = $id ? Db::all(
             "SELECT cd.producto_id, cd.cantidad_sistema, cd.cantidad_contada, cd.diferencia, cd.costo_unitario, cd.estado, cd.notas,
                     p.codigo, p.nombre, p.unidad_medida, COALESCE(c.nombre, 'Sin categoría') AS categoria, i.ubicacion,
-                    COALESCE((SELECT precio FROM precios_productos WHERE producto_id = p.producto_id AND tipo_precio = 'a'), 0) AS precio
+                    COALESCE((SELECT precio FROM precios_productos WHERE producto_id = p.producto_id AND tipo_precio = 'a' AND sucursal_id = " . (int) ($conteo['sucursal_id'] ?? 0) . "), 0) AS precio
              FROM conteo_detalle cd JOIN productos p ON p.producto_id = cd.producto_id
              LEFT JOIN categorias_productos c ON c.categoria_id = p.categoria_id
              LEFT JOIN inventario i ON i.producto_id = cd.producto_id AND i.deposito_id = ?

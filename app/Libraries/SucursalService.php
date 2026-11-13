@@ -215,6 +215,8 @@ final class SucursalService
             'estado'       => 'activo',
         ]);
         self::poblarInventario($depositoId);
+        // Cada tienda tiene sus precios: la nueva arranca con los de la principal
+        PrecioTienda::copiarASucursal($sucursalId);
 
         return $sucursalId;
     }

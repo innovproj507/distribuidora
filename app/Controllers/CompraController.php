@@ -89,11 +89,12 @@ class CompraController extends BaseController
             return redirect()->to($compra ? "/compras/{$id}" : '/compras');
         }
 
+        $s = (int) $compra['sucursal_id']; // precios de la tienda de la compra
         $lineas = Db::all(
             "SELECT cd.producto_id, cd.cantidad, cd.costo, p.nombre, p.codigo, p.unidad_medida,
-                    (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND tipo_precio = 'a') AS precio_a,
-                    (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND tipo_precio = 'b') AS precio_b,
-                    (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND tipo_precio = 'c') AS precio_c
+                    (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND sucursal_id = {$s} AND tipo_precio = 'a') AS precio_a,
+                    (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND sucursal_id = {$s} AND tipo_precio = 'b') AS precio_b,
+                    (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND sucursal_id = {$s} AND tipo_precio = 'c') AS precio_c
              FROM compras_detalle cd JOIN productos p ON p.producto_id = cd.producto_id
              WHERE cd.compra_id = ? ORDER BY cd.detalle_id",
             [$id]

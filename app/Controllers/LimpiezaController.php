@@ -25,7 +25,7 @@ class LimpiezaController extends BaseController
         'compras_detalle', 'compras', 'proveedor_evaluaciones',
         'traslados_detalle', 'traslados',
         'direcciones_cliente', 'clientes', 'proveedores',
-        'inventario', 'precios_productos', 'productos_unidades', 'marcas', 'productos',
+        'inventario', 'precios_productos', 'productos_unidades_precios', 'productos_unidades', 'marcas', 'productos',
     ];
 
     private const CONSERVAR = [

@@ -104,9 +104,10 @@ final class ProductoService
             'fecha_modificacion' => date('Y-m-d H:i:s'),
         ]);
 
+        // Producto nuevo: el mismo precio en todas las tiendas; después cada una cambia el suyo
         foreach ($precios as $tipo => $monto) {
             if ($monto > 0) {
-                self::reemplazarPrecio($productoId, $tipo, $monto);
+                PrecioTienda::fijar($productoId, $tipo, (float) $monto, null);
             }
         }
 
@@ -139,10 +140,13 @@ final class ProductoService
     /**
      * Actualiza datos y precios. Si no viene imagen nueva se conserva la actual.
      *
+     * Precios y costo son los de la tienda $sucursalId (por defecto la activa): no toca la otra tienda.
+     *
      * @param array $precios [tipo => monto]; monto 0 borra ese precio
      */
-    public static function actualizar(int $productoId, int $empresaId, array $datos, array $precios): void
+    public static function actualizar(int $productoId, int $empresaId, array $datos, array $precios, ?int $sucursalId = null): void
     {
+        $sucursalId ??= PrecioTienda::sucursalActual();
         $actual = self::buscar($productoId, $empresaId);
         if (!$actual) {
             throw new \DomainException('Producto no encontrado o no autorizado.');
@@ -158,21 +162,21 @@ final class ProductoService
             $datos['unidad_medida'] = self::unidadMedida($datos['unidad_medida']);
         }
 
+        // El costo es de cada tienda (inventario de sus depósitos): se fija aparte, no en la ficha general
+        $costoNuevo = array_key_exists('costo', $datos) ? (float) $datos['costo'] : null;
+        unset($datos['costo']);
+
         Db::update('productos', array_intersect_key($datos, array_flip(self::CAMPOS)) + [
             'fecha_modificacion' => date('Y-m-d H:i:s'),
         ], ['producto_id' => $productoId]);
 
-        // Un solo costo por producto: si se cambia aquí, también es el costo de cada tienda (las ventas toman el
-        // costo del inventario). Antes solo cambiaba la ficha y los reportes seguían con el costo viejo.
-        if (isset($datos['costo']) && abs((float) $datos['costo'] - (float) $actual['costo']) > 0.00001) {
-            Db::query(
-                "UPDATE inventario SET costo_promedio = ?, ultimo_costo = ?, fecha_actualizacion_costo = NOW() WHERE producto_id = ?",
-                [(float) $datos['costo'], (float) $datos['costo'], $productoId]
-            );
+        // Las ventas toman el costo del inventario de la tienda
+        if ($costoNuevo !== null && $sucursalId && abs($costoNuevo - PrecioTienda::costo($productoId, $sucursalId)) > 0.00001) {
+            PrecioTienda::fijarCosto($productoId, $sucursalId, $costoNuevo);
         }
 
         foreach ($precios as $tipo => $monto) {
-            self::reemplazarPrecio($productoId, $tipo, $monto);
+            PrecioTienda::fijar($productoId, $tipo, (float) $monto, $sucursalId);
         }
     }
 
@@ -197,6 +201,7 @@ final class ProductoService
         Db::begin();
         Db::query("DELETE FROM inventario WHERE producto_id = ?", [$productoId]);
         Db::query("DELETE FROM precios_productos WHERE producto_id = ?", [$productoId]);
+        Db::query("DELETE x FROM productos_unidades_precios x JOIN productos_unidades u ON u.unidad_id = x.unidad_id WHERE u.producto_id = ?", [$productoId]);
         Db::query("DELETE FROM productos_unidades WHERE producto_id = ?", [$productoId]);
         Db::query("DELETE FROM productos WHERE producto_id = ?", [$productoId]);
         Db::commit();
@@ -212,8 +217,8 @@ final class ProductoService
             throw new \InvalidArgumentException('La cantidad debe ser mayor a 0.');
         }
         if ($costo <= 0) {
-            // Sin costo escrito se usa el del producto: con 0 el costo promedio se diluía y quedaba en $0
-            $costo = (float) (Db::value("SELECT costo FROM productos WHERE producto_id = ?", [$productoId]) ?? 0);
+            // Sin costo escrito se usa el de la tienda del depósito: con 0 el costo promedio se diluía y quedaba en $0
+            $costo = PrecioTienda::costo($productoId, PrecioTienda::sucursalDeDeposito($depositoId));
         }
 
         $inv = Db::row("SELECT inventario_id, existencia, costo_promedio FROM inventario WHERE producto_id = ? AND deposito_id = ?", [$productoId, $depositoId]);
@@ -240,26 +245,46 @@ final class ProductoService
     }
 
     /**
-     * Reemplaza las unidades auxiliares (caja, docena...) con las del formulario.
-     * $unidades: [{nombre, factor_conversion, precio_a, precio_b, precio_c, codigo_barras}]
+     * Guarda las presentaciones (caja, docena...) del formulario: actualiza en su lugar las que traen
+     * unidad_id (conservan el id y el precio de la otra tienda), crea las nuevas (con el mismo precio en
+     * todas las tiendas) y borra las que ya no vienen. El precio escrito es el de la tienda $sucursalId.
+     * $unidades: [{unidad_id?, nombre, factor_conversion, precio_a, precio_b, precio_c, codigo_barras}]
      */
-    public static function guardarUnidades(int $productoId, array $unidades): void
+    public static function guardarUnidades(int $productoId, array $unidades, ?int $sucursalId = null): void
     {
-        Db::query("DELETE FROM productos_unidades WHERE producto_id = ?", [$productoId]);
+        $sucursalId ??= PrecioTienda::sucursalActual();
+        $actuales = array_map('intval', array_column(Db::all("SELECT unidad_id FROM productos_unidades WHERE producto_id = ?", [$productoId]), 'unidad_id'));
+        $quedan   = [];
 
         foreach ($unidades as $u) {
             $nombre = trim((string) ($u['nombre'] ?? ''));
             if ($nombre === '') continue;
 
-            Db::insert('productos_unidades', [
-                'producto_id'       => $productoId,
+            $datos = [
                 'nombre'            => $nombre,
                 'factor_conversion' => max(0.001, (float) ($u['factor_conversion'] ?? 1)),
-                'precio_a'          => (float) ($u['precio_a'] ?? 0),
-                'precio_b'          => (float) ($u['precio_b'] ?? 0),
-                'precio_c'          => (float) ($u['precio_c'] ?? 0),
                 'codigo_barras'     => trim((string) ($u['codigo_barras'] ?? '')),
-            ]);
+            ];
+            $a = (float) ($u['precio_a'] ?? 0);
+            $b = (float) ($u['precio_b'] ?? 0);
+            $c = (float) ($u['precio_c'] ?? 0);
+
+            $id = (int) ($u['unidad_id'] ?? 0);
+            if ($id && in_array($id, $actuales, true) && !in_array($id, $quedan, true)) {
+                Db::update('productos_unidades', $datos, ['unidad_id' => $id]);
+                PrecioTienda::fijarUnidad($id, $sucursalId ?: null, $a, $b, $c);
+            } else {
+                $id = Db::insert('productos_unidades', $datos + ['producto_id' => $productoId, 'precio_a' => 0, 'precio_b' => 0, 'precio_c' => 0]);
+                PrecioTienda::fijarUnidad($id, null, $a, $b, $c);
+            }
+            $quedan[] = $id;
+        }
+
+        $borrar = array_diff($actuales, $quedan);
+        if ($borrar) {
+            $marcas = implode(',', array_fill(0, count($borrar), '?'));
+            Db::query("DELETE FROM productos_unidades_precios WHERE unidad_id IN ({$marcas})", array_values($borrar));
+            Db::query("DELETE FROM productos_unidades WHERE unidad_id IN ({$marcas})", array_values($borrar));
         }
     }
 
@@ -268,15 +293,10 @@ final class ProductoService
         return Db::row("SELECT * FROM productos WHERE producto_id = ? AND empresa_id = ?", [$productoId, $empresaId]);
     }
 
-    /** Precio 0 o negativo borra ese tipo de precio. */
-    public static function reemplazarPrecio(int $productoId, string $tipo, float $monto): void
+    /** Precio de la tienda (por defecto la activa). Precio 0 o negativo borra ese tipo de precio. */
+    public static function reemplazarPrecio(int $productoId, string $tipo, float $monto, ?int $sucursalId = null): void
     {
-        Db::query("DELETE FROM precios_productos WHERE producto_id = ? AND tipo_precio = ?", [$productoId, $tipo]);
-        if ($monto > 0) {
-            Db::insert('precios_productos', [
-                'producto_id' => $productoId, 'tipo_precio' => $tipo, 'precio' => $monto, 'fecha_inicio' => date('Y-m-d'),
-            ]);
-        }
+        PrecioTienda::fijar($productoId, $tipo, $monto, $sucursalId ?? PrecioTienda::sucursalActual());
     }
 
     // ── Código automático por categoría ──────────────────────────────────────

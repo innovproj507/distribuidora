@@ -446,8 +446,10 @@ class VentaController extends BaseController
     {
         $q          = trim((string) ($this->request->getGet('q') ?? ''));
         $sucursalId = $this->sucursalId();
+        $s          = (int) $sucursalId; // precios de esta tienda
+        $costo      = ver_costos() ? \App\Libraries\PrecioTienda::sqlCosto($s) . ' AS costo,' : '';
 
-        $base = "SELECT p.producto_id, p.codigo, p.nombre, p.codigo_barras, p.itbms, p.unidad_medida,
+        $base = "SELECT p.producto_id, p.codigo, p.nombre, p.codigo_barras, p.itbms, p.unidad_medida, {$costo}
                         p.maneja_lotes, p.imagen_principal, p.marca AS lugar2,
                         (SELECT d.nombre FROM inventario i
                            JOIN depositos d ON i.deposito_id = d.deposito_id
@@ -460,9 +462,9 @@ class VentaController extends BaseController
                         COALESCE(pp_b.precio, 0) AS precio_b,
                         COALESCE(pp_c.precio, 0) AS precio_c
                  FROM productos p
-                 LEFT JOIN precios_productos pp_a ON p.producto_id = pp_a.producto_id AND pp_a.tipo_precio = 'a'
-                 LEFT JOIN precios_productos pp_b ON p.producto_id = pp_b.producto_id AND pp_b.tipo_precio = 'b'
-                 LEFT JOIN precios_productos pp_c ON p.producto_id = pp_c.producto_id AND pp_c.tipo_precio = 'c'
+                 LEFT JOIN precios_productos pp_a ON p.producto_id = pp_a.producto_id AND pp_a.tipo_precio = 'a' AND pp_a.sucursal_id = {$s}
+                 LEFT JOIN precios_productos pp_b ON p.producto_id = pp_b.producto_id AND pp_b.tipo_precio = 'b' AND pp_b.sucursal_id = {$s}
+                 LEFT JOIN precios_productos pp_c ON p.producto_id = pp_c.producto_id AND pp_c.tipo_precio = 'c' AND pp_c.sucursal_id = {$s}
                  WHERE p.estado = 'activo' AND p.empresa_id = ?
                    AND EXISTS (SELECT 1 FROM inventario i2
                                  JOIN depositos d2 ON i2.deposito_id = d2.deposito_id
@@ -482,7 +484,7 @@ class VentaController extends BaseController
         }
 
         foreach ($productos as &$p) {
-            $p['unidades'] = Db::all("SELECT * FROM productos_unidades WHERE producto_id = ?", [$p['producto_id']]);
+            $p['unidades'] = \App\Libraries\PrecioTienda::unidades((int) $p['producto_id'], $s, 'u.unidad_id');
         }
         unset($p);
 

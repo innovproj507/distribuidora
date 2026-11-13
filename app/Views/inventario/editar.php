@@ -100,7 +100,10 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
     <!-- 2. Precio y costo -->
     <div class="bg-white rounded-2xl border-2 border-sky-100 shadow-sm p-6 mb-4">
         <h3 class="text-base font-bold text-gray-800 mb-1"><?= ver_costos() ? '2. Precio y costo' : '2. Precio' ?></h3>
-        <p class="text-xs text-gray-400 mb-4">Por cada unidad del producto. No lleva ITBMS.</p>
+        <p class="text-xs text-gray-400 mb-1">Por cada unidad del producto. No lleva ITBMS.</p>
+        <p class="text-xs font-semibold text-amber-700 bg-amber-50 rounded-lg px-3 py-1.5 mb-4 inline-block">
+            <i class="fas fa-store mr-1"></i> Precio<?= ver_costos() ? ', costo' : '' ?> y presentaciones de <b><?= esc($sucursal_actual['nombre'] ?? 'esta tienda') ?></b>. Las otras tiendas tienen los suyos.
+        </p>
         <div class="grid grid-cols-1 <?= ver_costos() ? 'sm:grid-cols-2' : '' ?> gap-6">
             <div>
                 <label class="<?= $label ?>">Precio de venta ($)</label>
