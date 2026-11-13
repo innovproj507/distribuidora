@@ -14,7 +14,7 @@ $routes->group('', ['filter' => ['auth', 'sucursal']], static function ($routes)
     $routes->get('ventas/diarias', 'VentaController::reporteVentasDiarias', ['filter' => 'permiso:ventas.ver']);
     $routes->get('ventas/venta/(:num)', 'VentaController::detalle/$1', ['filter' => 'permiso:ventas.ver,pos.usar']);
     $routes->post('ventas/venta/(:num)/anular', 'VentaController::anular/$1', ['filter' => 'permiso:ventas.anular']);
-    $routes->post('ventas/venta/(:num)/pagar', 'VentaController::registrarPago/$1', ['filter' => 'permiso:ventas.ver']);
+    $routes->post('ventas/venta/(:num)/pagar', 'VentaController::registrarPago/$1', ['filter' => 'permiso:ventas.crear,pos.usar']);
 
     // Caja con arqueo: la propia (caja.usar) y el historial de todas (cajas.ver)
     $routes->get('caja', 'CajaController::miCaja', ['filter' => 'permiso:caja.usar']);

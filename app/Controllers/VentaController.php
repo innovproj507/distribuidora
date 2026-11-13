@@ -372,7 +372,29 @@ class VentaController extends BaseController
                 [$ventaId]
             ),
             'pagos_venta' => Db::all("SELECT forma_pago, monto, referencia FROM ventas_pagos WHERE venta_id = ? ORDER BY pago_id", [$ventaId]),
+            // Abonos (cobros) aplicados a esta factura y lo que aún falta
+            'abonos'      => Db::all(
+                "SELECT c.cobro_id, c.numero, c.fecha, c.forma_pago, c.referencia, c.notas, cv.monto, u.username AS usuario
+                 FROM cobros_ventas cv JOIN cobros c ON c.cobro_id = cv.cobro_id LEFT JOIN users u ON u.id = c.usuario_id
+                 WHERE cv.venta_id = ? ORDER BY c.fecha, c.cobro_id",
+                [$ventaId]
+            ),
+            'falta_pagar' => $this->faltaPagar($venta),
         ]);
+    }
+
+    /** Saldo pendiente de una factura a crédito (su CREDITO − abonos); 0 si no está pendiente. */
+    private function faltaPagar(array $venta): float
+    {
+        if ($venta['estado'] !== 'pendiente' || !$venta['cliente_id']) {
+            return 0.0;
+        }
+        foreach (\App\Libraries\CobroService::pendientes((int) $venta['cliente_id'], (int) $this->empresaId()) as $p) {
+            if ($p['venta_id'] !== null && (int) $p['venta_id'] === (int) $venta['venta_id']) {
+                return round((float) $p['pendiente'], 2);
+            }
+        }
+        return 0.0;
     }
 
     public function anular(int $ventaId)
@@ -410,24 +432,27 @@ class VentaController extends BaseController
             if (!$venta['cliente_id']) {
                 throw new \RuntimeException('La venta no tiene cliente.');
             }
-            // Cobra lo que falta de esta factura (descontando abonos previos) y deja recibo
-            $pendiente = array_values(array_filter(
-                \App\Libraries\CobroService::pendientes((int) $venta['cliente_id'], (int) $this->empresaId()),
-                fn ($p) => (int) $p['venta_id'] === $ventaId
-            ));
-            $falta = $pendiente ? (float) $pendiente[0]['pendiente'] : 0.0;
+            // Abono parcial o total a esta factura (descontando abonos previos), con forma de pago y recibo
+            $falta = $this->faltaPagar($venta);
             if ($falta <= 0) {
                 throw new \RuntimeException('Esta factura no tiene saldo pendiente.');
             }
-            $forma = (string) ($this->request->getPost('forma_pago') ?? 'EFECTIVO');
+            $montoPost = trim((string) ($this->request->getPost('monto') ?? ''));
+            $monto     = $montoPost === '' ? $falta : round((float) str_replace(',', '.', $montoPost), 2);
+            $forma     = strtoupper((string) ($this->request->getPost('forma_pago') ?? 'EFECTIVO'));
+            $notas     = trim((string) ($this->request->getPost('notas') ?? ''));
 
             Db::begin();
             $recibo = \App\Libraries\CobroService::registrar(
-                (int) $venta['cliente_id'], $falta, $forma, null, 'Pago total desde detalle de venta',
+                (int) $venta['cliente_id'], $monto, $forma, (string) ($this->request->getPost('referencia') ?? ''),
+                $notas !== '' ? $notas : ($monto >= $falta - 0.004 ? 'Pago total' : 'Abono') . ' desde detalle de venta',
                 ['empresa_id' => $this->empresaId(), 'sucursal_id' => $this->sucursalId()], $ventaId
             );
             Db::commit();
-            $this->success('Pago registrado (recibo ' . $recibo['numero'] . '). Venta marcada como pagada.');
+            AuditService::log('cobros.crear', "Abono {$recibo['numero']} de $" . number_format($monto, 2) . " ({$forma}) a la venta #{$ventaId}", $ventaId, 'venta', [], $this->empresaId());
+            $queda = round($falta - $monto, 2);
+            $this->success('Abono registrado (recibo ' . $recibo['numero'] . ', ' . $forma . ' $' . number_format($monto, 2) . '). '
+                . ($queda > 0.004 ? 'Falta $' . number_format($queda, 2) . '.' : 'Factura pagada.'));
         } catch (\Throwable $e) {
             Db::rollback();
             $this->error('Error al registrar el pago: ' . $e->getMessage());

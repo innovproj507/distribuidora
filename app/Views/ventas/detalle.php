@@ -19,10 +19,11 @@ $bc = match($venta['estado']) {
 <!-- Action bar -->
 <div class="flex items-center justify-between bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-2.5 mb-4">
     <div class="flex gap-2">
-        <?php if ($venta['estado'] === 'pendiente'): ?>
-        <button onclick="abrirModalPagar(<?= (int) $venta['venta_id'] ?>, <?= esc(json_encode((string) $venta['numero_factura']), 'attr') ?>, <?= (float) $venta['total'] ?>)"
+        <?php if ($venta['estado'] === 'pendiente' && ($falta_pagar ?? 0) > 0
+                  && (\App\Libraries\Auth::can('ventas.crear') || \App\Libraries\Auth::can('pos.usar'))): ?>
+        <button onclick="abrirModalPagar()"
                 class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-semibold hover:bg-emerald-600 transition shadow-sm">
-            <i class="fas fa-check-circle"></i> Registrar Pago
+            <i class="fas fa-hand-holding-usd"></i> Abonar / pagar
         </button>
         <?php endif; ?>
         <?php if ($venta['estado'] !== 'anulada'): ?>
@@ -164,28 +165,84 @@ $bc = match($venta['estado']) {
             <tr><td colspan="5" class="px-6 py-2 text-right text-xs text-gray-500">Descuento</td><td class="px-6 py-2 text-right font-medium text-sm text-red-600">-$<?= number_format((float)$venta['descuento'], 2) ?></td></tr>
             <?php if ((float) $venta["itbms"] > 0): ?><tr><td colspan="5" class="px-6 py-2 text-right text-xs text-gray-500">ITBMS</td><td class="px-6 py-2 text-right font-medium text-sm">$<?= number_format((float)$venta['itbms'], 2) ?></td></tr><?php endif; ?>
             <tr><td colspan="5" class="px-6 py-3 text-right font-bold text-gray-800">Total</td><td class="px-6 py-3 text-right font-bold text-xl text-gray-900">$<?= number_format((float)$venta['total'], 2) ?></td></tr>
+            <?php if (!empty($abonos)): ?>
+            <tr><td colspan="5" class="px-6 py-2 text-right text-xs text-gray-500">Abonado</td><td class="px-6 py-2 text-right font-medium text-sm text-emerald-700">-$<?= number_format(array_sum(array_column($abonos, 'monto')), 2) ?></td></tr>
+            <?php endif; ?>
+            <?php if (($falta_pagar ?? 0) > 0): ?>
+            <tr><td colspan="5" class="px-6 py-2 text-right font-bold text-amber-700">Falta por pagar</td><td class="px-6 py-2 text-right font-bold text-lg text-amber-700">$<?= number_format((float) $falta_pagar, 2) ?></td></tr>
+            <?php endif; ?>
         </tfoot>
     </table>
 </div>
 
+<?php if (!empty($abonos)): ?>
+<!-- Abonos / pagos recibidos de esta factura a crédito -->
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mt-4">
+    <div class="px-6 py-3 border-b border-gray-100 text-sm font-bold text-gray-700">Abonos recibidos</div>
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-100">
+            <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th class="px-6 py-2">Recibo</th><th class="px-6 py-2">Fecha</th><th class="px-6 py-2">Forma de pago</th>
+                <th class="px-6 py-2">Referencia / notas</th><th class="px-6 py-2">Cobró</th><th class="px-6 py-2 text-right">Monto</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+            <?php foreach ($abonos as $a): ?>
+            <tr>
+                <td class="px-6 py-2 font-mono text-xs"><?= esc($a['numero']) ?></td>
+                <td class="px-6 py-2 text-gray-600"><?= date('d/m/Y H:i', strtotime($a['fecha'])) ?></td>
+                <td class="px-6 py-2"><span class="px-2 py-0.5 rounded-md text-xs font-semibold bg-sky-50 text-sky-700"><?= esc($a['forma_pago']) ?></span></td>
+                <td class="px-6 py-2 text-xs text-gray-500">
+                    <?php if (!empty($a['referencia'])): ?>Ref: <span class="font-mono"><?= esc($a['referencia']) ?></span><?php endif; ?>
+                    <?php if (!empty($a['notas'])): ?><span class="block"><?= esc($a['notas']) ?></span><?php endif; ?>
+                </td>
+                <td class="px-6 py-2 text-gray-600"><?= esc($a['usuario'] ?? '') ?></td>
+                <td class="px-6 py-2 text-right font-semibold">$<?= number_format((float) $a['monto'], 2) ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>
+
 <!-- Modal Registrar Pago -->
 <div id="modal-pagar" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-1">Registrar Pago</h3>
-        <p class="text-sm text-gray-500 mb-4">Se marcará la venta como <strong>pagada</strong> y se actualizará el saldo del cliente.</p>
-        <form id="form-pagar" method="POST">
+        <h3 class="text-lg font-bold text-gray-800 mb-1">Abonar / pagar factura <?= esc($venta['numero_factura']) ?></h3>
+        <p class="text-sm text-gray-500 mb-4">Falta por pagar: <strong class="text-amber-700">$<?= number_format((float) ($falta_pagar ?? 0), 2) ?></strong>. Puedes abonar una parte; al llegar a $0 la factura queda <strong>pagada</strong>.</p>
+        <form id="form-pagar" method="POST" action="/ventas/venta/<?= (int) $venta['venta_id'] ?>/pagar" onsubmit="return confirmarAbono()">
             <?= csrf_field() ?>
-            <div class="mb-2">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Factura</label>
-                <input type="text" id="pagar-factura-num" readonly class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
+            <div class="mb-3">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Monto</label>
+                <div class="flex gap-2">
+                    <input type="number" name="monto" id="pagar-monto" step="0.01" min="0.01" max="<?= number_format((float) ($falta_pagar ?? 0), 2, '.', '') ?>" required
+                           value="<?= number_format((float) ($falta_pagar ?? 0), 2, '.', '') ?>"
+                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-800">
+                    <button type="button" onclick="document.getElementById('pagar-monto').value = '<?= number_format((float) ($falta_pagar ?? 0), 2, '.', '') ?>'"
+                            class="px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50">Todo</button>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Forma de pago</label>
+                <select name="forma_pago" id="pagar-forma" onchange="cambiarFormaAbono()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="EFECTIVO">💵 Efectivo</option>
+                    <option value="YAPPY">📱 Yappy</option>
+                    <option value="TRANSFERENCIA">🏦 Transferencia</option>
+                    <option value="TARJETA">💳 Tarjeta</option>
+                    <option value="CHEQUE">🧾 Cheque</option>
+                </select>
+            </div>
+            <div class="mb-3 hidden" id="pagar-ref-bloque">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Referencia / Nº de comprobante</label>
+                <input type="text" name="referencia" maxlength="100" autocomplete="off" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Nº de confirmación">
             </div>
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Monto a cobrar</label>
-                <input type="text" id="pagar-monto" readonly class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-800">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Notas <span class="text-gray-400 font-normal">(opcional)</span></label>
+                <input type="text" name="notas" maxlength="250" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
             </div>
             <div class="flex gap-3 justify-end">
                 <button type="button" onclick="document.getElementById('modal-pagar').classList.add('hidden')" class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
-                <button type="submit" class="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-semibold hover:bg-emerald-600"><i class="fas fa-check-circle mr-1"></i>Confirmar Pago</button>
+                <button type="submit" class="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-semibold hover:bg-emerald-600"><i class="fas fa-check-circle mr-1"></i>Registrar abono</button>
             </div>
         </form>
     </div>
@@ -253,11 +310,23 @@ $bc = match($venta['estado']) {
         }
     }
 
-    function abrirModalPagar(ventaId, numeroFactura, total) {
-        document.getElementById('form-pagar').action = `/ventas/venta/${ventaId}/pagar`;
-        document.getElementById('pagar-factura-num').value = numeroFactura;
-        document.getElementById('pagar-monto').value = '$' + parseFloat(total).toFixed(2);
+    function abrirModalPagar() {
+        cambiarFormaAbono();
         document.getElementById('modal-pagar').classList.remove('hidden');
+        document.getElementById('pagar-monto').select();
+    }
+    function cambiarFormaAbono() {
+        const f = document.getElementById('pagar-forma').value;
+        document.getElementById('pagar-ref-bloque').classList.toggle('hidden', ['YAPPY', 'TRANSFERENCIA', 'TARJETA', 'CHEQUE'].indexOf(f) === -1);
+    }
+    let abonoEnviado = false;
+    function confirmarAbono() {
+        if (abonoEnviado) return false; // evita doble clic = doble recibo
+        const m = parseFloat(document.getElementById('pagar-monto').value) || 0;
+        const f = document.getElementById('pagar-forma');
+        if (!confirm('¿Registrar abono de $' + m.toFixed(2) + ' en ' + f.options[f.selectedIndex].text.replace(/^\S+\s/, '') + '?')) return false;
+        abonoEnviado = true;
+        return true;
     }
 
     function abrirModalAnular(ventaId, numeroFactura) {
