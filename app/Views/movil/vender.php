@@ -190,6 +190,7 @@ $puedeDescontar = $maxDescuentoPct > 0;
     <div class="flex justify-between text-sm mb-1"><span>Total</span><span class="font-mono font-semibold" id="exito-total"></span></div>
     <div class="flex justify-between text-sm" id="exito-vuelto-fila"><span>Vuelto</span><span class="font-mono font-semibold text-lg" id="exito-vuelto"></span></div>
   </div>
+  <a id="exito-comprobante" href="#" class="block w-full py-3 rounded-xl font-semibold mb-2" style="background:var(--orange-light); color:var(--orange); display:none">📎 Falta la foto del comprobante — adjuntar</a>
   <a id="exito-ticket" href="#" class="block w-full py-3 rounded-xl font-medium mb-3" style="background:var(--navy-light); color:var(--navy)">Ver detalle / imprimir</a>
   <button type="button" onclick="nuevaVenta()" class="btn-primario">Nueva venta</button>
 </div>
@@ -468,8 +469,10 @@ async function subirComprobante(ventaId, archivo) {
       headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF_TOKEN },
     });
     if (!r.ok) throw new Error((await r.json().catch(function () { return {}; })).error || 'No se pudo subir');
+    return true;
   } catch (e) {
     toast('La venta se guardó, pero no se pudo subir el comprobante: ' + e.message, 'error');
+    return false;
   }
 }
 
@@ -877,10 +880,17 @@ async function confirmarVenta() {
     Object.keys(carrito).forEach(function (k) { delete carrito[k]; });
     escribirLocal(KEY_CARRITO, null);
     // Comprobante solo si la forma de pago lo usa (si cambió a efectivo, no se sube)
-    if (comprobanteArchivo && ['YAPPY', 'TRANSFERENCIA', 'MIXTO'].indexOf(formaPago) !== -1) {
+    const pagoDigital = pagos.some(function (p) { return p.forma_pago === 'YAPPY' || p.forma_pago === 'TRANSFERENCIA'; });
+    let comprobanteSubido = false;
+    if (comprobanteArchivo && pagoDigital) {
       boton.textContent = 'Subiendo comprobante…';
-      await subirComprobante(res.venta_id, comprobanteArchivo);
+      comprobanteSubido = await subirComprobante(res.venta_id, comprobanteArchivo);
     }
+    quitarComprobante();
+    // Yappy / transferencia sin foto: se puede adjuntar desde el detalle de la venta
+    const avisoComp = document.getElementById('exito-comprobante');
+    avisoComp.style.display = pagoDigital && !comprobanteSubido ? 'block' : 'none';
+    avisoComp.href = '/m/ventas?venta=' + res.venta_id;
     cerrarSheet('sheet-carrito');
     document.getElementById('exito-factura').textContent = res.numero_factura;
     document.getElementById('exito-total').textContent = dinero(res.total);

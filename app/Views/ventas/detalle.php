@@ -90,13 +90,32 @@ $bc = match($venta['estado']) {
                     <span class="text-sm text-gray-600 uppercase"><?= esc($venta['forma_pago'] ?? '—') ?></span>
                 <?php endif; ?>
             </div>
-            <?php if (!empty($venta['comprobante'])): ?>
+            <?php
+            // Comprobante de Yappy / transferencia: se ve aquí y se puede adjuntar o cambiar después de cobrar
+            $pagoDigital = in_array(strtoupper((string) ($venta['forma_pago'] ?? '')), ['YAPPY', 'TRANSFERENCIA', 'MIXTO'], true)
+                || array_filter($pagos_venta ?? [], fn ($pg) => in_array(strtoupper((string) $pg['forma_pago']), ['YAPPY', 'TRANSFERENCIA'], true));
+            $puedeComprobante = ($venta['estado'] ?? '') !== 'anulada'
+                && ((int) ($venta['vendedor_id'] ?? 0) === (int) \App\Libraries\Auth::id() || \App\Libraries\Auth::can('ventas.anular'));
+            $urlComp = '/m/api/venta/' . (int) $venta['venta_id'] . '/comprobante?v=' . md5((string) ($venta['comprobante'] ?? ''));
+            if (!empty($venta['comprobante']) || ($pagoDigital && $puedeComprobante)): ?>
             <div class="flex items-start gap-4 py-2">
                 <label class="text-sm font-semibold text-gray-600 w-36 shrink-0">Comprobante</label>
-                <a href="/m/api/venta/<?= (int) $venta['venta_id'] ?>/comprobante" target="_blank" class="block">
-                    <img src="/m/api/venta/<?= (int) $venta['venta_id'] ?>/comprobante" alt="Comprobante de pago" class="w-28 h-28 object-cover rounded-xl border border-gray-200 hover:opacity-90">
-                    <span class="text-xs text-sky-600 font-semibold">Ver en grande</span>
-                </a>
+                <div>
+                    <?php if (!empty($venta['comprobante'])): ?>
+                    <a href="<?= esc($urlComp, 'attr') ?>" target="_blank" class="block">
+                        <img src="<?= esc($urlComp, 'attr') ?>" alt="Comprobante de pago" class="w-48 max-h-64 object-contain bg-gray-50 rounded-xl border border-gray-200 hover:opacity-90">
+                        <span class="text-xs text-sky-600 font-semibold">Ver en grande</span>
+                    </a>
+                    <?php else: ?>
+                    <span class="text-xs text-gray-400 block">Sin foto del comprobante.</span>
+                    <?php endif; ?>
+                    <?php if ($puedeComprobante): ?>
+                    <label class="no-print mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-50 text-sky-700 hover:bg-sky-100 cursor-pointer">
+                        <i class="fas fa-paperclip"></i> <span id="comp-texto"><?= !empty($venta['comprobante']) ? 'Cambiar foto' : 'Adjuntar foto' ?></span>
+                        <input type="file" accept="image/*" class="hidden" onchange="subirComprobanteVenta(this, <?= (int) $venta['venta_id'] ?>)">
+                    </label>
+                    <?php endif; ?>
+                </div>
             </div>
             <?php endif; ?>
             <?php if (!empty($venta['notas'])): ?>
@@ -207,7 +226,33 @@ $bc = match($venta['estado']) {
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
+<script src="/assets/js/foto-producto.js?v=1"></script>
 <script>
+    // Adjunta o cambia la foto del comprobante (Yappy / transferencia) y recarga para verla
+    async function subirComprobanteVenta(input, ventaId) {
+        const f = input.files && input.files[0];
+        input.value = '';
+        if (!f) return;
+        let archivo = f;
+        try { if (window.FotoProducto) archivo = await FotoProducto.reducir(f); } catch (e) { archivo = f; }
+        const datos = new FormData();
+        datos.append('foto', archivo, 'comprobante.jpg');
+        const txt = document.getElementById('comp-texto');
+        if (txt) txt.textContent = 'Subiendo…';
+        try {
+            const r = await fetch('/m/api/venta/' + ventaId + '/comprobante', {
+                method: 'POST', credentials: 'same-origin', body: datos,
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': <?= json_encode(csrf_hash()) ?> },
+            });
+            const res = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(res.error || 'No se pudo subir');
+            location.reload();
+        } catch (e) {
+            alert('No se pudo subir el comprobante: ' + e.message);
+            if (txt) txt.textContent = 'Adjuntar foto';
+        }
+    }
+
     function abrirModalPagar(ventaId, numeroFactura, total) {
         document.getElementById('form-pagar').action = `/ventas/venta/${ventaId}/pagar`;
         document.getElementById('pagar-factura-num').value = numeroFactura;

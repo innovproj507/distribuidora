@@ -260,7 +260,7 @@ class MovilApiController extends BaseController
         }
         Db::update('ventas', ['comprobante' => $sub . '/' . $nombre], ['venta_id' => $id]);
         AuditService::log('ventas.comprobante', "Comprobante de pago adjuntado a la venta #{$id}", $id, 'venta', [], $this->empresaId());
-        return $this->json(['success' => true]);
+        return $this->json(['success' => true, 'v' => md5($sub . '/' . $nombre)]);
     }
 
     /** GET /m/api/venta/{id}/comprobante — muestra la foto (ventas de las sucursales del usuario). */
@@ -286,7 +286,8 @@ class MovilApiController extends BaseController
     {
         if (!Auth::can('ventas.ver')) return $this->json(['error' => 'Sin permiso.'], 403);
         $v = Db::row(
-            "SELECT v.venta_id, v.numero_factura, v.subtotal, v.itbms, v.descuento, v.total, v.estado, v.forma_pago, v.fecha, v.notas, (v.comprobante IS NOT NULL) AS tiene_comprobante, c.nombre AS cliente_nombre
+            "SELECT v.venta_id, v.numero_factura, v.subtotal, v.itbms, v.descuento, v.total, v.estado, v.forma_pago, v.fecha, v.notas, v.vendedor_id,
+                    (v.comprobante IS NOT NULL) AS tiene_comprobante, MD5(COALESCE(v.comprobante, '')) AS comprobante_v, c.nombre AS cliente_nombre
              FROM ventas v LEFT JOIN clientes c ON v.cliente_id = c.cliente_id WHERE v.venta_id = ? AND v.sucursal_id = ?",
             [$id, $this->sucursalId()]
         );
@@ -296,6 +297,10 @@ class MovilApiController extends BaseController
             [$id]
         );
         $v['pagos'] = Db::all("SELECT forma_pago, monto, referencia FROM ventas_pagos WHERE venta_id = ?", [$id]);
+        // Adjuntar / cambiar el comprobante después de cobrar: quien hizo la venta o quien puede anular
+        $v['puede_comprobante'] = $v['estado'] !== 'anulada'
+            && ((int) $v['vendedor_id'] === (int) Auth::id() || Auth::can('ventas.anular'));
+        unset($v['vendedor_id']);
         return $this->json($v);
     }
 

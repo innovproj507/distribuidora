@@ -160,6 +160,9 @@ $clientes_json = json_encode(array_map(function($c) use ($cliente_actual, &$clie
                     foreach ($formasPago as $fp): $fp = strtoupper(trim($fp)); ?>
                         <span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold mr-0.5 <?= $estiloPago[$fp] ?? 'bg-gray-100 text-gray-700' ?>"><?= esc($nombrePago[$fp] ?? ucfirst(strtolower($fp))) ?></span>
                     <?php endforeach; ?>
+                    <?php if (!empty($venta['comprobante'])): ?>
+                        <a href="/m/api/venta/<?= (int) $venta['venta_id'] ?>/comprobante?v=<?= md5((string) $venta['comprobante']) ?>" target="_blank" title="Ver comprobante de pago" class="inline-block px-1.5 py-0.5 rounded-md text-xs bg-sky-100 text-sky-700 hover:bg-sky-200">📎</a>
+                    <?php endif; ?>
                 </td>
                 <td class="px-5 py-3.5 whitespace-nowrap text-sm font-bold text-gray-900">$<?= number_format((float)$venta['total'], 2) ?></td>
                 <td class="px-5 py-3.5 whitespace-nowrap">

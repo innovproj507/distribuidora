@@ -579,7 +579,7 @@ class MovilController extends BaseController
             'headerTitle' => 'Historial de ventas',
             'activeTab'   => 'mas',
             'ventas'      => Db::all(
-                "SELECT v.venta_id, v.numero_factura, v.total, v.estado, v.forma_pago, v.fecha, c.nombre AS cliente_nombre
+                "SELECT v.venta_id, v.numero_factura, v.total, v.estado, v.forma_pago, v.fecha, (v.comprobante IS NOT NULL) AS tiene_comprobante, c.nombre AS cliente_nombre
                  FROM ventas v LEFT JOIN clientes c ON v.cliente_id = c.cliente_id
                  WHERE v.sucursal_id = ? ORDER BY v.fecha DESC LIMIT 60",
                 [$this->sucursalId()]

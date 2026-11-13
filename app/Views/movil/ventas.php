@@ -34,7 +34,7 @@ foreach ($ventas as $v) {
       <div class="badge-icon text-lg" style="background:var(--purple-light)">🧾</div>
       <div class="flex-1 min-w-0">
         <p class="text-sm font-medium truncate"><?= esc($v['cliente_nombre'] ?: 'Consumidor final') ?></p>
-        <p class="text-xs truncate" style="color:var(--ink-soft)"><?= esc($v['numero_factura']) ?> · <?= date('d/m H:i', strtotime($v['fecha'])) ?> · <?= esc($v['forma_pago']) ?></p>
+        <p class="text-xs truncate" style="color:var(--ink-soft)"><?= esc($v['numero_factura']) ?> · <?= date('d/m H:i', strtotime($v['fecha'])) ?> · <?= esc($v['forma_pago']) ?><?= !empty($v['tiene_comprobante']) ? ' 📎' : '' ?></p>
       </div>
       <div class="text-right flex-shrink-0">
         <p class="font-mono text-sm font-semibold"><?= '$' . number_format((float) $v['total'], 2) ?></p>
@@ -58,7 +58,21 @@ foreach ($ventas as $v) {
     <div class="flex justify-between items-center"><span class="text-sm font-medium">Total</span><span class="font-mono text-xl font-semibold" id="v-total"></span></div>
   </div>
   <p class="text-xs mb-1" id="v-pagos" style="color:var(--ink-soft)"></p>
-  <a id="v-comprobante" href="#" target="_blank" class="text-xs font-semibold mb-3" style="color:var(--navy); display:none">📎 Ver comprobante de pago</a>
+  <div id="v-comp-bloque" class="rounded-xl p-3 mb-3 mt-2" style="background:var(--navy-light); display:none">
+    <p class="text-xs font-semibold mb-2" style="color:var(--navy)">📎 Comprobante de pago</p>
+    <a id="v-comprobante" href="#" target="_blank" style="display:none">
+      <img id="v-comp-img" alt="Comprobante de pago" class="w-full max-h-72 object-contain rounded-lg bg-white mb-2">
+    </a>
+    <p id="v-comp-vacio" class="text-xs mb-2" style="color:var(--ink-soft); display:none">Esta venta no tiene foto del comprobante.</p>
+    <div id="v-comp-botones" class="flex items-center gap-2">
+      <label class="flex-1 text-center py-2.5 rounded-xl text-sm font-medium cursor-pointer bg-white" style="color:var(--navy)">📷 Tomar foto
+        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="adjuntarComprobante(this)">
+      </label>
+      <label class="flex-1 text-center py-2.5 rounded-xl text-sm font-medium cursor-pointer bg-white" style="color:var(--navy)">🖼️ Galería
+        <input type="file" accept="image/*" class="hidden" onchange="adjuntarComprobante(this)">
+      </label>
+    </div>
+  </div>
   <div class="mb-2"></div>
   <button type="button" onclick="compartirTicket()" class="block w-full py-3 rounded-xl font-medium text-center text-white mb-2" style="background:var(--green)">📤 Compartir ticket (WhatsApp…)</button>
   <?php if (!in_array(\App\Libraries\Auth::rol(), \App\Filters\SoloMovilFilter::ROLES, true)): ?>
@@ -69,6 +83,7 @@ foreach ($ventas as $v) {
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
+<script src="/assets/js/foto-producto.js?v=1"></script>
 <script>
 document.getElementById('input-busqueda').addEventListener('input', function () {
   const q = this.value.trim().toLowerCase();
@@ -123,14 +138,54 @@ async function verVenta(id) {
     document.getElementById('v-total').textContent = dinero(v.total);
     document.getElementById('v-pagos').textContent = 'Pagos: ' + (v.pagos.length ? v.pagos.map(function (p) { return p.forma_pago + ' ' + dinero(p.monto) + (p.referencia ? ' (ref. ' + p.referencia + ')' : ''); }).join(' · ') : v.forma_pago)
       + (v.notas && v.notas !== 'Venta desde móvil' ? ' — ' + v.notas.replace(/^Venta desde móvil — /, '') : '');
-    const comp = document.getElementById('v-comprobante');
-    comp.style.display = Number(v.tiene_comprobante) ? 'inline-block' : 'none';
-    comp.href = '/m/api/venta/' + Number(id) + '/comprobante';
+    mostrarComprobante(v, id);
     const web = document.getElementById('v-web');
     if (web) web.href = '/ventas/venta/' + id;
     ventaActual = v;
     abrirSheet('sheet-venta');
   } catch (e) { toast(e.message, 'error'); }
+}
+
+/** Foto del comprobante: se ve si hay; se puede adjuntar o cambiar en ventas con Yappy / transferencia. */
+function mostrarComprobante(v, id) {
+  const tiene   = Number(v.tiene_comprobante) > 0;
+  const digital = (v.pagos || []).some(function (p) { return p.forma_pago === 'YAPPY' || p.forma_pago === 'TRANSFERENCIA'; })
+    || ['YAPPY', 'TRANSFERENCIA', 'MIXTO'].indexOf(v.forma_pago) !== -1;
+  const puede   = !!v.puede_comprobante;
+  document.getElementById('v-comp-bloque').style.display = tiene || (digital && puede) ? 'block' : 'none';
+  const url = '/m/api/venta/' + Number(id) + '/comprobante?v=' + encodeURIComponent(v.comprobante_v || '');
+  const enlace = document.getElementById('v-comprobante');
+  enlace.style.display = tiene ? 'block' : 'none';
+  enlace.href = url;
+  if (tiene) document.getElementById('v-comp-img').src = url;
+  else document.getElementById('v-comp-img').removeAttribute('src');
+  document.getElementById('v-comp-vacio').style.display = tiene ? 'none' : 'block';
+  document.getElementById('v-comp-botones').style.display = puede ? 'flex' : 'none';
+}
+
+async function adjuntarComprobante(input) {
+  const f = input.files && input.files[0];
+  input.value = '';
+  if (!f || !ventaActual) return;
+  let archivo = f;
+  try { if (window.FotoProducto) archivo = await FotoProducto.reducir(f); } catch (e) { archivo = f; }
+  const datos = new FormData();
+  datos.append('foto', archivo, 'comprobante.jpg');
+  toast('Subiendo comprobante…');
+  try {
+    const r = await fetch('/m/api/venta/' + ventaActual.venta_id + '/comprobante', {
+      method: 'POST', credentials: 'same-origin', body: datos,
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF_TOKEN },
+    });
+    const res = await r.json().catch(function () { return {}; });
+    if (!r.ok) throw new Error(res.error || 'No se pudo subir');
+    ventaActual.tiene_comprobante = 1;
+    ventaActual.comprobante_v = res.v || String(Date.now());
+    mostrarComprobante(ventaActual, ventaActual.venta_id);
+    toast('Comprobante guardado', 'success');
+  } catch (e) {
+    toast('No se pudo subir el comprobante: ' + e.message, 'error');
+  }
 }
 
 // /m/ventas?venta=ID abre directamente el detalle (enlaces del inicio y del ticket de venta)
