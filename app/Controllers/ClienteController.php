@@ -134,7 +134,13 @@ class ClienteController extends BaseController
             return redirect()->to('/clientes');
         }
 
-        Db::update('clientes', $this->datos(), ['cliente_id' => $clienteId]);
+        $datos  = $this->datos();
+        // El estado del formulario de edición (antes se ignoraba y no había forma de reactivar un cliente)
+        $estado = (string) ($this->request->getPost('estado') ?? '');
+        if (in_array($estado, ['activo', 'inactivo'], true)) {
+            $datos['estado'] = $estado;
+        }
+        Db::update('clientes', $datos, ['cliente_id' => $clienteId]);
         $this->success('Cliente actualizado.');
         return redirect()->to("/clientes/{$clienteId}");
     }
