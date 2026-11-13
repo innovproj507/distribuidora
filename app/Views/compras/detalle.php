@@ -132,7 +132,11 @@ $cancelada = $est === 'cancelada';
                 <tr class="hover:bg-gray-50/50 transition-colors <?= $pendiente > 0 ? 'bg-amber-50/40' : '' ?>">
                     <td class="px-4 py-3 font-mono text-xs text-gray-400"><?= esc($d['producto_codigo'] ?? '—') ?></td>
                     <td class="px-4 py-3 font-medium text-gray-800"><?= esc($d['producto_nombre'] ?? '—') ?></td>
-                    <td class="px-4 py-3 text-right"><?= number_format((float)($d['cantidad'] ?? 0), 2) ?></td>
+                    <td class="px-4 py-3 text-right"><?= number_format((float)($d['cantidad'] ?? 0), 2) ?>
+                        <?php if ((float) ($d['factor_presentacion'] ?? 1) > 1): $fp = (float) $d['factor_presentacion']; $np = (float) $d['cantidad'] / $fp; ?>
+                        <div class="text-[11px] text-amber-700 font-semibold"><?= rtrim(rtrim(number_format($np, 2, '.', ''), '0'), '.') ?> <?= esc(mb_strtolower((string) $d['presentacion'])) ?> × <?= rtrim(rtrim(number_format($fp, 2, '.', ''), '0'), '.') ?></div>
+                        <?php endif; ?>
+                    </td>
                     <td class="px-4 py-3 text-right font-medium <?= (float)$d['cantidad_recibida'] > 0 ? 'text-emerald-700' : 'text-gray-400' ?>">
                         <?= number_format((float)($d['cantidad_recibida'] ?? 0), 2) ?>
                     </td>

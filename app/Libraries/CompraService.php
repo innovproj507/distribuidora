@@ -138,6 +138,9 @@ final class CompraService
                 'cantidad'          => $cantidadBase,
                 'cantidad_recibida' => $esPendiente ? 0 : $cantidadBase,
                 'costo'             => $costoBase,
+                // Cómo se escribió la línea (Caja de 6…): solo para volver a mostrarla igual al editar
+                'presentacion'        => ($pf = (float) ($item['pres_factor'] ?? 1)) > 1 ? mb_substr(trim((string) ($item['pres_nombre'] ?? '')), 0, 50) ?: null : null,
+                'factor_presentacion' => $pf > 1 ? round($pf, 2) : 1,
                 'itbms'             => (float) ($item['itbms'] ?? 0),
                 'total_linea'       => $cantidad * $costo,
                 'numero_lote'       => $numeroLote,

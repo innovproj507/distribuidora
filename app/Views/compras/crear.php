@@ -732,7 +732,8 @@ function compraForm() {
                         items: this.items.map(i => {
                             const f = i.factor || 1;
                             const { unidades, factor, ...linea } = i;
-                            return { ...linea, cantidad: Math.round((parseFloat(i.cantidad) || 0) * f * 100) / 100, costo: Math.round((parseFloat(i.costo) || 0) / f * 1e10) / 1e10 };
+                            return { ...linea, cantidad: Math.round((parseFloat(i.cantidad) || 0) * f * 100) / 100, costo: Math.round((parseFloat(i.costo) || 0) / f * 1e10) / 1e10,
+                                     pres_factor: f, pres_nombre: f > 1 ? this.nombrePres(i) : '' };
                         }),
                         guardar_como_pendiente: !recibir
                     })

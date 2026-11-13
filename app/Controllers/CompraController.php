@@ -91,7 +91,7 @@ class CompraController extends BaseController
 
         $s = (int) $compra['sucursal_id']; // precios de la tienda de la compra
         $lineas = Db::all(
-            "SELECT cd.producto_id, cd.cantidad, cd.costo, p.nombre, p.codigo, p.unidad_medida,
+            "SELECT cd.producto_id, cd.cantidad, cd.costo, cd.presentacion, cd.factor_presentacion, p.nombre, p.codigo, p.unidad_medida,
                     (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND sucursal_id = {$s} AND tipo_precio = 'a') AS precio_a,
                     (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND sucursal_id = {$s} AND tipo_precio = 'b') AS precio_b,
                     (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND sucursal_id = {$s} AND tipo_precio = 'c') AS precio_c
@@ -108,10 +108,19 @@ class CompraController extends BaseController
             foreach (Db::all("SELECT nombre, factor_conversion FROM productos_unidades WHERE producto_id = ? AND factor_conversion > 1 ORDER BY factor_conversion", [$l['producto_id']]) as $u) {
                 $unidades[] = ['nombre' => $u['nombre'], 'factor' => (float) $u['factor_conversion']];
             }
+            // Si la línea se escribió en una presentación (Caja de 6), se vuelve a mostrar así: 6 a $5.83 → 1 caja a $35
+            $f = (float) ($l['factor_presentacion'] ?? 1);
+            if ($f > 1) {
+                if (!in_array($f, array_map(fn ($u) => (float) $u['factor'], $unidades), true)) {
+                    $unidades[] = ['nombre' => $l['presentacion'] ?: "Presentación", 'factor' => $f]; // ya no existe en el producto
+                }
+            } else {
+                $f = 1.0;
+            }
             return [
-                'unidades' => $unidades, 'factor' => 1,
+                'unidades' => $unidades, 'factor' => $f,
                 'producto_id' => (int) $l['producto_id'], 'nombre' => $l['nombre'], 'codigo' => $l['codigo'],
-                'cantidad' => (float) $l['cantidad'], 'costo' => $costo,
+                'cantidad' => round((float) $l['cantidad'] / $f, 4), 'costo' => round($costo * $f, 10),
                 'margen_pct' => $costo > 0 && $precio > 0 ? round(($precio / $costo - 1) * 100, 2) : 0,
                 'precio_a' => $precio, 'precio_b' => (float) $l['precio_b'], 'precio_c' => (float) $l['precio_c'],
                 'deposito_id' => (int) $compra['deposito_id'], 'itbms' => 0,
