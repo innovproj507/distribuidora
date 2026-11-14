@@ -59,5 +59,5 @@ mkdir -p "$(dirname "$SALIDA")"
   --out "$(w "$SALIDA")" "$(w "$B/alineado.apk")"
 "$BT/apksigner.bat" verify "$(w "$SALIDA")"
 
-rm -rf "$B"
+rm -rf "$B" "$SALIDA.idsig"   # .idsig = firma v4 (instalación por adb), no se publica
 echo "APK listo: $SALIDA ($(wc -c < "$SALIDA") bytes) versión $VNAME ($VCODE)"
