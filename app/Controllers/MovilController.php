@@ -856,6 +856,19 @@ class MovilController extends BaseController
         ]);
     }
 
+    /** GET /m/impresora — descarga e instalación de la app "Impresora Distribuidora" (Android). */
+    public function impresora(): string
+    {
+        $apk = FCPATH . 'descargas/ImpresoraDistribuidora.apk';
+        return $this->render('movil.impresora', [
+            'page_title'  => 'Impresora',
+            'headerTitle' => 'App de impresión',
+            'activeTab'   => 'mas',
+            'apkVersion'  => is_file($apk) ? filemtime($apk) : 0,
+            'apkKb'       => is_file($apk) ? (int) ceil(filesize($apk) / 1024) : 0,
+        ]);
+    }
+
     /** Emoji + color por nombre de categoría (copia en public/movil/app.js). */
     public static function iconoCategoria(?string $nombre): array
     {

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Impresora Distribuidora: recibe los tickets del sistema (enlace distprint:base64,…)
+  y los manda por Bluetooth a la impresora térmica emparejada (Xprinter XP-P503A, ESC/POS).
+  Compilar: herramientas/impresora-android/compilar.sh
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="pa.innovate.distribuidora.impresora">
+
+    <!-- Android 8–11: permisos clásicos. Android 12+: BLUETOOTH_CONNECT (se pide al abrir la app) -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <uses-feature android:name="android.hardware.bluetooth" android:required="true" />
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:theme="@android:style/Theme.Material.Light.DarkActionBar">
+
+        <!-- Pantalla para elegir la impresora e imprimir una prueba -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Recibe el ticket desde Chrome (intent:base64,…#Intent;scheme=distprint;…), imprime y se cierra -->
+        <activity
+            android:name=".ImprimirActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="distprint" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

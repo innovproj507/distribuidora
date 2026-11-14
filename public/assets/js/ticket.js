@@ -150,8 +150,9 @@
   function modo() {
     let m = null;
     try { m = localStorage.getItem(CLAVE_MODO); } catch (e) {}
-    if (m === 'bluetooth' || m === 'rawbt' || m === 'navegador') return m;
-    return navigator.bluetooth && /Android/i.test(navigator.userAgent) ? 'bluetooth' : 'navegador';
+    if (m === 'app' || m === 'bluetooth' || m === 'rawbt' || m === 'navegador') return m;
+    // Android: la app propia (usa la impresora emparejada en el teléfono); computadora: navegador/USB
+    return /Android/i.test(navigator.userAgent) ? 'app' : 'navegador';
   }
   function fijarModo(m) { try { localStorage.setItem(CLAVE_MODO, m); } catch (e) {} }
   function nombreImpresora() { try { return localStorage.getItem(CLAVE_DISP) || ''; } catch (e) { return ''; } }
@@ -231,10 +232,24 @@
     }
   }
 
-  function enviarRawBT(datos) {
+  function base64(datos) {
     let bin = '';
     for (let i = 0; i < datos.length; i++) bin += String.fromCharCode(datos[i]);
-    location.href = 'intent:base64,' + btoa(bin) + '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;';
+    return btoa(bin);
+  }
+
+  function enviarRawBT(datos) {
+    location.href = 'intent:base64,' + base64(datos) + '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;';
+  }
+
+  /**
+   * App propia "Impresora Distribuidora" (herramientas/impresora-android): usa la impresora emparejada
+   * en el Bluetooth del teléfono. Si no está instalada, Chrome abre /m/impresora para descargarla.
+   */
+  function enviarApp(datos) {
+    const descarga = encodeURIComponent(location.origin + '/m/impresora');
+    location.href = 'intent:base64,' + base64(datos) +
+      '#Intent;scheme=distprint;package=pa.innovate.distribuidora.impresora;S.browser_fallback_url=' + descarga + ';end;';
   }
 
   async function imprimirBloques(bloques, ventaId) {
@@ -244,6 +259,7 @@
       return;
     }
     const datos = bytes(bloques);
+    if (m === 'app') { enviarApp(datos); return; }
     if (m === 'rawbt') { enviarRawBT(datos); return; }
     try {
       await enviarBluetooth(datos);
@@ -263,9 +279,9 @@
     const detalle = (e && e.message) ? e.message : String(e);
     if (/Android/i.test(navigator.userAgent) &&
         confirm('No se pudo imprimir por Bluetooth directo:\n' + detalle +
-                '\n\n¿Imprimir con la app RawBT? (usa la impresora emparejada en el Bluetooth del teléfono; si no la tienes, se abre la Play Store)')) {
-      fijarModo('rawbt');
-      enviarRawBT(datos);
+                '\n\n¿Imprimir con la app Impresora Distribuidora? (usa la impresora emparejada en el Bluetooth del teléfono; si no la tienes, se abre la descarga)')) {
+      fijarModo('app');
+      enviarApp(datos);
       return;
     }
     avisar('No se pudo imprimir por Bluetooth: ' + detalle, 'error');
@@ -292,7 +308,7 @@
 
   function prueba() {
     const L = [
-      { t: 'PRUEBA DE IMPRESION', a: 'c', b: true, g: true },
+      { t: 'PRUEBA', a: 'c', b: true, g: true },
       { t: limpio('Distribuidora Arango'), a: 'c' },
       { t: '-'.repeat(ANCHO), a: 'i' },
       { t: '12345678901234567890123456789012', a: 'i' },
