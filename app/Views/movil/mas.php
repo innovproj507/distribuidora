@@ -121,7 +121,7 @@ $enlace = function (string $href, string $emoji, string $bg, string $titulo, str
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
-<script src="/assets/js/ticket.js?v=1"></script>
+<script src="/assets/js/ticket.js?v=2"></script>
 <script>
 // ── Impresora de tickets (la elección queda guardada en este celular) ──
 const AYUDA_IMPRESORA = {
@@ -148,8 +148,9 @@ async function conectarImpresora() {
     toast('Conectada: ' + (d.name || 'impresora'));
     pintarImpresora();
   } catch (e) {
-    if (e && e.name === 'NotFoundError') return;
-    toast('No se pudo conectar: ' + (e.message || e), 'error');
+    if (e && e.name === 'NotFoundError' && /cancel/i.test(e.message || '')) return;
+    alert('No se pudo conectar: ' + (e.message || e) +
+      '\n\nSi la impresora está emparejada en el Bluetooth del teléfono y no aparece en la lista, elige el modo "App RawBT".');
   }
 }
 pintarImpresora();

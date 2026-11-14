@@ -157,20 +157,37 @@
   function nombreImpresora() { try { return localStorage.getItem(CLAVE_DISP) || ''; } catch (e) { return ''; } }
 
   // ── Web Bluetooth ────────────────────────────────────────────────────────
+  // Canal de impresión conocido de cada servicio (se prefiere al primer canal "escribible" que aparezca)
+  const CANALES = [
+    '49535343-8841-43f4-a8d4-ecbe34729bb3',
+    'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f',
+    '00002af1-0000-1000-8000-00805f9b34fb',
+    '0000ff02-0000-1000-8000-00805f9b34fb',
+    '0000ffe1-0000-1000-8000-00805f9b34fb',
+  ];
+
   async function buscarEscritura(servidor) {
     const servicios = await servidor.getPrimaryServices();
+    const escribibles = [];
     for (const s of servicios) {
       let cars = [];
       try { cars = await s.getCharacteristics(); } catch (e) { continue; }
       for (const c of cars) {
-        if (c.properties.writeWithoutResponse || c.properties.write) return c;
+        if (c.properties.writeWithoutResponse || c.properties.write) escribibles.push(c);
       }
     }
-    throw new Error('La impresora no tiene un canal de escritura conocido.');
+    const conocido = escribibles.find(function (c) { return CANALES.indexOf(String(c.uuid).toLowerCase()) !== -1; });
+    if (conocido || escribibles[0]) return conocido || escribibles[0];
+    throw new Error('La impresora no tiene un canal de impresión que Chrome pueda usar.');
+  }
+
+  /** Corta una espera que no termina (impresora apagada o fuera de alcance). */
+  function conLimite(promesa, ms, mensaje) {
+    return Promise.race([promesa, new Promise(function (_, no) { setTimeout(function () { no(new Error(mensaje)); }, ms); })]);
   }
 
   async function abrir(d) {
-    const servidor = d.gatt.connected ? d.gatt : await d.gatt.connect();
+    const servidor = d.gatt.connected ? d.gatt : await conLimite(d.gatt.connect(), 8000, 'la impresora no responde (¿está encendida y cerca?)');
     caracteristica = await buscarEscritura(servidor);
     dispositivo = d;
     d.addEventListener('gattserverdisconnected', function () { caracteristica = null; });
@@ -188,14 +205,13 @@
   /** Reusa la impresora ya conectada o una autorizada antes (sin volver a preguntar si se puede). */
   async function asegurarConexion() {
     if (dispositivo && dispositivo.gatt.connected && caracteristica) return;
-    if (dispositivo) { try { await abrir(dispositivo); return; } catch (e) { /* sigue */ } }
-    if (navigator.bluetooth && navigator.bluetooth.getDevices) {
-      try {
-        const nombre = nombreImpresora();
-        const lista = await navigator.bluetooth.getDevices();
-        const d = lista.find(function (x) { return !nombre || x.name === nombre; }) || lista[0];
-        if (d) { await abrir(d); return; }
-      } catch (e) { /* sigue con el selector */ }
+    if (!navigator.bluetooth) throw new Error('Este navegador no tiene Bluetooth web (usa Chrome en Android o el modo RawBT)');
+    if (dispositivo) { await abrir(dispositivo); return; }
+    if (navigator.bluetooth.getDevices) {
+      const nombre = nombreImpresora();
+      const lista = await navigator.bluetooth.getDevices().catch(function () { return []; });
+      const d = lista.find(function (x) { return !nombre || x.name === nombre; }) || lista[0];
+      if (d) { await abrir(d); return; }
     }
     await conectar();
   }
@@ -233,9 +249,26 @@
       await enviarBluetooth(datos);
       avisar('Ticket enviado a la impresora');
     } catch (e) {
-      if (e && e.name === 'NotFoundError') return; // canceló el selector
-      avisar('No se pudo imprimir por Bluetooth: ' + (e.message || e) + '. Revisa que la impresora esté encendida, o usa el modo RawBT en Más → Impresora.', 'error');
+      if (e && e.name === 'NotFoundError' && /cancel/i.test(e.message || '')) return; // cerró el selector
+      ofrecerRawBT(e, datos);
     }
+  }
+
+  /**
+   * Bluetooth directo falló (la impresora emparejada como Bluetooth clásico no aparece en Chrome,
+   * está apagada, etc.): ofrece mandarla por la app RawBT y dejar ese modo en este celular.
+   */
+  function ofrecerRawBT(e, datos) {
+    dispositivo = null; caracteristica = null;
+    const detalle = (e && e.message) ? e.message : String(e);
+    if (/Android/i.test(navigator.userAgent) &&
+        confirm('No se pudo imprimir por Bluetooth directo:\n' + detalle +
+                '\n\n¿Imprimir con la app RawBT? (usa la impresora emparejada en el Bluetooth del teléfono; si no la tienes, se abre la Play Store)')) {
+      fijarModo('rawbt');
+      enviarRawBT(datos);
+      return;
+    }
+    avisar('No se pudo imprimir por Bluetooth: ' + detalle, 'error');
   }
 
   async function imprimirVenta(ventaId) {
@@ -250,8 +283,8 @@
     } catch (e) { avisar(e.message, 'error'); return; }
     const err = await conexion;
     if (err instanceof Error) {
-      if (err.name === 'NotFoundError') return;
-      avisar('No se pudo conectar con la impresora: ' + err.message, 'error');
+      if (err.name === 'NotFoundError' && /cancel/i.test(err.message || '')) return;
+      ofrecerRawBT(err, bytes(lineas(v)));
       return;
     }
     return imprimirBloques(lineas(v), ventaId);

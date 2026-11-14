@@ -35,7 +35,7 @@
 <p class="nota">En el diálogo elige la impresora de tickets (XP-58 / POS-58), papel 58 mm y márgenes "Ninguno".</p>
 <div class="papel"><pre id="ticket"></pre></div>
 
-<script src="/assets/js/ticket.js?v=1"></script>
+<script src="/assets/js/ticket.js?v=2"></script>
 <script>
 (function () {
   const v = <?= json_encode($venta, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?>;
