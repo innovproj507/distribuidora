@@ -138,7 +138,7 @@ final class Impresora {
     /** Ticket de prueba en ESC/POS. */
     static byte[] prueba(String impresora) {
         StringBuilder t = new StringBuilder();
-        t.append("Distribuidora Arango\n");
+        t.append("Inversiones Arango\n");
         t.append("--------------------------------\n");
         t.append("12345678901234567890123456789012\n");
         t.append("Impresora: ").append(sinAcentos(impresora)).append('\n');

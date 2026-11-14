@@ -311,7 +311,7 @@
   function prueba() {
     const L = [
       { t: 'PRUEBA', a: 'c', b: true, g: true },
-      { t: limpio('Distribuidora Arango'), a: 'c' },
+      { t: limpio('Inversiones Arango'), a: 'c' },
       { t: '-'.repeat(ANCHO), a: 'i' },
       { t: '12345678901234567890123456789012', a: 'i' },
       { t: limpio('Si esta linea llega al borde,'), a: 'i' },

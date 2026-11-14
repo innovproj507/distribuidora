@@ -123,7 +123,7 @@ $enlace = function (string $href, string $emoji, string $bg, string $titulo, str
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
-<script src="/assets/js/ticket.js?v=4"></script>
+<script src="/assets/js/ticket.js?v=5"></script>
 <script>
 // ── Impresora de tickets (la elección queda guardada en este celular) ──
 const AYUDA_IMPRESORA = {

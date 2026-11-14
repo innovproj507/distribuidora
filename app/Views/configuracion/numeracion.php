@@ -74,8 +74,17 @@ $tipos = [
                 <label class="flex items-center gap-2 mt-2 text-xs text-gray-600 cursor-pointer">
                     <input type="checkbox" id="<?= $tipo ?>_con_sucursal" name="<?= $tipo ?>_con_sucursal" value="1" onchange="actualizarEjemplo('<?= $tipo ?>')"
                            <?= (int) ($cfg['con_sucursal'] ?? 1) === 1 ? 'checked' : '' ?> class="rounded border-gray-300">
-                    Anteponer el prefijo de la sucursal (<?= esc(implode(', ', array_filter(array_column($prefijos_sucursal ?? [], 'prefijo'))) ?: 'TIG, SID') ?>): cada tienda lleva su propia serie
+                    Incluir el prefijo de la sucursal (<?= esc(implode(', ', array_filter(array_column($prefijos_sucursal ?? [], 'prefijo'))) ?: 'T, S') ?>): cada tienda lleva su propia serie
                 </label>
+                <div class="flex items-center gap-2 mt-2 text-xs text-gray-600">
+                    <span>Va</span>
+                    <select id="<?= $tipo ?>_posicion_sucursal" name="<?= $tipo ?>_posicion_sucursal" onchange="actualizarEjemplo('<?= $tipo ?>')"
+                            class="py-1 px-2 text-xs border border-gray-200 rounded-lg bg-white">
+                        <option value="antes" <?= ($cfg['posicion_sucursal'] ?? 'antes') !== 'despues' ? 'selected' : '' ?>>antes del prefijo (T-FAC-…)</option>
+                        <option value="despues" <?= ($cfg['posicion_sucursal'] ?? 'antes') === 'despues' ? 'selected' : '' ?>>después del prefijo (FAC-T-…)</option>
+                    </select>
+                    <span class="text-gray-400">· el prefijo de cada tienda se cambia en Sucursales</span>
+                </div>
                 <?php endif; ?>
 
                 <div class="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2">
@@ -105,7 +114,10 @@ $tipos = [
         else if (reinicio === 'anual')   fecha = '' + hoy.getFullYear();
 
         const conSuc = document.getElementById(tipo + '_con_sucursal');
-        const partes = [conSuc && conSuc.checked ? <?= json_encode((string) ($prefijo_ejemplo ?? 'TIG')) ?> : '', prefijo, fecha].filter(v => v !== '');
+        const pos    = document.getElementById(tipo + '_posicion_sucursal');
+        const suc    = conSuc && conSuc.checked ? <?= json_encode((string) ($prefijo_ejemplo ?? 'T')) ?> : '';
+        const orden  = pos && pos.value === 'despues' ? [prefijo, suc, fecha] : [suc, prefijo, fecha];
+        const partes = orden.filter(v => v !== '');
         const base = partes.join(separador) + separador;
         const secuencial = '1'.padStart(digitos, '0');
 

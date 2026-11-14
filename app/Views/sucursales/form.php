@@ -6,7 +6,7 @@ $s = $sucursal ?? [];
 $v = fn (string $campo) => old($campo, $s[$campo] ?? '');
 $input = 'flex-1 py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none';
 $cfg = $cfg_factura ?? ['prefijo' => 'F', 'separador' => '', 'digitos' => 4, 'reinicio' => 'nunca'];
-$ejemplo = \App\Libraries\NumeracionService::ejemplo($cfg);
+$ejemplo = \App\Libraries\NumeracionService::ejemplo($cfg + ['con_sucursal' => 1], '§');
 ?>
 
 <div class="flex items-center gap-2 text-sm text-gray-400 mb-3">
@@ -97,10 +97,12 @@ function sucursalForm() {
         prefijo: <?= json_encode((string) $v('prefijo')) ?>,
         buscando: false,
         ejemplo() {
+            // Plantilla con § donde va el prefijo de la sucursal (antes o después de FAC, según Nomenclatura)
             const base = <?= json_encode($ejemplo) ?>;
             const sep  = <?= json_encode((string) $cfg['separador']) ?>;
             const p = (this.prefijo || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-            return p ? p + sep + base : base;
+            if (p) return base.replace('§', p);
+            return base.replace('§' + sep, '').replace(sep + '§', '').replace('§', '');
         },
         usarUbicacion() {
             if (!navigator.geolocation) { alert('Este navegador no permite obtener la ubicación.'); return; }

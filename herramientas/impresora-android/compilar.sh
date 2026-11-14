@@ -35,7 +35,7 @@ if [ ! -f "$KS" ]; then
   head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' > "$KS_PASS_FILE"
   keytool -genkeypair -keystore "$(w "$KS")" -alias impresora -keyalg RSA -keysize 2048 -validity 10000 \
     -storepass "$(cat "$KS_PASS_FILE")" -keypass "$(cat "$KS_PASS_FILE")" \
-    -dname "CN=Distribuidora Arango, O=Distribuidora Arango, C=PA" >/dev/null
+    -dname "CN=Inversiones Arango, O=Inversiones Arango, C=PA" >/dev/null
   echo "Llave nueva creada en $KS (guárdala: sin ella no se puede actualizar la app)"
 fi
 CLAVE="$(cat "$KS_PASS_FILE")"

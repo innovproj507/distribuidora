@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sesión | Distribuidora Arango</title>
+    <title>Iniciar Sesión | Inversiones Arango</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -17,7 +17,7 @@
                 <div class="mx-auto w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-blue-500/30">
                     <i class="fas fa-store text-white text-2xl"></i>
                 </div>
-                <h2 class="text-3xl font-bold text-white">Distribuidora Arango</h2>
+                <h2 class="text-3xl font-bold text-white">Inversiones Arango</h2>
                 <p class="mt-2 text-sm text-gray-400">Punto de Venta e Inventario</p>
             </div>
 
@@ -66,7 +66,7 @@
             </div>
 
             <p class="text-center text-sm text-gray-500">
-                Distribuidora Arango &copy; <?= date('Y') ?>
+                Inversiones Arango &copy; <?= date('Y') ?>
                 <span class="inline-block ml-2 text-[11px] text-gray-600 bg-white/10 border border-white/10 rounded-full px-2 py-0.5 font-mono">v<?= APP_VERSION ?></span>
             </p>
         </div>

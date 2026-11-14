@@ -64,7 +64,7 @@ class NumeracionService
         $prefijoSucursal = in_array($tipo, self::TIPOS_POR_SUCURSAL, true) && (int) ($cfg['con_sucursal'] ?? 1) === 1
             ? self::prefijoSucursal($sucursalId) : '';
 
-        $partes = array_filter([$prefijoSucursal, $cfg['prefijo'], $fecha], fn($v) => $v !== '');
+        $partes = self::partes($cfg, $prefijoSucursal, $fecha);
         // El separador se aplica entre prefijo/fecha y también antes del secuencial;
         // con separador vacío el resultado queda pegado (ej. "C" + "20260929" + "0001").
         $base = implode($cfg['separador'], $partes) . $cfg['separador'];
@@ -98,7 +98,7 @@ class NumeracionService
      * Devuelve un ejemplo del número que se generaría ahora mismo, sin consultar la BD
      * (para la vista previa en pantalla mientras se edita la configuración).
      */
-    public static function ejemplo(array $cfg): string
+    public static function ejemplo(array $cfg, string $prefijoSucursal = ''): string
     {
         $fecha = match ($cfg['reinicio'] ?? 'nunca') {
             'diario'  => date('Ymd'),
@@ -107,10 +107,22 @@ class NumeracionService
             default   => '',
         };
         $separador = $cfg['separador'] ?? '';
-        $partes = array_filter([$cfg['prefijo'] ?? '', $fecha], fn($v) => $v !== '');
+        $partes = self::partes($cfg, (int) ($cfg['con_sucursal'] ?? 1) === 1 ? $prefijoSucursal : '', $fecha);
         $base = implode($separador, $partes) . $separador;
         $digitos = max(1, (int) ($cfg['digitos'] ?? 4));
         return $base . str_pad('1', $digitos, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Piezas del número antes del secuencial. El prefijo de la sucursal va antes del prefijo
+     * del documento (TIG-FAC-2026-) o después (FAC-T-2026-) según posicion_sucursal.
+     */
+    private static function partes(array $cfg, string $prefijoSucursal, string $fecha): array
+    {
+        $orden = ($cfg['posicion_sucursal'] ?? 'antes') === 'despues'
+            ? [$cfg['prefijo'] ?? '', $prefijoSucursal, $fecha]
+            : [$prefijoSucursal, $cfg['prefijo'] ?? '', $fecha];
+        return array_values(array_filter($orden, fn($v) => $v !== ''));
     }
 
     /** Configuración de un tipo para una empresa; crea el valor por defecto si no existe. */
@@ -171,6 +183,10 @@ class NumeracionService
             // Prefijo de sucursal: solo si el formulario lo trae (otras pantallas no lo mandan)
             if (array_key_exists('con_sucursal', $datos)) {
                 Db::query("UPDATE numeraciones SET con_sucursal = ? WHERE numeracion_id = ?", [$datos['con_sucursal'] ? 1 : 0, $existe['numeracion_id']]);
+            }
+            if (array_key_exists('posicion_sucursal', $datos)) {
+                $pos = $datos['posicion_sucursal'] === 'despues' ? 'despues' : 'antes';
+                Db::query("UPDATE numeraciones SET posicion_sucursal = ? WHERE numeracion_id = ?", [$pos, $existe['numeracion_id']]);
             }
         } else {
             Db::query(

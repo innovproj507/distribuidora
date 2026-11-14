@@ -106,7 +106,7 @@ class ConfiguracionController extends BaseController
             'page_subtitle' => 'Formato de números de cotización, factura, cliente y proveedor',
             'config'        => NumeracionService::configuracionCompleta($this->empresaId()),
             'prefijos_sucursal' => \App\Libraries\Db::all("SELECT nombre, prefijo FROM branches ORDER BY sucursal_id"),
-            'prefijo_ejemplo'   => strtoupper((string) (session('sucursal_actual')['prefijo'] ?? '')) ?: 'TIG',
+            'prefijo_ejemplo'   => strtoupper((string) (session('sucursal_actual')['prefijo'] ?? '')) ?: 'T',
         ]);
     }
 
@@ -133,6 +133,7 @@ class ConfiguracionController extends BaseController
             // Casilla "anteponer prefijo de la sucursal" (factura / cotización); el marcador dice que vino el formulario
             if ($this->request->getPost("{$tipo}_con_sucursal_enviado") !== null) {
                 $datos['con_sucursal'] = $this->request->getPost("{$tipo}_con_sucursal") ? 1 : 0;
+                $datos['posicion_sucursal'] = $this->request->getPost("{$tipo}_posicion_sucursal") === 'despues' ? 'despues' : 'antes';
             }
             NumeracionService::guardar($tipo, (int) $this->empresaId(), $datos);
         }
