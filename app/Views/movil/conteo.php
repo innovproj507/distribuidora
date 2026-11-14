@@ -81,6 +81,7 @@ $edita = $abierto && $puedeContar;
 
 <?php $this->section('extra_js'); ?>
 <script src="/assets/js/escaner.js?v=1"></script>
+<script src="/assets/js/lector-teclado.js?v=1"></script>
 <script>
 const CONTEO_ID = <?= (int) $conteo['conteo_id'] ?>;
 const ABIERTO   = <?= json_encode($abierto) ?>;
@@ -237,7 +238,14 @@ busq.addEventListener('keydown', function (e) {
 
 // ── Escanear con la cámara ──
 function escanearConteo() {
-  Escaner.abrir(function (codigo) {
+  Escaner.abrir(contarCodigo);
+}
+
+// Pistola USB/Bluetooth: escanear sin tocar la pantalla lleva al producto para escribir lo contado
+LectorTeclado.escuchar(function (codigo) { contarCodigo(codigo.trim()); });
+
+function contarCodigo(codigo) {
+  {
     const c = codigo.toLowerCase();
     const it = ITEMS.find(function (i) { return (i.barras || '').toLowerCase() === c || (i.codigo || '').toLowerCase() === c; });
     if (!it) {
@@ -255,7 +263,7 @@ function escanearConteo() {
     const fila = document.getElementById('p-' + it.id);
     if (fila) fila.scrollIntoView({ block: 'center' });
     if (campo) { campo.focus(); campo.select(); }
-  });
+  }
 }
 
 // ── Revisión / cierre ──

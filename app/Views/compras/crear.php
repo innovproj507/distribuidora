@@ -177,7 +177,8 @@
                 <div class="relative mb-3" @click.away="resultados = []">
                     <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
                     <input type="text" x-model="searchQuery" @input.debounce.300ms="buscarProductos()"
-                        placeholder="Añadir un producto..."
+                        @keydown.enter.prevent="agregarPorCodigo()"
+                        placeholder="Añadir un producto... (o escanea el código)"
                         class="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-gray-200 focus:ring-1 focus:ring-sky-400 focus:border-sky-400 outline-none bg-gray-50">
 
                     <!-- Dropdown resultados -->
@@ -420,6 +421,7 @@
 
 </div><!-- /x-data -->
 
+<script src="/assets/js/lector-teclado.js?v=1"></script>
 <script>
 function compraForm() {
     return {
@@ -460,6 +462,8 @@ function compraForm() {
         guardando: false,
 
         init() {
+            // Pistola de códigos escaneando con el cursor fuera del buscador
+            if (window.LectorTeclado) LectorTeclado.escuchar(c => this.agregarPorCodigo(c));
             this.recuperarBorrador();
             // Líneas sin presentaciones (borradores viejos): solo la unidad base
             this.items.forEach(i => {
@@ -504,6 +508,27 @@ function compraForm() {
             this.borrarBorrador();
             this.guardando = true;
             window.location.reload();
+        },
+
+        /**
+         * Enter en el buscador o pistola de códigos (aunque el cursor esté en otro lado): si el código
+         * coincide exacto (la búsqueda devuelve 1), agrega la línea; si no, muestra los resultados.
+         */
+        async agregarPorCodigo(codigo) {
+            const q = String(codigo ?? this.searchQuery).trim();
+            if (!q) return;
+            try {
+                const r = await fetch(`/api/productos/buscar?q=${encodeURIComponent(q)}`);
+                const ps = (await r.json()).productos || [];
+                if (ps.length === 1) {
+                    this.seleccionarProducto(ps[0]);
+                    this.buscado = false;
+                } else {
+                    this.searchQuery = q;
+                    this.resultados = ps;
+                    this.buscado = true;
+                }
+            } catch (e) { console.error(e); }
         },
 
         async buscarProductos() {

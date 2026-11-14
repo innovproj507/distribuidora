@@ -93,6 +93,7 @@ $this->extend('layouts/movil');
 
 <?php $this->section('extra_js'); ?>
 <script src="/assets/js/escaner.js?v=1"></script>
+<script src="/assets/js/lector-teclado.js?v=1"></script>
 <script>
 const PUEDE_AJUSTAR = <?= json_encode($puedeAjustar) ?>;
 const PUEDE_EDITAR  = <?= json_encode($puedeEditar) ?>;
@@ -314,6 +315,8 @@ async function guardarMovimiento(ev) {
 }
 
 document.getElementById('input-busqueda').addEventListener('input', debounce(function () { lista.cargar(true); }, 300));
+// Pistola USB/Bluetooth: escanear sin tocar el buscador busca el producto
+LectorTeclado.escuchar(function (codigo) { document.getElementById('input-busqueda').value = codigo.trim(); lista.cargar(true); });
 
 pintarChipsStock();
 lista.cargar(true);

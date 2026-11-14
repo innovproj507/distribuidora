@@ -261,6 +261,7 @@ $puedeDescontar = $maxDescuentoPct > 0;
 
 <?php $this->section('extra_js'); ?>
 <script src="/assets/js/escaner.js?v=1"></script>
+<script src="/assets/js/lector-teclado.js?v=1"></script>
 <script src="/assets/js/foto-producto.js?v=1"></script>
 <script src="/assets/js/ticket.js?v=5"></script>
 <script>
@@ -978,6 +979,9 @@ function limpiarBusqueda() {
 function escanear() {
   Escaner.abrir(function (codigo) { agregarPorCodigo(codigo.trim()); });
 }
+
+// Pistola USB/Bluetooth escaneando sin el cursor en el buscador
+LectorTeclado.escuchar(function (codigo) { agregarPorCodigo(codigo.trim()); });
 
 const inputBusqueda = document.getElementById('input-busqueda');
 inputBusqueda.addEventListener('input', debounce(function () { lista.cargar(true); }, 300));

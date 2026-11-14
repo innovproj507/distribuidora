@@ -547,6 +547,7 @@
     </div>
 
     <!-- Scripts -->
+    <script src="/assets/js/lector-teclado.js?v=1"></script>
     <script>
         // Escapa texto para insertarlo en HTML (nombres de productos/clientes vienen de la BD)
         function escHtml(v) {
@@ -1376,6 +1377,9 @@
         document.getElementById('modal-nuevo-cliente').addEventListener('keydown', function(e) {
             if (e.key === 'Enter') guardarNuevoCliente();
         });
+
+        // Lector de códigos (pistola USB/Bluetooth): si escanean sin el cursor en un campo, igual agrega el producto
+        if (window.LectorTeclado) LectorTeclado.escuchar(function (codigo) { agregarPorCodigo(codigo); });
 
         function salirDelPos() {
             if (carrito.length > 0) {
