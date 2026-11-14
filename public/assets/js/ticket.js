@@ -118,6 +118,8 @@
     }
     raya();
     centro('Gracias por su compra!');
+    izq('');
+    centro('FACTURA NO FISCAL', { b: true });
     return L;
   }
 

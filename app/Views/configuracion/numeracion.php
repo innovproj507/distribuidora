@@ -69,6 +69,15 @@ $tipos = [
                     </div>
                 </div>
 
+                <?php if (in_array($tipo, ['factura', 'cotizacion'], true)): ?>
+                <input type="hidden" name="<?= $tipo ?>_con_sucursal_enviado" value="1">
+                <label class="flex items-center gap-2 mt-2 text-xs text-gray-600 cursor-pointer">
+                    <input type="checkbox" id="<?= $tipo ?>_con_sucursal" name="<?= $tipo ?>_con_sucursal" value="1" onchange="actualizarEjemplo('<?= $tipo ?>')"
+                           <?= (int) ($cfg['con_sucursal'] ?? 1) === 1 ? 'checked' : '' ?> class="rounded border-gray-300">
+                    Anteponer el prefijo de la sucursal (<?= esc(implode(', ', array_filter(array_column($prefijos_sucursal ?? [], 'prefijo'))) ?: 'TIG, SID') ?>): cada tienda lleva su propia serie
+                </label>
+                <?php endif; ?>
+
                 <div class="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2">
                     <span class="text-xs text-gray-400">Ejemplo — próximo <?= $meta['ejemplo_campo'] ?>:</span>
                     <span id="<?= $tipo ?>_ejemplo" class="font-mono text-sm font-bold text-white bg-<?= $meta['color'] ?>-500 px-2.5 py-1 rounded-full"></span>
@@ -95,7 +104,8 @@ $tipos = [
         else if (reinicio === 'mensual') fecha = '' + hoy.getFullYear() + pad2(hoy.getMonth() + 1);
         else if (reinicio === 'anual')   fecha = '' + hoy.getFullYear();
 
-        const partes = [prefijo, fecha].filter(v => v !== '');
+        const conSuc = document.getElementById(tipo + '_con_sucursal');
+        const partes = [conSuc && conSuc.checked ? <?= json_encode((string) ($prefijo_ejemplo ?? 'TIG')) ?> : '', prefijo, fecha].filter(v => v !== '');
         const base = partes.join(separador) + separador;
         const secuencial = '1'.padStart(digitos, '0');
 

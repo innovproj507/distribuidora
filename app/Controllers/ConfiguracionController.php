@@ -105,6 +105,8 @@ class ConfiguracionController extends BaseController
             'page_title'    => 'Nomenclatura',
             'page_subtitle' => 'Formato de números de cotización, factura, cliente y proveedor',
             'config'        => NumeracionService::configuracionCompleta($this->empresaId()),
+            'prefijos_sucursal' => \App\Libraries\Db::all("SELECT nombre, prefijo FROM branches ORDER BY sucursal_id"),
+            'prefijo_ejemplo'   => strtoupper((string) (session('sucursal_actual')['prefijo'] ?? '')) ?: 'TIG',
         ]);
     }
 
@@ -122,12 +124,17 @@ class ConfiguracionController extends BaseController
             if ($soloSiVienen && $this->request->getPost("{$tipo}_prefijo") === null) {
                 continue;
             }
-            NumeracionService::guardar($tipo, (int) $this->empresaId(), [
+            $datos = [
                 'prefijo'   => $this->request->getPost("{$tipo}_prefijo") ?? '',
                 'separador' => $this->request->getPost("{$tipo}_separador") ?? '',
                 'digitos'   => $this->request->getPost("{$tipo}_digitos") ?? 4,
                 'reinicio'  => $this->request->getPost("{$tipo}_reinicio") ?? 'nunca',
-            ]);
+            ];
+            // Casilla "anteponer prefijo de la sucursal" (factura / cotización); el marcador dice que vino el formulario
+            if ($this->request->getPost("{$tipo}_con_sucursal_enviado") !== null) {
+                $datos['con_sucursal'] = $this->request->getPost("{$tipo}_con_sucursal") ? 1 : 0;
+            }
+            NumeracionService::guardar($tipo, (int) $this->empresaId(), $datos);
         }
     }
 

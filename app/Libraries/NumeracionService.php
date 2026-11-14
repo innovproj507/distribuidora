@@ -58,9 +58,11 @@ class NumeracionService
             default   => '',
         };
 
-        // Facturas y cotizaciones llevan serie propia por sucursal: el prefijo de la sucursal
-        // va delante ("MET-FAC-000001"). Una sucursal sin prefijo usa la serie general.
-        $prefijoSucursal = in_array($tipo, self::TIPOS_POR_SUCURSAL, true) ? self::prefijoSucursal($sucursalId) : '';
+        // Facturas y cotizaciones pueden llevar serie propia por sucursal: el prefijo de la sucursal
+        // va delante ("MET-FAC-000001") si con_sucursal está activo. Sin él (o sucursal sin prefijo)
+        // todas las tiendas comparten la serie de la empresa ("FAC-2026-00001").
+        $prefijoSucursal = in_array($tipo, self::TIPOS_POR_SUCURSAL, true) && (int) ($cfg['con_sucursal'] ?? 1) === 1
+            ? self::prefijoSucursal($sucursalId) : '';
 
         $partes = array_filter([$prefijoSucursal, $cfg['prefijo'], $fecha], fn($v) => $v !== '');
         // El separador se aplica entre prefijo/fecha y también antes del secuencial;
@@ -166,6 +168,10 @@ class NumeracionService
                 "UPDATE numeraciones SET prefijo = ?, separador = ?, digitos = ?, reinicio = ? WHERE numeracion_id = ?",
                 [$prefijo, $separador, $digitos, $reinicio, $existe['numeracion_id']]
             );
+            // Prefijo de sucursal: solo si el formulario lo trae (otras pantallas no lo mandan)
+            if (array_key_exists('con_sucursal', $datos)) {
+                Db::query("UPDATE numeraciones SET con_sucursal = ? WHERE numeracion_id = ?", [$datos['con_sucursal'] ? 1 : 0, $existe['numeracion_id']]);
+            }
         } else {
             Db::query(
                 "INSERT INTO numeraciones (empresa_id, tipo, prefijo, separador, digitos, reinicio) VALUES (?, ?, ?, ?, ?, ?)",
