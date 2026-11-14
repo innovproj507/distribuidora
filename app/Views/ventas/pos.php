@@ -618,6 +618,13 @@
             document.getElementById('btnpagar').onclick = () => procesarDocumento('venta');
             document.getElementById('btncotizar').onclick = () => procesarDocumento('cotizacion');
             document.getElementById('btncancelar').onclick = limpiarCarrito;
+            // IMPRIMIR: ticket de 58 mm de la última venta cobrada en esta computadora
+            document.getElementById('btnimprimir').onclick = function () {
+                let id = null;
+                try { id = localStorage.getItem('pos_ultima_venta'); } catch (e) {}
+                if (!id) { toast('Todavía no hay una venta para imprimir', 'error'); return; }
+                window.open('/m/venta/' + encodeURIComponent(id) + '/ticket', '_blank');
+            };
 
             // Initialize Select2
             $(document).ready(function() {
@@ -1260,6 +1267,8 @@
                 carrito = [];
                 pagos = [{ forma_pago: 'EFECTIVO', monto: 0 }];
                 guardarCarritoLocal();
+                // El botón IMPRIMIR saca el ticket de esta venta después de recargar
+                if (tipoDoc === 'venta' && res.venta_id) { try { localStorage.setItem('pos_ultima_venta', String(res.venta_id)); } catch (e) {} }
                 location.reload();
             } catch (e) { toast(e.message, 'error'); }
         }

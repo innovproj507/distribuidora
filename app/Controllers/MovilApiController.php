@@ -284,14 +284,37 @@ class MovilApiController extends BaseController
     /** GET /m/api/venta/{id} — cabecera, ítems y pagos de una venta de la sucursal. */
     public function venta(int $id)
     {
-        if (!Auth::can('ventas.ver')) return $this->json(['error' => 'Sin permiso.'], 403);
+        if (!Auth::can('ventas.ver') && !Auth::can('pos.usar')) return $this->json(['error' => 'Sin permiso.'], 403);
+        $v = $this->datosVenta($id);
+        if (!$v) return $this->json(['error' => 'Venta no encontrada.'], 404);
+        return $this->json($v);
+    }
+
+    /**
+     * GET /m/venta/{id}/ticket — ticket de 58 mm para imprimir desde el navegador (laptop con la
+     * impresora por USB, o el servicio de impresión del celular). El texto lo arma ticket.js,
+     * igual que el que se manda por Bluetooth.
+     */
+    public function ticket(int $id)
+    {
+        if (!Auth::can('ventas.ver') && !Auth::can('pos.usar')) return redirect()->to('/m');
+        $v = $this->datosVenta($id);
+        if (!$v) return $this->response->setStatusCode(404)->setBody('Venta no encontrada.');
+        return view('movil/ticket', ['venta' => $v]);
+    }
+
+    /** Venta de la sucursal activa con ítems, pagos y la cabecera del ticket (empresa y tienda). */
+    private function datosVenta(int $id): ?array
+    {
         $v = Db::row(
             "SELECT v.venta_id, v.numero_factura, v.subtotal, v.itbms, v.descuento, v.total, v.estado, v.forma_pago, v.fecha, v.notas, v.vendedor_id,
-                    (v.comprobante IS NOT NULL) AS tiene_comprobante, MD5(COALESCE(v.comprobante, '')) AS comprobante_v, c.nombre AS cliente_nombre
-             FROM ventas v LEFT JOIN clientes c ON v.cliente_id = c.cliente_id WHERE v.venta_id = ? AND v.sucursal_id = ?",
+                    (v.comprobante IS NOT NULL) AS tiene_comprobante, MD5(COALESCE(v.comprobante, '')) AS comprobante_v,
+                    c.nombre AS cliente_nombre, c.ruc AS cliente_ruc, u.username AS vendedor
+             FROM ventas v LEFT JOIN clientes c ON v.cliente_id = c.cliente_id LEFT JOIN users u ON u.id = v.vendedor_id
+             WHERE v.venta_id = ? AND v.sucursal_id = ?",
             [$id, $this->sucursalId()]
         );
-        if (!$v) return $this->json(['error' => 'Venta no encontrada.'], 404);
+        if (!$v) return null;
         $v['items'] = Db::all(
             "SELECT p.nombre, d.cantidad, d.unidad_nombre, d.precio, d.total_linea FROM ventas_detalle d JOIN productos p ON p.producto_id = d.producto_id WHERE d.venta_id = ?",
             [$id]
@@ -301,7 +324,20 @@ class MovilApiController extends BaseController
         $v['puede_comprobante'] = $v['estado'] !== 'anulada'
             && ((int) $v['vendedor_id'] === (int) Auth::id() || Auth::can('ventas.anular'));
         unset($v['vendedor_id']);
-        return $this->json($v);
+
+        $empresa  = session('empresa_actual') ?? [];
+        $sucursal = Db::row("SELECT nombre, direccion, telefono FROM branches WHERE sucursal_id = ?", [$this->sucursalId()]) ?? [];
+        $ruc = trim((string) ($empresa['ruc'] ?? ''));
+        if ($ruc !== '' && !empty($empresa['dv'])) $ruc .= ' DV ' . $empresa['dv'];
+        $v['cabecera'] = [
+            'empresa'   => (string) ($empresa['nombre_comercial'] ?? ($empresa['razon_social'] ?? 'Distribuidora')),
+            'razon'     => (string) ($empresa['razon_social'] ?? ''),
+            'ruc'       => $ruc,
+            'sucursal'  => (string) ($sucursal['nombre'] ?? ''),
+            'direccion' => (string) ($sucursal['direccion'] ?? ''),
+            'telefono'  => (string) ($sucursal['telefono'] ?? ''),
+        ];
+        return $v;
     }
 
     /** POST /m/api/compra/{id}/recibir {recibidas: {detalle_id: cantidad}} — entra al depósito de la compra. */

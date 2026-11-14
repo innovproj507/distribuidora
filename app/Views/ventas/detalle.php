@@ -26,6 +26,10 @@ $bc = match($venta['estado']) {
             <i class="fas fa-hand-holding-usd"></i> Abonar / pagar
         </button>
         <?php endif; ?>
+        <a href="/m/venta/<?= (int) $venta['venta_id'] ?>/ticket" target="_blank"
+           class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+            <i class="fas fa-print"></i> Imprimir ticket
+        </a>
         <?php if ($venta['estado'] !== 'anulada'): ?>
         <button onclick="abrirModalAnular(<?= (int) $venta['venta_id'] ?>, <?= esc(json_encode((string) $venta['numero_factura']), 'attr') ?>)"
                 class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition">

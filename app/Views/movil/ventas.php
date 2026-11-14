@@ -74,9 +74,10 @@ foreach ($ventas as $v) {
     </div>
   </div>
   <div class="mb-2"></div>
+  <button type="button" onclick="if (ventaActual) TicketPOS.imprimirVenta(ventaActual.venta_id)" class="block w-full py-3 rounded-xl font-semibold text-center text-white mb-2" style="background:var(--navy)">🖨️ Imprimir ticket</button>
   <button type="button" onclick="compartirTicket()" class="block w-full py-3 rounded-xl font-medium text-center text-white mb-2" style="background:var(--green)">📤 Compartir ticket (WhatsApp…)</button>
   <?php if (!in_array(\App\Libraries\Auth::rol(), \App\Filters\SoloMovilFilter::ROLES, true)): ?>
-  <a id="v-web" href="#" class="block w-full py-3 rounded-xl font-medium text-center" style="background:var(--navy-light); color:var(--navy)">Imprimir / anular (versión web)</a>
+  <a id="v-web" href="#" class="block w-full py-3 rounded-xl font-medium text-center" style="background:var(--navy-light); color:var(--navy)">Anular / abonar (versión web)</a>
   <?php endif; ?>
 </div>
 
@@ -84,6 +85,7 @@ foreach ($ventas as $v) {
 
 <?php $this->section('extra_js'); ?>
 <script src="/assets/js/foto-producto.js?v=1"></script>
+<script src="/assets/js/ticket.js?v=1"></script>
 <script>
 document.getElementById('input-busqueda').addEventListener('input', function () {
   const q = this.value.trim().toLowerCase();

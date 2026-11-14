@@ -191,7 +191,8 @@ $puedeDescontar = $maxDescuentoPct > 0;
     <div class="flex justify-between text-sm" id="exito-vuelto-fila"><span>Vuelto</span><span class="font-mono font-semibold text-lg" id="exito-vuelto"></span></div>
   </div>
   <a id="exito-comprobante" href="#" class="block w-full py-3 rounded-xl font-semibold mb-2" style="background:var(--orange-light); color:var(--orange); display:none">📎 Falta la foto del comprobante — adjuntar</a>
-  <a id="exito-ticket" href="#" class="block w-full py-3 rounded-xl font-medium mb-3" style="background:var(--navy-light); color:var(--navy)">Ver detalle / imprimir</a>
+  <button type="button" onclick="imprimirUltimaVenta()" class="block w-full py-3 rounded-xl font-semibold mb-2 text-white" style="background:var(--navy)">🖨️ Imprimir ticket</button>
+  <a id="exito-ticket" href="#" class="block w-full py-3 rounded-xl font-medium mb-3" style="background:var(--navy-light); color:var(--navy)">Ver detalle</a>
   <button type="button" onclick="nuevaVenta()" class="btn-primario">Nueva venta</button>
 </div>
 
@@ -261,6 +262,7 @@ $puedeDescontar = $maxDescuentoPct > 0;
 <?php $this->section('extra_js'); ?>
 <script src="/assets/js/escaner.js?v=1"></script>
 <script src="/assets/js/foto-producto.js?v=1"></script>
+<script src="/assets/js/ticket.js?v=1"></script>
 <script>
 const ITBMS_RATE  = <?= json_encode($itbmsRate) ?>;
 const DEPOSITO_ID = <?= json_encode((int) ($deposito_actual['deposito_id'] ?? 0)) ?>;
@@ -436,6 +438,12 @@ function fijarCantidad(k, valor) {
   }
   item.cantidad = redondear(n);
   actualizarCarrito();
+}
+
+// ── Ticket de la venta recién cobrada (impresora térmica 58 mm, ver Más → Impresora) ──
+let ultimaVentaId = null;
+function imprimirUltimaVenta() {
+  if (ultimaVentaId) TicketPOS.imprimirVenta(ultimaVentaId);
 }
 
 // ── Foto del comprobante (Yappy / transferencia): se reduce y se sube después de cobrar ──
@@ -897,6 +905,7 @@ async function confirmarVenta() {
     document.getElementById('exito-vuelto').textContent = dinero(vuelto);
     document.getElementById('exito-vuelto-fila').style.display = vuelto > 0.005 ? 'flex' : 'none';
     document.getElementById('exito-ticket').href = '/m/ventas?venta=' + res.venta_id;
+    ultimaVentaId = res.venta_id;
     abrirSheet('sheet-exito');
   } catch (e) {
     toast(e.message, 'error');

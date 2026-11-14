@@ -76,6 +76,29 @@ $enlace = function (string $href, string $emoji, string $bg, string $titulo, str
   </div>
 </button>
 
+<?php if (Auth::can('pos.usar') || Auth::can('ventas.ver')): ?>
+<div class="card mb-4">
+  <div class="flex items-center gap-3 mb-3">
+    <div class="icon-tile flex-shrink-0" style="background:var(--navy-light)"><span class="text-xl">🖨️</span></div>
+    <div class="min-w-0">
+      <p class="font-semibold text-sm">Impresora de tickets</p>
+      <p class="text-xs mt-0.5 truncate" id="imp-estado" style="color:var(--ink-soft)">Térmica 58 mm (Xprinter)</p>
+    </div>
+  </div>
+  <label class="text-xs font-semibold" style="color:var(--ink-soft)">Cómo imprime este celular</label>
+  <select id="imp-modo" onchange="cambiarModoImpresora(this.value)" class="w-full mt-1 mb-2 py-2 px-3 rounded-xl border text-sm bg-white">
+    <option value="bluetooth">Bluetooth directo (Chrome)</option>
+    <option value="rawbt">App RawBT</option>
+    <option value="navegador">Navegador / USB (laptop)</option>
+  </select>
+  <p class="text-[11px] mb-3" id="imp-ayuda" style="color:var(--ink-soft)"></p>
+  <div class="flex gap-2">
+    <button type="button" id="imp-conectar" onclick="conectarImpresora()" class="flex-1 py-2.5 rounded-xl text-sm font-medium" style="background:var(--navy-light); color:var(--navy)">🔗 Conectar</button>
+    <button type="button" onclick="TicketPOS.prueba()" class="flex-1 py-2.5 rounded-xl text-sm font-medium text-white" style="background:var(--navy)">Imprimir prueba</button>
+  </div>
+</div>
+<?php endif; ?>
+
 <?php if (Auth::can('compras.crear')) $enlace('/m/pedido', '🛒', 'var(--green-light)', 'Pedido a la ciudad', 'Qué comprar en total y cuánto va a cada tienda'); ?>
 <?php if (Auth::can('conteos.ver')) $enlace('/m/conteos', '📋', 'var(--purple-light)', 'Conteo físico', 'Contar estantes, ubicar productos y ajustar faltantes'); ?>
 <?php if (Auth::can('traslados.ver')) $enlace('/m/traslados', '🚤', 'var(--navy-light)', 'Traslados entre tiendas', 'Enviar mercancía y recibirla con conteo'); ?>
@@ -98,7 +121,39 @@ $enlace = function (string $href, string $emoji, string $bg, string $titulo, str
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
+<script src="/assets/js/ticket.js?v=1"></script>
 <script>
+// ── Impresora de tickets (la elección queda guardada en este celular) ──
+const AYUDA_IMPRESORA = {
+  bluetooth: 'Enciende la impresora, toca Conectar y elige "XP-P503A" (o "Printer001"). No hace falta emparejarla antes en el Bluetooth del teléfono.',
+  rawbt: 'Instala la app RawBT (Play Store), emparéjala con la impresora y elige 58 mm. El ticket se manda a esa app.',
+  navegador: 'Abre el ticket con el diálogo de imprimir. Para la laptop con la impresora conectada por USB.',
+};
+function pintarImpresora() {
+  const m = TicketPOS.modo();
+  const sel = document.getElementById('imp-modo');
+  if (!sel) return;
+  sel.value = m;
+  document.getElementById('imp-ayuda').textContent = AYUDA_IMPRESORA[m];
+  document.getElementById('imp-conectar').style.display = m === 'bluetooth' ? '' : 'none';
+  const nombre = TicketPOS.nombreImpresora();
+  document.getElementById('imp-estado').textContent = m === 'bluetooth'
+    ? (TicketPOS.tieneBluetooth ? (nombre ? 'Última impresora: ' + nombre : 'Sin conectar todavía') : 'Este navegador no tiene Bluetooth: usa RawBT')
+    : (m === 'rawbt' ? 'Imprime por la app RawBT' : 'Imprime desde el navegador');
+}
+function cambiarModoImpresora(m) { TicketPOS.fijarModo(m); pintarImpresora(); }
+async function conectarImpresora() {
+  try {
+    const d = await TicketPOS.conectar();
+    toast('Conectada: ' + (d.name || 'impresora'));
+    pintarImpresora();
+  } catch (e) {
+    if (e && e.name === 'NotFoundError') return;
+    toast('No se pudo conectar: ' + (e.message || e), 'error');
+  }
+}
+pintarImpresora();
+
 let eventoInstalacion = null;
 
 window.addEventListener('beforeinstallprompt', function (e) {
