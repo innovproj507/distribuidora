@@ -474,7 +474,7 @@ class VentaController extends BaseController
         $s          = (int) $sucursalId; // precios de esta tienda
         $costo      = ver_costos() ? \App\Libraries\PrecioTienda::sqlCosto($s) . ' AS costo,' : '';
 
-        $base = "SELECT p.producto_id, p.codigo, p.nombre, p.codigo_barras, p.itbms, p.unidad_medida, {$costo}
+        $base = "SELECT p.producto_id, p.codigo, p.nombre, p.codigo_barras, p.supplier_part_no, p.itbms, p.unidad_medida, {$costo}
                         p.maneja_lotes, p.imagen_principal, p.marca AS lugar2,
                         (SELECT d.nombre FROM inventario i
                            JOIN depositos d ON i.deposito_id = d.deposito_id
@@ -496,20 +496,35 @@ class VentaController extends BaseController
                                 WHERE i2.producto_id = p.producto_id AND d2.sucursal_id = ?)";
         $baseParams = [$sucursalId, $sucursalId, $this->empresaId(), $sucursalId];
 
-        $productos = Db::all($base . ' AND (p.codigo_barras = ? OR p.codigo = ?) LIMIT 1', [...$baseParams, $q, $q]);
+        // Exacto (lector): código de barras, código interno o referencia del proveedor del producto…
+        $productos = Db::all($base . ' AND (p.codigo_barras = ? OR p.codigo = ? OR p.supplier_part_no = ?) LIMIT 1', [...$baseParams, $q, $q, $q]);
+        // …o el código de barras de una presentación (caja, paca): se vende esa presentación
+        $unidadEscaneada = null;
+        if (empty($productos) && $q !== '') {
+            $u = Db::row(
+                "SELECT u.unidad_id, u.producto_id FROM productos_unidades u JOIN productos p ON p.producto_id = u.producto_id
+                 WHERE p.empresa_id = ? AND u.codigo_barras = ? AND u.codigo_barras <> '' LIMIT 1",
+                [$this->empresaId(), $q]
+            );
+            if ($u) {
+                $productos = Db::all($base . ' AND p.producto_id = ? LIMIT 1', [...$baseParams, (int) $u['producto_id']]);
+                $unidadEscaneada = (int) $u['unidad_id'];
+            }
+        }
 
         if (empty($productos)) {
             $terminos   = preg_split('/\s+/', $q, -1, PREG_SPLIT_NO_EMPTY) ?: [$q];
             $condNombre = implode(' AND ', array_fill(0, count($terminos), 'p.nombre LIKE ?'));
-            $params     = [...$baseParams, "%{$q}%", "%{$q}%"];
+            $params     = [...$baseParams, "%{$q}%", "%{$q}%", "%{$q}%"];
             foreach ($terminos as $t) {
                 $params[] = "%{$t}%";
             }
-            $productos = Db::all($base . " AND (p.codigo_barras LIKE ? OR p.codigo LIKE ? OR ({$condNombre})) LIMIT 100", $params);
+            $productos = Db::all($base . " AND (p.codigo_barras LIKE ? OR p.codigo LIKE ? OR p.supplier_part_no LIKE ? OR ({$condNombre})) LIMIT 100", $params);
         }
 
         foreach ($productos as &$p) {
             $p['unidades'] = \App\Libraries\PrecioTienda::unidades((int) $p['producto_id'], $s, 'u.unidad_id');
+            if ($unidadEscaneada) $p['unidad_escaneada'] = $unidadEscaneada;
         }
         unset($p);
 

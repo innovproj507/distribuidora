@@ -86,6 +86,9 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
   <?php endif; ?>
 </div>
 <?php endif; ?>
+<div class="mb-4">
+  <button type="button" onclick="TicketPOS.imprimirEtiquetasDe('p=<?= (int) $p['producto_id'] ?>:1')" class="w-full py-3 rounded-xl font-medium" style="background:var(--navy-light); color:var(--navy)">🏷️ Imprimir etiqueta (código de barras y precio)</button>
+</div>
 
 <?php if ($unidades): ?>
 <h2 class="font-head text-sm font-semibold mb-2">Presentaciones</h2>
@@ -184,6 +187,7 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
+<script src="/assets/js/ticket.js?v=6"></script>
 <?php if ($tieneFoto): ?>
 <div id="visor-foto" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="background:rgba(0,0,0,.88)" onclick="cerrarFoto()">
   <img src="/assets/uploads/<?= esc($p['imagen_principal'], 'attr') ?>" alt="" class="max-w-full max-h-full rounded-xl object-contain">

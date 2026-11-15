@@ -16,6 +16,11 @@ $routes->group('', ['filter' => ['auth', 'sucursal']], static function ($routes)
     $routes->get('inventario/presentaciones/plantilla', 'PresentacionController::plantilla', ['filter' => 'permiso:productos.editar']);
     $routes->post('inventario/presentaciones/importar', 'PresentacionController::revisar', ['filter' => 'permiso:productos.editar']);
     $routes->post('inventario/presentaciones/aplicar', 'PresentacionController::aplicar', ['filter' => 'permiso:productos.editar']);
+    // Códigos de barras + referencia del proveedor, y etiquetas
+    $routes->get('inventario/codigos', 'CodigoBarrasController::index', ['filter' => 'permiso:productos.editar']);
+    $routes->post('api/codigos/generar', 'CodigoBarrasController::generar', ['filter' => 'permiso:productos.editar']);
+    $routes->post('api/codigos/(:num)', 'CodigoBarrasController::guardar/$1', ['filter' => 'permiso:productos.editar']);
+    $routes->get('api/etiquetas', 'CodigoBarrasController::etiquetasDatos', ['filter' => 'permiso:productos.ver']);
     $routes->get('inventario/nuevo', 'ProductoController::crear', ['filter' => 'permiso:productos.crear']);
     $routes->post('inventario/nuevo', 'ProductoController::guardar', ['filter' => 'permiso:productos.crear']);
     $routes->get('inventario/kardex', 'ProductoController::kardex', ['filter' => 'permiso:inventario.ver,productos.ver']);

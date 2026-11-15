@@ -800,6 +800,13 @@
             return neto + (neto * TASA_ITBMS);
         }
 
+        /** Precio y presentación de un resultado: si se escaneó el código de una caja/paca, esa presentación. */
+        function lineaEscaneada(p) {
+            const u = p.unidad_escaneada ? (p.unidades || []).find(x => parseInt(x.unidad_id, 10) === parseInt(p.unidad_escaneada, 10)) : null;
+            if (u) return [parseFloat(u.precio_a) || 0, parseInt(u.unidad_id, 10), u.nombre];
+            return [parseFloat(p.precio_a) || 0, null, 'Unid.'];
+        }
+
         function buscarProductos(q) {
             fetch(`/api/productos/buscar?q=${encodeURIComponent(q)}`)
                 .then(r => r.json())
@@ -807,8 +814,8 @@
                     resultadosBusqueda = data.productos || [];
                     if (resultadosBusqueda.length === 1) {
                         const p = resultadosBusqueda[0];
-                        const pr = parseFloat(p.precio_a) || 0;
-                        agregarAlCarrito(p, 'a', pr, null, 'Unid.');
+                        const [pr, uid, unom] = lineaEscaneada(p);
+                        agregarAlCarrito(p, 'a', pr, uid, unom);
                         volverAlCarrito();
                     } else if (resultadosBusqueda.length > 1) {
                         paginaActual = 1;
@@ -1115,11 +1122,11 @@
                     const productos = data.productos || [];
                     if (productos.length === 1) {
                         const p = productos[0];
-                        const pr = parseFloat(p.precio_a) || 0;
+                        const [pr, uid, unom] = lineaEscaneada(p);
                         if (filaEditando !== null) {
-                            reemplazarEnCarrito(filaEditando, p, 'a', pr, null, 'Unid.');
+                            reemplazarEnCarrito(filaEditando, p, 'a', pr, uid, unom);
                         } else {
-                            agregarAlCarrito(p, 'a', pr, null, 'Unid.');
+                            agregarAlCarrito(p, 'a', pr, uid, unom);
                         }
                         setTimeout(() => {
                             const inp = document.getElementById('input-nueva-linea');

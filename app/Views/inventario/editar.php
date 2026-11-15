@@ -212,7 +212,7 @@ $label = 'block text-sm font-semibold text-gray-600 mb-1';
 
     <!-- Más opciones -->
     <details class="bg-white rounded-2xl border border-gray-100 shadow-sm mb-8 group">
-        <summary class="cursor-pointer select-none px-6 py-4 text-sm font-bold text-gray-600 hover:text-gray-800">Más opciones (código de barras, proveedor, stock mínimo, estado…)</summary>
+        <summary class="cursor-pointer select-none px-6 py-4 text-sm font-bold text-gray-600 hover:text-gray-800">Más opciones (código de barras, ref. del proveedor, proveedor, stock mínimo, estado…)</summary>
         <div class="px-6 pb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
                 <label class="<?= $label ?>">Código de barras</label>

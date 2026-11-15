@@ -263,7 +263,7 @@ $puedeDescontar = $maxDescuentoPct > 0;
 <script src="/assets/js/escaner.js?v=1"></script>
 <script src="/assets/js/lector-teclado.js?v=1"></script>
 <script src="/assets/js/foto-producto.js?v=1"></script>
-<script src="/assets/js/ticket.js?v=5"></script>
+<script src="/assets/js/ticket.js?v=6"></script>
 <script>
 const ITBMS_RATE  = <?= json_encode($itbmsRate) ?>;
 const DEPOSITO_ID = <?= json_encode((int) ($deposito_actual['deposito_id'] ?? 0)) ?>;

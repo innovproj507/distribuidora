@@ -186,6 +186,11 @@ function posCatFilter() {
                 title="Importar presentaciones (caja, bulto…) desde Excel">
                 <i class="fas fa-boxes"></i> Presentaciones
             </a>
+            <a href="/inventario/codigos"
+                class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-sky-600 text-sky-700 rounded-lg text-sm font-semibold hover:bg-sky-50 transition shadow-sm"
+                title="Escanear o generar el código de barras y la referencia del proveedor de cada producto; etiquetas">
+                <i class="fas fa-barcode"></i> Códigos de barras
+            </a>
             <?php endif; ?>
             <a href="/inventario/nuevo"
                 class="inline-flex items-center gap-1.5 px-4 py-2 bg-sky-500 text-white rounded-lg text-sm font-semibold hover:bg-sky-600 transition shadow-sm">

@@ -32,8 +32,8 @@ class ProductoController extends BaseController
         $where  = 'p.empresa_id = ? AND EXISTS (SELECT 1 FROM inventario i2 WHERE i2.producto_id = p.producto_id AND i2.deposito_id = ?)';
         $params = [$empresaId, $depositoId];
         if ($buscar !== '') {
-            $where .= ' AND (p.nombre LIKE ? OR p.codigo LIKE ? OR p.codigo_barras LIKE ?)';
-            array_push($params, "%{$buscar}%", "%{$buscar}%", "%{$buscar}%");
+            $where .= ' AND (p.nombre LIKE ? OR p.codigo LIKE ? OR p.codigo_barras LIKE ? OR p.supplier_part_no LIKE ?)';
+            array_push($params, "%{$buscar}%", "%{$buscar}%", "%{$buscar}%", "%{$buscar}%");
         }
         if ($categoriaId !== null) {
             $where .= ' AND p.categoria_id = ?';

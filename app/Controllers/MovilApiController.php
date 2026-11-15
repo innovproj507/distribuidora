@@ -57,8 +57,9 @@ class MovilApiController extends BaseController
             $terminos   = preg_split('/\s+/', $q, -1, PREG_SPLIT_NO_EMPTY) ?: [$q];
             $condNombre = implode(' AND ', array_fill(0, count($terminos), 'p.nombre LIKE ?'));
             // …o el código de barras exacto de una presentación (la caja tiene su propio código)
-            $where[]    = "(p.codigo LIKE ? OR p.codigo_barras LIKE ? OR ({$condNombre})
+            $where[]    = "(p.codigo LIKE ? OR p.codigo_barras LIKE ? OR p.supplier_part_no LIKE ? OR ({$condNombre})
                             OR EXISTS (SELECT 1 FROM productos_unidades pu WHERE pu.producto_id = p.producto_id AND pu.codigo_barras = ? AND pu.codigo_barras <> ''))";
+            $params[]   = "%{$q}%";
             $params[]   = "%{$q}%";
             $params[]   = "%{$q}%";
             foreach ($terminos as $t) {

@@ -77,6 +77,17 @@ final class ProductoService
         return $partes ? implode(', ', $partes) . ' y ' . $ultimo : $ultimo;
     }
 
+    /** El código de barras no puede repetirse con otro producto ni presentación (el escáner no sabría cuál es). */
+    private static function validarBarras(int $empresaId, array &$datos, ?int $productoId): void
+    {
+        if (!array_key_exists('codigo_barras', $datos)) return;
+        $c = CodigoBarras::normalizar($datos['codigo_barras']);
+        $datos['codigo_barras'] = $c !== '' ? $c : null;
+        if ($c !== '' && ($quien = CodigoBarras::usadoPor($empresaId, $c, $productoId))) {
+            throw new \DomainException("El código de barras {$c} ya lo tiene {$quien}.");
+        }
+    }
+
     /** Abreviatura para mostrar: "uds", "lb"… */
     public static function abreviatura(?string $unidad): string
     {
@@ -95,6 +106,7 @@ final class ProductoService
         if (self::codigoEnUso($empresaId, $datos['codigo'])) {
             throw new \DomainException("Ya existe un producto con el código: {$datos['codigo']}");
         }
+        self::validarBarras($empresaId, $datos, null);
         $datos['itbms'] = 0; // ningún producto lleva ITBMS
         $datos['unidad_medida'] = self::unidadMedida($datos['unidad_medida'] ?? 'und');
 
@@ -154,6 +166,7 @@ final class ProductoService
         if (($datos['codigo'] ?? $actual['codigo']) !== $actual['codigo'] && self::codigoEnUso($empresaId, $datos['codigo'], $productoId)) {
             throw new \DomainException("Ya existe un producto con el código: {$datos['codigo']}");
         }
+        self::validarBarras($empresaId, $datos, $productoId);
         if (empty($datos['imagen_principal'])) {
             unset($datos['imagen_principal']);
         }

@@ -101,6 +101,7 @@ $enlace = function (string $href, string $emoji, string $bg, string $titulo, str
 </div>
 <?php endif; ?>
 
+<?php if (Auth::can('productos.editar')) $enlace('/m/codigos', '🏷️', 'var(--amber-light)', 'Códigos de barras', 'Escanear el código de cada producto, referencia del proveedor y etiquetas'); ?>
 <?php if (Auth::can('compras.crear')) $enlace('/m/pedido', '🛒', 'var(--green-light)', 'Pedido a la ciudad', 'Qué comprar en total y cuánto va a cada tienda'); ?>
 <?php if (Auth::can('conteos.ver')) $enlace('/m/conteos', '📋', 'var(--purple-light)', 'Conteo físico', 'Contar estantes, ubicar productos y ajustar faltantes'); ?>
 <?php if (Auth::can('traslados.ver')) $enlace('/m/traslados', '🚤', 'var(--navy-light)', 'Traslados entre tiendas', 'Enviar mercancía y recibirla con conteo'); ?>
@@ -123,7 +124,7 @@ $enlace = function (string $href, string $emoji, string $bg, string $titulo, str
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
-<script src="/assets/js/ticket.js?v=5"></script>
+<script src="/assets/js/ticket.js?v=6"></script>
 <script>
 // ── Impresora de tickets (la elección queda guardada en este celular) ──
 const AYUDA_IMPRESORA = {

@@ -856,6 +856,24 @@ class MovilController extends BaseController
         ]);
     }
 
+    /** GET /m/codigos?ver=sin|interno|todos&q= — escanear códigos de barras y referencia del proveedor. */
+    public function codigos()
+    {
+        if ($r = $this->exigir('productos.editar', '/m/mas')) return $r;
+        $filtro = (string) ($this->request->getGet('ver') ?? 'sin');
+        if (!in_array($filtro, ['sin', 'interno', 'todos'], true)) $filtro = 'sin';
+        $q = trim((string) ($this->request->getGet('q') ?? ''));
+        return $this->render('movil.codigos', [
+            'page_title'  => 'Códigos de barras',
+            'headerTitle' => 'Códigos de barras',
+            'activeTab'   => 'mas',
+            'filtro'      => $filtro,
+            'q'           => $q,
+            'productos'   => \App\Libraries\CodigoBarras::lista((int) $this->empresaId(), $filtro, $q),
+            'sinCodigo'   => (int) Db::value("SELECT COUNT(*) FROM productos WHERE empresa_id = ? AND estado = 'activo' AND (codigo_barras IS NULL OR codigo_barras = '')", [$this->empresaId()]),
+        ]);
+    }
+
     /** GET /m/impresora — descarga e instalación de la app "Impresora Distribuidora" (Android). */
     public function impresora(): string
     {

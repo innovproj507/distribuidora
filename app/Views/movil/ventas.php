@@ -85,7 +85,7 @@ foreach ($ventas as $v) {
 
 <?php $this->section('extra_js'); ?>
 <script src="/assets/js/foto-producto.js?v=1"></script>
-<script src="/assets/js/ticket.js?v=5"></script>
+<script src="/assets/js/ticket.js?v=6"></script>
 <script>
 document.getElementById('input-busqueda').addEventListener('input', function () {
   const q = this.value.trim().toLowerCase();

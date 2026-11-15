@@ -112,7 +112,7 @@
                 <div>
                     <div class="flex items-baseline gap-4 py-2">
                         <label class="text-sm font-semibold text-gray-600 w-40 shrink-0">Código Barras</label>
-                        <input type="text" name="codigo_barras" placeholder="Auto-generado si vacío"
+                        <input type="text" name="codigo_barras" placeholder="Escanéalo (o genera uno interno en Códigos de barras)"
                                class="flex-1 py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none">
                     </div>
                     <div class="flex items-baseline gap-4 py-2">

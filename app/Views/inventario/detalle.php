@@ -45,6 +45,7 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
     </div>
     <div class="flex gap-2">
         <a href="/inventario" class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">Lista de productos</a>
+        <a href="/m/etiquetas?p=<?= (int) $id ?>:1" target="_blank" class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50" title="Etiqueta con código de barras y precio (58 mm)"><i class="fas fa-tag"></i> Etiqueta</a>
         <a href="/inventario/<?= $id ?>/editar" class="inline-flex items-center gap-1.5 px-4 py-2 bg-sky-500 text-white rounded-lg text-sm font-semibold hover:bg-sky-600 shadow-sm"><i class="fas fa-pen-to-square"></i> Editar</a>
     </div>
 </div>

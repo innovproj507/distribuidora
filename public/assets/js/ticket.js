@@ -260,16 +260,96 @@
       if (ventaId) window.open('/m/venta/' + ventaId + '/ticket', '_blank');
       return;
     }
-    const datos = bytes(bloques);
+    return enviarDatos(bytes(bloques), 'Ticket enviado a la impresora');
+  }
+
+  /** ESC/POS ya armado → impresora, según el modo de este equipo (no 'navegador'). */
+  async function enviarDatos(datos, ok) {
+    const m = modo();
     if (m === 'app') { enviarApp(datos); return; }
     if (m === 'rawbt') { enviarRawBT(datos); return; }
     try {
       await enviarBluetooth(datos);
-      avisar('Ticket enviado a la impresora');
+      avisar(ok);
     } catch (e) {
       if (e && e.name === 'NotFoundError' && /cancel/i.test(e.message || '')) return; // cerró el selector
       ofrecerRawBT(e, datos);
     }
+  }
+
+  // ── Etiquetas de producto (58 mm): nombre, precio grande, código de barras, referencias ──
+  function ean13Valido(c) {
+    if (!/^\d{13}$/.test(c)) return false;
+    let s = 0;
+    for (let i = 0; i < 12; i++) s += Number(c[i]) * (i % 2 ? 3 : 1);
+    return (10 - s % 10) % 10 === Number(c[12]);
+  }
+
+  /** Comando ESC/POS de código de barras (la impresora lo dibuja con el número debajo). */
+  function codigoBarrasEscPos(codigo) {
+    const c = limpio(codigo, true).replace(/\s/g, '');
+    if (!c) return [];
+    const out = [0x1b, 0x61, 1, 0x1d, 0x48, 2, 0x1d, 0x66, 0, 0x1d, 0x68, 70]; // centrado, número abajo, alto 70 puntos
+    if (ean13Valido(c)) {
+      out.push(0x1d, 0x77, 3, 0x1d, 0x6b, 67, 12);           // EAN13, 12 dígitos (la impresora pone el de control)
+      for (let i = 0; i < 12; i++) out.push(c.charCodeAt(i));
+    } else {
+      const datos = '{B' + c;                               // CODE128 juego B
+      out.push(0x1d, 0x77, c.length <= 12 ? 2 : 1, 0x1d, 0x6b, 73, datos.length);
+      for (let i = 0; i < datos.length; i++) out.push(datos.charCodeAt(i) & 0x7f);
+    }
+    out.push(0x0a);
+    return out;
+  }
+
+  function bytesEtiquetas(lista) {
+    const out = [0x1b, 0x40, 0x1b, 0x74, 0x00];
+    const texto = function (t, alin, negrita, grande) {
+      out.push(0x1b, 0x61, alin === 'c' ? 1 : 0, 0x1b, 0x45, negrita ? 1 : 0, 0x1d, 0x21, grande ? 0x11 : 0x00);
+      for (let k = 0; k < t.length; k++) out.push(t.charCodeAt(k) & 0x7f);
+      out.push(0x0a);
+    };
+    lista.forEach(function (e, i) {
+      partir(e.nombre + (e.presentacion ? ' (' + e.presentacion + ')' : ''), ANCHO).slice(0, 3).forEach(function (l) { texto(l, 'c', true, false); });
+      if (Number(e.precio) > 0) texto(dinero(e.precio), 'c', true, true);
+      if (e.barras) Array.prototype.push.apply(out, codigoBarrasEscPos(e.barras));
+      else texto('(sin codigo de barras)', 'c', false, false);
+      texto(limpio('Ref: ' + e.codigo + (e.referencia ? '  Prov: ' + e.referencia : '')).slice(0, ANCHO), 'c', false, false);
+      out.push(0x1d, 0x21, 0x00, 0x1b, 0x45, 0x00);
+      out.push(0x1b, 0x64, i === lista.length - 1 ? 4 : 2);  // espacio para cortar entre etiquetas
+      if (i < lista.length - 1) { texto('- - - - - - - - - - - - - - - -', 'c', false, false); out.push(0x1b, 0x64, 1); }
+    });
+    return new Uint8Array(out);
+  }
+
+  /**
+   * Imprime etiquetas. lista = [{nombre, codigo, referencia, barras, precio, presentacion}];
+   * query = "p=12:3&u=40:1" (para la versión del navegador).
+   */
+  async function imprimirEtiquetas(lista, query) {
+    if (modo() === 'navegador') { window.open('/m/etiquetas?' + query, '_blank'); return; }
+    if (!lista || !lista.length) { avisar('No hay etiquetas para imprimir', 'error'); return; }
+    return enviarDatos(bytesEtiquetas(lista), lista.length + (lista.length === 1 ? ' etiqueta enviada' : ' etiquetas enviadas'));
+  }
+
+  /** Pide los datos al servidor e imprime (query "p=12:3&u=40:1"). */
+  async function imprimirEtiquetasDe(query) {
+    if (modo() === 'navegador') { window.open('/m/etiquetas?' + query, '_blank'); return; }
+    const conexion = modo() === 'bluetooth' ? asegurarConexion().catch(function (e) { return e; }) : Promise.resolve();
+    let lista;
+    try {
+      const r = await fetch('/api/etiquetas?' + query, { credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'No se pudieron leer las etiquetas');
+      lista = d.etiquetas || [];
+    } catch (e) { avisar(e.message, 'error'); return; }
+    const err = await conexion;
+    if (err instanceof Error) {
+      if (err.name === 'NotFoundError' && /cancel/i.test(err.message || '')) return;
+      ofrecerRawBT(err, bytesEtiquetas(lista));
+      return;
+    }
+    return imprimirEtiquetas(lista, query);
   }
 
   /**
@@ -327,6 +407,7 @@
     ANCHO: ANCHO, lineas: lineas, texto: texto, bytes: bytes,
     modo: modo, fijarModo: fijarModo, nombreImpresora: nombreImpresora,
     conectar: conectar, imprimirVenta: imprimirVenta, prueba: prueba,
+    bytesEtiquetas: bytesEtiquetas, imprimirEtiquetas: imprimirEtiquetas, imprimirEtiquetasDe: imprimirEtiquetasDe,
     tieneBluetooth: !!navigator.bluetooth,
   };
 })();
