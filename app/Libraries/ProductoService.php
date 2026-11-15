@@ -83,6 +83,7 @@ final class ProductoService
         if (!array_key_exists('codigo_barras', $datos)) return;
         $c = CodigoBarras::normalizar($datos['codigo_barras']);
         $datos['codigo_barras'] = $c !== '' ? $c : null;
+        CodigoBarras::validar($c);
         if ($c !== '' && ($quien = CodigoBarras::usadoPor($empresaId, $c, $productoId))) {
             throw new \DomainException("El código de barras {$c} ya lo tiene {$quien}.");
         }

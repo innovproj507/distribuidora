@@ -25,6 +25,18 @@ final class CodigoBarras
         return preg_replace('/\s+/', '', trim((string) $codigo)) ?? '';
     }
 
+    /**
+     * Un lector con el idioma de teclado equivocado manda los números con Shift: "D383631936"
+     * llega como "D#(#&#!)#&". Esos símbolos no van en códigos de barras de productos.
+     */
+    public static function validar(string $codigo): void
+    {
+        if ($codigo !== '' && preg_match('/[!"#$%&\/()=?¡¿\'*]/u', $codigo)) {
+            throw new \DomainException("El código «{$codigo}» trae símbolos en lugar de números: el lector tiene mal el idioma del teclado. "
+                . 'Escanea en el manual del lector el código "Keyboard language: USA" (o "Latin America") y vuelve a escanear.');
+        }
+    }
+
     /** Dígito de control EAN-13 de los 12 primeros dígitos. */
     public static function digitoControl(string $doce): int
     {
@@ -92,6 +104,7 @@ final class CodigoBarras
             if (array_key_exists('codigo_barras', $datos)) {
                 $c = $datos['codigo_barras'] === 'interno' ? self::interno($productoId) : self::normalizar($datos['codigo_barras']);
                 if (mb_strlen($c) > 100) throw new \DomainException('El código de barras es demasiado largo.');
+                self::validar($c);
                 if ($quien = self::usadoPor($empresaId, $c, $productoId)) {
                     throw new \DomainException("El código {$c} ya lo tiene {$quien}.");
                 }
@@ -112,6 +125,7 @@ final class CodigoBarras
                     continue; // la presentación no es de este producto
                 }
                 $c = $codigo === 'interno' ? self::interno($unidadId, self::PREFIJO_PRESENTACION) : self::normalizar((string) $codigo);
+                self::validar($c);
                 if ($quien = self::usadoPor($empresaId, $c, null, $unidadId)) {
                     throw new \DomainException("El código {$c} ya lo tiene {$quien}.");
                 }
