@@ -176,6 +176,13 @@ final class CompraService
                     PrecioTienda::fijar($productoId, $tipo, $precio, (int) $ctx['sucursal_id']);
                 }
             }
+            // Precio de venta de la presentación con que se compró (bulto, caja…), solo en la tienda que compra
+            $presUnidad = (int) ($item['pres_unidad_id'] ?? 0);
+            $presPrecio = (float) ($item['pres_precio'] ?? 0);
+            if ($presUnidad > 0 && $presPrecio > 0
+                && Db::value("SELECT COUNT(*) FROM productos_unidades WHERE unidad_id = ? AND producto_id = ?", [$presUnidad, $productoId])) {
+                PrecioTienda::fijarUnidad($presUnidad, (int) $ctx['sucursal_id'], $presPrecio);
+            }
 
             if (!$esPendiente) {
                 self::recibirLinea($productoId, $depositoId, $cantidadBase, $costoBase, $compraId, $factura, $numeroLote, $vence);

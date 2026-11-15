@@ -355,9 +355,27 @@
                                             <span class="absolute right-1.5 text-xs text-emerald-500 pointer-events-none font-bold">%</span>
                                         </div>
                                     </td>
-                                    <td class="py-3 px-3 text-center">
+                                    <td class="py-3 px-3 text-center align-top">
                                         <input type="number" step="any" min="0" x-model.number="item.precio_a" @input="recalcMargen(item)"
+                                            :title="'Precio de 1 ' + nombreBase(item)"
                                             class="w-22 text-center text-sm py-1 bg-sky-50 rounded border-sky-200 focus:border-sky-400 focus:ring-0 font-semibold text-sky-700">
+                                        <div class="text-[11px] text-gray-400 mt-0.5" x-text="'por ' + nombreBase(item)"></div>
+                                        <!-- Precio unitario tan alto como el costo de toda la presentación: casi seguro es el precio del bulto -->
+                                        <div x-show="pareceDelBulto(item)" class="mt-1 text-[11px] text-red-600 font-semibold leading-tight">
+                                            ¿Es el precio del <span x-text="nombrePres(item).toLowerCase()"></span>?
+                                            <button type="button" @click="moverAlBulto(item)" class="block mx-auto mt-0.5 px-2 py-0.5 rounded bg-red-50 border border-red-200 hover:bg-red-100">
+                                                Sí, pasarlo al <span x-text="nombrePres(item).toLowerCase()"></span>
+                                            </button>
+                                        </div>
+                                        <!-- Precio de la presentación (bulto, caja…) en esta tienda -->
+                                        <div x-show="presSeleccionada(item)" class="mt-1.5 pt-1.5 border-t border-sky-100">
+                                            <div class="text-[11px] text-sky-600 font-semibold" x-text="nombrePres(item) + ' $'"></div>
+                                            <input type="number" step="any" min="0" x-model.number="item.precio_pres"
+                                                :title="'Precio de venta de 1 ' + nombrePres(item).toLowerCase() + ' en esta tienda'"
+                                                class="w-22 text-center text-xs py-0.5 bg-white rounded border-sky-200 focus:border-sky-400 focus:ring-0 font-semibold text-sky-700">
+                                            <div class="text-[11px]" :class="margenPres(item) === null ? 'text-gray-300' : (margenPres(item) < 0 ? 'text-red-600' : 'text-emerald-600')"
+                                                 x-text="margenPres(item) === null ? 'sin precio' : 'margen ' + margenPres(item).toFixed(0) + '%'"></div>
+                                        </div>
                                     </td>
                                     <td class="py-3 px-3">
                                         <select x-model="item.deposito_id"
@@ -640,9 +658,37 @@ function compraForm() {
             const lista = [{ nombre: base, factor: 1 }];
             (p.unidades || []).forEach(u => {
                 const f = parseFloat(u.factor_conversion ?? u.factor) || 0;
-                if (f > 1 && !lista.some(x => x.factor === f)) lista.push({ nombre: u.nombre, factor: f });
+                if (f > 1 && !lista.some(x => x.factor === f)) {
+                    lista.push({ nombre: u.nombre, factor: f, unidad_id: parseInt(u.unidad_id, 10) || null, precio: parseFloat(u.precio_a ?? u.precio) || 0 });
+                }
             });
             return lista.sort((a, b) => a.factor - b.factor);
+        },
+        /** Presentación elegida en la línea si es una del producto (bulto, caja…), con su unidad_id y precio. */
+        presSeleccionada(item) {
+            const f = item.factor || 1;
+            if (f <= 1) return null;
+            return (item.unidades || []).find(u => u.factor == f && u.unidad_id) || null;
+        },
+        /** Margen del precio de la presentación contra su costo (el costo escrito es por presentación). */
+        margenPres(item) {
+            const precio = parseFloat(item.precio_pres) || 0;
+            const costo  = parseFloat(item.costo) || 0;
+            if (!(precio > 0) || !(costo > 0)) return null;
+            return (precio / costo - 1) * 100;
+        },
+        /** El precio por unidad es tan alto como el costo de toda la presentación → lo pusieron por bulto. */
+        pareceDelBulto(item) {
+            const f = item.factor || 1;
+            const precio = parseFloat(item.precio_a) || 0;
+            return f > 1 && precio > 0 && (parseFloat(item.costo) || 0) > 0 && precio >= (parseFloat(item.costo) || 0) * 0.8;
+        },
+        /** "Sí, es del bulto": ese valor pasa a precio del bulto y el de la unidad queda proporcional. */
+        moverAlBulto(item) {
+            const f = item.factor || 1;
+            item.precio_pres = parseFloat(item.precio_a) || 0;
+            item.precio_a = Math.round(item.precio_pres / f * 10000) / 10000;
+            this.recalcMargen(item);
         },
         nombreBase(item) { return ((item.unidades || [])[0]?.nombre || 'Unidad').toLowerCase(); },
         nombrePres(item) { return ((item.unidades || []).find(u => u.factor == (item.factor || 1))?.nombre) || 'Unidad'; },
@@ -655,6 +701,8 @@ function compraForm() {
             const base  = this.costoBase(item);
             item.factor = nuevo;
             item.costo  = Math.round(base * nuevo * 1e10) / 1e10;
+            const pres = this.presSeleccionada(item);
+            item.precio_pres = pres ? pres.precio : 0;
             this.updateTotals();
         },
 
@@ -674,6 +722,7 @@ function compraForm() {
                     codigo: p.codigo,
                     unidades: unidades,
                     factor: factor,
+                    precio_pres: unidades[unidades.length - 1].precio || 0,
                     cantidad: 1,
                     costo: Math.round(costo * factor * 1e10) / 1e10,
                     margen_pct: margen,
@@ -754,6 +803,9 @@ function compraForm() {
         async saveCompra(recibir = true) {
             if (!this.compra.proveedor_id) return alert('Seleccione un proveedor');
             if (this.items.length === 0)   return alert('Agregue al menos un producto');
+            const sospechosos = this.items.filter(i => this.pareceDelBulto(i)).map(i => '• ' + i.nombre + ': $' + i.precio_a + ' por ' + this.nombreBase(i));
+            if (sospechosos.length && !confirm('Estos precios por UNIDAD son tan altos como el costo de todo el ' + 'bulto/caja:\n\n' + sospechosos.join('\n')
+                + '\n\nSi es el precio del bulto, cancela y usa "Sí, pasarlo al bulto". ¿Guardar así de todos modos?')) return;
 
             const accion = this.compraId
                 ? (recibir ? 'guardar la orden y pasar a recibirla' : 'guardar los cambios de la orden')
@@ -771,9 +823,12 @@ function compraForm() {
                         // El servidor recibe unidades base: 2 cajas de 12 a $30 → 24 unidades a $2.50
                         items: this.items.map(i => {
                             const f = i.factor || 1;
-                            const { unidades, factor, ...linea } = i;
+                            const { unidades, factor, precio_pres, ...linea } = i;
+                            const pres = this.presSeleccionada(i);
                             return { ...linea, cantidad: Math.round((parseFloat(i.cantidad) || 0) * f * 100) / 100, costo: Math.round((parseFloat(i.costo) || 0) / f * 1e10) / 1e10,
-                                     pres_factor: f, pres_nombre: f > 1 ? this.nombrePres(i) : '' };
+                                     pres_factor: f, pres_nombre: f > 1 ? this.nombrePres(i) : '',
+                                     // Precio de venta del bulto/caja en esta tienda (si se cambió aquí)
+                                     pres_unidad_id: pres ? pres.unidad_id : null, pres_precio: pres ? (parseFloat(precio_pres) || 0) : 0 };
                         }),
                         guardar_como_pendiente: !recibir
                     })

@@ -107,8 +107,9 @@ class CompraController extends BaseController
             $precio = (float) $l['precio_a'];
             // La orden guardada está en unidades base; se ofrecen las presentaciones para seguir editando
             $unidades = [['nombre' => $nombresBase[$l['unidad_medida'] ?? 'und'] ?? 'Unidad', 'factor' => 1]];
-            foreach (Db::all("SELECT nombre, factor_conversion FROM productos_unidades WHERE producto_id = ? AND factor_conversion > 1 ORDER BY factor_conversion", [$l['producto_id']]) as $u) {
-                $unidades[] = ['nombre' => $u['nombre'], 'factor' => (float) $u['factor_conversion']];
+            foreach (\App\Libraries\PrecioTienda::unidades((int) $l['producto_id'], (int) $compra['sucursal_id']) as $u) {
+                if ((float) $u['factor_conversion'] <= 1) continue;
+                $unidades[] = ['nombre' => $u['nombre'], 'factor' => (float) $u['factor_conversion'], 'unidad_id' => (int) $u['unidad_id'], 'precio' => (float) $u['precio_a']];
             }
             // Si la línea se escribió en una presentación (Caja de 6), se vuelve a mostrar así: 6 a $5.83 → 1 caja a $35
             $f = (float) ($l['factor_presentacion'] ?? 1);
@@ -119,8 +120,13 @@ class CompraController extends BaseController
             } else {
                 $f = 1.0;
             }
+            $presSel = null;
+            foreach ($unidades as $u) {
+                if ((float) $u['factor'] === (float) $f && $f > 1) $presSel = $u;
+            }
             return [
                 'unidades' => $unidades, 'factor' => $f,
+                'precio_pres' => (float) ($presSel['precio'] ?? 0),
                 'producto_id' => (int) $l['producto_id'], 'nombre' => $l['nombre'], 'codigo' => $l['codigo'],
                 'cantidad' => round((float) $l['cantidad'] / $f, 4), 'costo' => round($costo * $f, 10),
                 'margen_pct' => $costo > 0 && $precio > 0 ? round(($precio / $costo - 1) * 100, 2) : 0,
