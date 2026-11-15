@@ -547,7 +547,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="/assets/js/lector-teclado.js?v=1"></script>
+    <script src="/assets/js/lector-teclado.js?v=2"></script>
     <script>
         // Escapa texto para insertarlo en HTML (nombres de productos/clientes vienen de la BD)
         function escHtml(v) {

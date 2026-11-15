@@ -20,9 +20,13 @@ final class CodigoBarras
     public const PREFIJO_PRODUCTO = '200';
     public const PREFIJO_PRESENTACION = '201';
 
+    /**
+     * Lector en teclado de EE. UU. con la PC en teclado latinoamericano: el guion llega como
+     * apóstrofo ("PROD-00054" → "PROD'00054"). Ningún código lleva apóstrofo: se vuelve guion.
+     */
     public static function normalizar(?string $codigo): string
     {
-        return preg_replace('/\s+/', '', trim((string) $codigo)) ?? '';
+        return str_replace("'", '-', preg_replace('/\s+/', '', trim((string) $codigo)) ?? '');
     }
 
     /**

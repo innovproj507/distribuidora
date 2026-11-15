@@ -124,7 +124,7 @@ $listaJs = json_encode($productos, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
-<script src="/assets/js/lector-teclado.js?v=1"></script>
+<script src="/assets/js/lector-teclado.js?v=2"></script>
 <script src="/assets/js/ticket.js?v=6"></script>
 <script>
 function codigosBarras() {

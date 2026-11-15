@@ -498,6 +498,11 @@ class VentaController extends BaseController
 
         // Exacto (lector): código de barras, código interno o referencia del proveedor del producto…
         $productos = Db::all($base . ' AND (p.codigo_barras = ? OR p.codigo = ? OR p.supplier_part_no = ?) LIMIT 1', [...$baseParams, $q, $q, $q]);
+        // Lector con teclado de EE. UU. en una PC latinoamericana: "PROD'00054" es "PROD-00054"
+        if (empty($productos) && str_contains($q, "'")) {
+            $q = str_replace("'", '-', $q);
+            $productos = Db::all($base . ' AND (p.codigo_barras = ? OR p.codigo = ? OR p.supplier_part_no = ?) LIMIT 1', [...$baseParams, $q, $q, $q]);
+        }
         // …o el código de barras de una presentación (caja, paca): se vende esa presentación
         $unidadEscaneada = null;
         if (empty($productos) && $q !== '') {

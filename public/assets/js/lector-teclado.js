@@ -39,7 +39,8 @@
       if (e.key === 'Enter') {
         if (buffer.length >= MIN_LARGO) {
           e.preventDefault();
-          const codigo = buffer;
+          // Lector en teclado de EE. UU. con la PC en latinoamericano: el guion llega como apóstrofo
+          const codigo = buffer.replace(/'/g, '-');
           buffer = '';
           callback(codigo);
         }

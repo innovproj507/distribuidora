@@ -27,6 +27,8 @@ class MovilApiController extends BaseController
         }
 
         $q           = trim((string) ($this->request->getGet('q') ?? ''));
+        // Lector con teclado de EE. UU. en teclado latinoamericano: "PROD'00054" → "PROD-00054"
+        if (str_contains($q, "'") && !preg_match('/\s/', $q)) $q = str_replace("'", '-', $q);
         $categoriaId = (int) ($this->request->getGet('categoria') ?? 0);
         $soloBajo    = $this->request->getGet('stock_bajo') === '1';
         $porVencer   = $this->request->getGet('por_vencer') === '1';

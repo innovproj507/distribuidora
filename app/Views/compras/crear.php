@@ -421,7 +421,7 @@
 
 </div><!-- /x-data -->
 
-<script src="/assets/js/lector-teclado.js?v=1"></script>
+<script src="/assets/js/lector-teclado.js?v=2"></script>
 <script>
 function compraForm() {
     return {

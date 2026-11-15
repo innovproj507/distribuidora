@@ -261,7 +261,7 @@ $puedeDescontar = $maxDescuentoPct > 0;
 
 <?php $this->section('extra_js'); ?>
 <script src="/assets/js/escaner.js?v=1"></script>
-<script src="/assets/js/lector-teclado.js?v=1"></script>
+<script src="/assets/js/lector-teclado.js?v=2"></script>
 <script src="/assets/js/foto-producto.js?v=1"></script>
 <script src="/assets/js/ticket.js?v=6"></script>
 <script>
@@ -956,6 +956,7 @@ async function crearClienteRapido(ev) {
 // Busca un código: si coincide exacto con el código de barras de una presentación (caja…) la agrega;
 // si coincide con el código o barras del producto, lo agrega (o pide presentación); si hay uno solo, igual.
 async function agregarPorCodigo(codigo) {
+  if (!/\s/.test(codigo)) codigo = codigo.replace(/'/g, '-'); // lector: PROD'00054 → PROD-00054
   const input = document.getElementById('input-busqueda');
   input.value = codigo;
   await lista.cargar(true);

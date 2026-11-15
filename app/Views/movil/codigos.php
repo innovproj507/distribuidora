@@ -61,7 +61,7 @@ $filtros = ['sin' => 'Sin código', 'interno' => 'Internos', 'todos' => 'Todos']
 
 <?php $this->section('extra_js'); ?>
 <script src="/assets/js/escaner.js?v=1"></script>
-<script src="/assets/js/lector-teclado.js?v=1"></script>
+<script src="/assets/js/lector-teclado.js?v=2"></script>
 <script src="/assets/js/ticket.js?v=6"></script>
 <script>
 const PRODUCTOS = <?= json_encode($productos, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?>;

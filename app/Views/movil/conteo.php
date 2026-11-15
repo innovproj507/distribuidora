@@ -81,7 +81,7 @@ $edita = $abierto && $puedeContar;
 
 <?php $this->section('extra_js'); ?>
 <script src="/assets/js/escaner.js?v=1"></script>
-<script src="/assets/js/lector-teclado.js?v=1"></script>
+<script src="/assets/js/lector-teclado.js?v=2"></script>
 <script>
 const CONTEO_ID = <?= (int) $conteo['conteo_id'] ?>;
 const ABIERTO   = <?= json_encode($abierto) ?>;
@@ -228,7 +228,11 @@ function siguiente(ev) {
 }
 
 const busq = document.getElementById('input-busqueda');
-busq.addEventListener('input', debounce(function () { consulta = busq.value.trim().toLowerCase(); pintar(); }, 200));
+busq.addEventListener('input', debounce(function () {
+  let v = busq.value.trim();
+  if (v.indexOf("'") !== -1 && !/\s/.test(v)) { v = v.replace(/'/g, '-'); busq.value = v; } // lector: PROD'00054 → PROD-00054
+  consulta = v.toLowerCase(); pintar();
+}, 200));
 busq.addEventListener('keydown', function (e) {
   if (e.key !== 'Enter') return;
   e.preventDefault();
