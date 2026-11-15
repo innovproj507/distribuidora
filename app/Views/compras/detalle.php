@@ -82,8 +82,12 @@ $cancelada = $est === 'cancelada';
                 <span class="text-sm text-gray-600"><?= esc($compra['deposito_nombre'] ?? 'N/A') ?></span>
             </div>
             <div class="flex items-baseline gap-4 py-2">
-                <label class="text-sm font-semibold text-gray-600 w-44 shrink-0">Factura Proveedor</label>
-                <span class="text-sm text-gray-600 font-mono"><?= esc($compra['numero_factura_proveedor'] ?? '—') ?></span>
+                <label class="text-sm font-semibold text-gray-600 w-44 shrink-0">Factura del proveedor</label>
+                <?php if (!empty($compra['numero_factura_proveedor'])): ?>
+                <span class="text-sm text-gray-600 font-mono"><?= esc($compra['numero_factura_proveedor']) ?></span>
+                <?php else: ?>
+                <span class="text-sm text-amber-600">Sin factura (el proveedor no dio)</span>
+                <?php endif; ?>
             </div>
         </div>
         <div>

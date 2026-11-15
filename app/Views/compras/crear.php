@@ -130,11 +130,25 @@
                 </div>
                 <div class="flex items-baseline gap-4">
                     <label class="text-sm font-semibold text-gray-700 w-44 shrink-0">
-                        N° Factura Proveedor
+                        N° de compra
+                        <span class="text-gray-400 font-normal text-xs block">automático</span>
+                    </label>
+                    <span class="flex-1 py-1.5 text-sm font-mono font-semibold text-sky-700"><?= esc($numero_compra ?? '') ?><?= $editar ? '' : ' <span class="text-xs font-sans font-normal text-gray-400">(se confirma al guardar)</span>' ?></span>
+                </div>
+                <div class="flex items-baseline gap-4">
+                    <label class="text-sm font-semibold text-gray-700 w-44 shrink-0">
+                        N° factura del proveedor
                         <span class="text-gray-400 font-normal text-xs block">opcional</span>
                     </label>
-                    <input type="text" x-model="compra.numero_factura" placeholder="Ej. FAC-001  (si no tiene, déjelo vacío)"
-                        class="flex-1 py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none text-gray-800">
+                    <div class="flex-1">
+                        <input type="text" x-model="compra.numero_factura" :disabled="compra.sin_factura" maxlength="100"
+                            :placeholder="compra.sin_factura ? 'El proveedor no dio factura' : 'El número que trae la factura del proveedor'"
+                            class="w-full py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none text-gray-800 disabled:text-gray-400">
+                        <label class="inline-flex items-center gap-1.5 mt-1 text-xs text-gray-500 cursor-pointer">
+                            <input type="checkbox" x-model="compra.sin_factura" @change="if (compra.sin_factura) compra.numero_factura = ''" class="rounded border-gray-300">
+                            El proveedor no dio factura
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -450,7 +464,8 @@ function compraForm() {
             fecha_esperada: '',
             terminos: '',
             notas: '',
-            con_itbms: false
+            con_itbms: false,
+            sin_factura: false
         }" ?>,
         totals: { subtotal: 0, itbms: 0, total: 0 },
 

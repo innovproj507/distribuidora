@@ -5,6 +5,7 @@
 $tipos = [
     'cotizacion' => ['label' => 'Cotización', 'icon' => 'fa-file-invoice-dollar', 'color' => 'sky',    'ejemplo_campo' => 'numero de la cotización'],
     'factura'    => ['label' => 'Factura',    'icon' => 'fa-receipt',             'color' => 'emerald','ejemplo_campo' => 'número de factura'],
+    'compra'     => ['label' => 'Compra',     'icon' => 'fa-truck-loading',       'color' => 'violet', 'ejemplo_campo' => 'número de compra'],
     'cliente'    => ['label' => 'Cliente',    'icon' => 'fa-user-friends',        'color' => 'pink',   'ejemplo_campo' => 'código de cliente'],
     'proveedor'  => ['label' => 'Proveedor',  'icon' => 'fa-truck',               'color' => 'amber',  'ejemplo_campo' => 'código de proveedor'],
 ];
@@ -69,7 +70,7 @@ $tipos = [
                     </div>
                 </div>
 
-                <?php if (in_array($tipo, ['factura', 'cotizacion'], true)): ?>
+                <?php if (in_array($tipo, ['factura', 'cotizacion', 'compra'], true)): ?>
                 <input type="hidden" name="<?= $tipo ?>_con_sucursal_enviado" value="1">
                 <label class="flex items-center gap-2 mt-2 text-xs text-gray-600 cursor-pointer">
                     <input type="checkbox" id="<?= $tipo ?>_con_sucursal" name="<?= $tipo ?>_con_sucursal" value="1" onchange="actualizarEjemplo('<?= $tipo ?>')"
@@ -124,6 +125,6 @@ $tipos = [
         document.getElementById(tipo + '_ejemplo').textContent = base + secuencial;
     }
 
-    ['cotizacion', 'factura', 'cliente', 'proveedor'].forEach(actualizarEjemplo);
+    ['cotizacion', 'factura', 'compra', 'cliente', 'proveedor'].forEach(actualizarEjemplo);
 </script>
 <?php $this->endSection(); ?>

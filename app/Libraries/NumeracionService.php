@@ -26,12 +26,14 @@ class NumeracionService
         'factura'    => ['tabla' => 'ventas',        'columna' => 'numero_factura'],
         'cliente'    => ['tabla' => 'clientes',      'columna' => 'codigo'],
         'proveedor'  => ['tabla' => 'proveedores',   'columna' => 'codigo'],
+        // Número interno de la compra; el de la factura del proveedor va en compras.numero_factura_proveedor
+        'compra'     => ['tabla' => 'compras',       'columna' => 'numero_factura'],
     ];
 
     private const REINICIOS_VALIDOS = ['nunca', 'diario', 'mensual', 'anual'];
 
     /** Tipos cuya serie se separa por sucursal (prefijo de branches.prefijo). */
-    private const TIPOS_POR_SUCURSAL = ['factura', 'cotizacion'];
+    private const TIPOS_POR_SUCURSAL = ['factura', 'cotizacion', 'compra'];
 
     private static function prefijoSucursal(?int $sucursalId): string
     {
@@ -140,16 +142,16 @@ class NumeracionService
             return $row;
         }
 
-        $defecto = self::defecto($tipo);
+        $defecto = self::defecto($tipo) + ['con_sucursal' => 1, 'posicion_sucursal' => 'antes'];
         Db::query(
-            "INSERT INTO numeraciones (empresa_id, tipo, prefijo, separador, digitos, reinicio) VALUES (?, ?, ?, ?, ?, ?)",
-            [$empresaId, $tipo, $defecto['prefijo'], $defecto['separador'], $defecto['digitos'], $defecto['reinicio']]
+            "INSERT INTO numeraciones (empresa_id, tipo, prefijo, separador, digitos, reinicio, con_sucursal, posicion_sucursal) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [$empresaId, $tipo, $defecto['prefijo'], $defecto['separador'], $defecto['digitos'], $defecto['reinicio'], $defecto['con_sucursal'], $defecto['posicion_sucursal']]
         );
 
         return array_merge(['empresa_id' => $empresaId, 'tipo' => $tipo], $defecto);
     }
 
-    /** Configuración de los 4 tipos para una empresa, en el orden en que se muestran. */
+    /** Configuración de todos los tipos para una empresa, en el orden en que se muestran. */
     public static function configuracionCompleta(?int $empresaId = null): array
     {
         $empresaId = $empresaId ?? self::empresaPorDefecto();
@@ -210,6 +212,7 @@ class NumeracionService
             'factura'    => ['prefijo' => 'F',    'separador' => '', 'digitos' => 4, 'reinicio' => 'nunca'],
             'cliente'    => ['prefijo' => 'CLI',  'separador' => '-', 'digitos' => 4, 'reinicio' => 'nunca'],
             'proveedor'  => ['prefijo' => 'PROV', 'separador' => '-', 'digitos' => 4, 'reinicio' => 'nunca'],
+            'compra'     => ['prefijo' => 'COMP', 'separador' => '-', 'digitos' => 6, 'reinicio' => 'anual', 'con_sucursal' => 1, 'posicion_sucursal' => 'despues'],
         };
     }
 

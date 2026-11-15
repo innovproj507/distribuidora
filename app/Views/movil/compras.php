@@ -34,7 +34,7 @@ $proveedoresJs = array_map(fn ($p) => ['id' => (int) $p['proveedor_id'], 'nombre
       <div class="flex-1 min-w-0">
         <p class="text-sm font-medium truncate"><?= esc($c['proveedor_nombre'] ?: 'Sin proveedor') ?></p>
         <p class="text-xs truncate" style="color:var(--ink-soft)">
-          <?= esc($c['numero_factura_proveedor'] ?: $c['numero_factura']) ?> · <?= $c['fecha_compra'] ? date('d/m/Y', strtotime($c['fecha_compra'])) : '' ?> · <?= (int) $c['items'] ?> ítem(s)
+          <?= esc($c['numero_factura']) ?><?= !empty($c['numero_factura_proveedor']) ? ' (fact. ' . esc($c['numero_factura_proveedor']) . ')' : '' ?> ·<?= $c['fecha_compra'] ? date('d/m/Y', strtotime($c['fecha_compra'])) : '' ?> · <?= (int) $c['items'] ?> ítem(s)
         </p>
       </div>
       <div class="text-right flex-shrink-0">
@@ -65,8 +65,8 @@ $proveedoresJs = array_map(fn ($p) => ['id' => (int) $p['proveedor_id'], 'nombre
       </datalist>
     </div>
     <div>
-      <label class="field-label">N.º de factura</label>
-      <input class="field-input" style="font-family:'Inter'" id="compra-factura" placeholder="Opcional">
+      <label class="field-label">Factura del proveedor</label>
+      <input class="field-input" style="font-family:'Inter'" id="compra-factura" placeholder="Opcional (si no dio, vacío)">
     </div>
   </div>
 

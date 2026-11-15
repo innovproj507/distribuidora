@@ -666,7 +666,7 @@ class MovilController extends BaseController
 
         return $this->render('movil.compra', [
             'page_title'   => 'Compra',
-            'headerTitle'  => 'Compra ' . ($compra['numero_factura_proveedor'] ?: $compra['numero_factura']),
+            'headerTitle'  => 'Compra ' . $compra['numero_factura'],
             'activeTab'    => 'mas',
             'compra'       => $compra,
             'lineas'       => $this->lineasConPresentaciones($id),

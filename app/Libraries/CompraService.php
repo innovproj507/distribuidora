@@ -28,7 +28,11 @@ final class CompraService
 
         $esPendiente       = !empty($data['guardar_como_pendiente']);
         $depositoPrincipal = (int) ($items[0]['deposito_id'] ?? 0) ?: (int) ($ctx['deposito_id'] ?? 0);
-        $factura           = trim((string) ($data['numero_factura'] ?? ''));
+        // Número de la compra: automático (Configuración → Nomenclatura, ej. COMP-S-2026-000001).
+        // El de la factura del proveedor es opcional (hay proveedores que no dan factura).
+        $numero    = NumeracionService::siguiente('compra', (int) $ctx['empresa_id'], (int) $ctx['sucursal_id']);
+        $proveedor = self::facturaProveedor($data);
+        $factura   = self::etiqueta($numero, $proveedor);
 
         // Si no vienen totales se calculan de las líneas
         $calculado = round(array_sum(array_map(fn ($i) => round((float) $i['cantidad'] * (float) $i['costo'], 2), $items)), 2);
@@ -39,8 +43,8 @@ final class CompraService
             'sucursal_id'              => $ctx['sucursal_id'],
             'empresa_id'               => $ctx['empresa_id'],
             'deposito_id'              => $depositoPrincipal,
-            'numero_factura'           => $factura !== '' ? $factura : ('PEND-' . date('YmdHis') . '-' . random_int(100, 999)),
-            'numero_factura_proveedor' => $factura !== '' ? $factura : null,
+            'numero_factura'           => $numero,
+            'numero_factura_proveedor' => $proveedor !== '' ? $proveedor : null,
             'monto_subtotal'           => isset($data['subtotal']) ? (float) $data['subtotal'] : $calculado,
             'monto_itbms'              => (float) ($data['itbms'] ?? 0),
             'monto_total'              => $total,
@@ -76,14 +80,14 @@ final class CompraService
 
         $ctx['sucursal_id'] = (int) $compra['sucursal_id']; // la orden sigue en su tienda
         $depositoPrincipal  = (int) ($items[0]['deposito_id'] ?? 0) ?: (int) $compra['deposito_id'];
-        $factura            = trim((string) ($data['numero_factura'] ?? ''));
+        $proveedor          = self::facturaProveedor($data);
+        $factura            = self::etiqueta((string) $compra['numero_factura'], $proveedor); // el número de la compra no cambia
         $calculado          = round(array_sum(array_map(fn ($i) => round((float) $i['cantidad'] * (float) $i['costo'], 2), $items)), 2);
 
         Db::update('compras', [
             'proveedor_id'             => !empty($data['proveedor_id']) ? (int) $data['proveedor_id'] : null,
             'deposito_id'              => $depositoPrincipal,
-            'numero_factura'           => $factura !== '' ? $factura : $compra['numero_factura'],
-            'numero_factura_proveedor' => $factura !== '' ? $factura : null,
+            'numero_factura_proveedor' => $proveedor !== '' ? $proveedor : null,
             'monto_subtotal'           => isset($data['subtotal']) ? (float) $data['subtotal'] : $calculado,
             'monto_itbms'              => (float) ($data['itbms'] ?? 0),
             'monto_total'              => isset($data['total']) ? (float) $data['total'] : $calculado,
@@ -106,6 +110,23 @@ final class CompraService
     }
 
     /** Inserta las líneas de una compra (y la recibe si no es pendiente). */
+    /**
+     * Nº de factura del proveedor que escribió el usuario (campo numero_factura_proveedor; los
+     * formularios y la API anteriores lo mandan como numero_factura). '' = el proveedor no dio factura.
+     */
+    private static function facturaProveedor(array $data): string
+    {
+        $v = $data['numero_factura_proveedor'] ?? ($data['numero_factura'] ?? '');
+        return mb_substr(trim((string) $v), 0, 100);
+    }
+
+    /** Texto para el kardex: "COMP-S-2026-000012 (fact. prov. 0002)". */
+    public static function etiqueta(string $numero, ?string $proveedor): string
+    {
+        $proveedor = trim((string) $proveedor);
+        return $numero . ($proveedor !== '' && $proveedor !== $numero ? " (fact. prov. {$proveedor})" : '');
+    }
+
     private static function guardarLineas(int $compraId, array $items, int $depositoPrincipal, array $ctx, bool $esPendiente, string $factura): void
     {
         foreach ($items as $item) {
@@ -191,7 +212,9 @@ final class CompraService
             $cantidad  = isset($recibidas[$detalleId]) ? min((float) $recibidas[$detalleId], $pendiente) : 0.0;
             if ($cantidad <= 0) continue;
 
-            self::recibirLinea((int) $linea['producto_id'], $depositoId, $cantidad, (float) $linea['costo'], $compraId, (string) ($compra['numero_factura'] ?? ''), $linea['numero_lote'] ?: null, $linea['fecha_vencimiento'] ?: null);
+            self::recibirLinea((int) $linea['producto_id'], $depositoId, $cantidad, (float) $linea['costo'], $compraId,
+                self::etiqueta((string) ($compra['numero_factura'] ?? ''), $compra['numero_factura_proveedor'] ?? null),
+                $linea['numero_lote'] ?: null, $linea['fecha_vencimiento'] ?: null);
             Db::query("UPDATE compras_detalle SET cantidad_recibida = cantidad_recibida + ? WHERE detalle_id = ?", [$cantidad, $detalleId]);
             $recibidoAlgo = true;
         }
@@ -229,7 +252,7 @@ final class CompraService
         $newQty = $oldQty + $cantidadBase;
         $newAvg = ($oldQty <= 0 || $newQty <= 0) ? $costoUnit : (($oldQty * $oldAvg) + ($cantidadBase * $costoUnit)) / $newQty;
 
-        InventarioService::registrar($inventarioId, 'entrada', $cantidadBase, $compraId, 'compras', "Compra Factura #{$factura}");
+        InventarioService::registrar($inventarioId, 'entrada', $cantidadBase, $compraId, 'compras', "Compra {$factura}");
 
         Db::query("UPDATE inventario SET ultimo_costo = ?, costo_promedio = ?, fecha_actualizacion_costo = NOW() WHERE inventario_id = ?", [$costoUnit, $newAvg, $inventarioId]);
         Db::query("UPDATE productos SET costo = ? WHERE producto_id = ?", [$costoUnit, $productoId]);

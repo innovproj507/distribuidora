@@ -53,7 +53,7 @@
                 <i class="fas fa-search absolute left-0 top-2 text-gray-400 text-xs"></i>
                 <input type="text" name="buscar" id="search-input"
                     value="<?= esc($buscar ?? '') ?>"
-                    placeholder="N° factura o proveedor..."
+                    placeholder="N° de compra, factura del proveedor o proveedor..."
                     class="w-full pl-5 py-1.5 px-0 text-sm bg-transparent border-0 border-b border-gray-200 focus:border-sky-400 focus:ring-0 outline-none">
                 <div id="search-spinner" class="absolute right-0 top-2 hidden">
                     <i class="fas fa-spinner fa-spin text-sky-500 text-xs"></i>
@@ -109,7 +109,7 @@
     <table class="w-full text-sm">
         <thead>
             <tr class="border-b border-gray-100 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                <th class="px-5 py-3.5 bg-gray-50/80">Factura #</th>
+                <th class="px-5 py-3.5 bg-gray-50/80">Compra # / Factura proveedor</th>
                 <th class="px-5 py-3.5 bg-gray-50/80">Proveedor</th>
                 <th class="px-5 py-3.5 bg-gray-50/80 text-right">Monto total</th>
                 <th class="px-5 py-3.5 bg-gray-50/80 text-center">Estado</th>
@@ -136,8 +136,13 @@
                         <div class="w-8 h-8 rounded-lg bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-sky-500/30">
                             <i class="fas fa-file-invoice-dollar text-xs"></i>
                         </div>
-                        <span class="font-semibold text-gray-800 group-hover:text-sky-700 transition-colors font-mono text-xs">
-                            <?= esc($compra['numero_factura']) ?>
+                        <span>
+                            <span class="block font-semibold text-gray-800 group-hover:text-sky-700 transition-colors font-mono text-xs"><?= esc($compra['numero_factura']) ?></span>
+                            <?php if (!empty($compra['numero_factura_proveedor'])): ?>
+                                <span class="block text-[11px] text-gray-500">Fact. prov.: <span class="font-mono"><?= esc($compra['numero_factura_proveedor']) ?></span></span>
+                            <?php else: ?>
+                                <span class="block text-[11px] text-amber-600">Sin factura del proveedor</span>
+                            <?php endif; ?>
                         </span>
                     </div>
                 </td>

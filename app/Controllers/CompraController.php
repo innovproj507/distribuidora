@@ -30,8 +30,8 @@ class CompraController extends BaseController
         $where  = 'c.sucursal_id = ?';
         $params = [$sucursalId];
         if ($buscar !== '') {
-            $where .= ' AND (c.numero_factura LIKE ? OR p.nombre LIKE ?)';
-            array_push($params, "%{$buscar}%", "%{$buscar}%");
+            $where .= ' AND (c.numero_factura LIKE ? OR c.numero_factura_proveedor LIKE ? OR p.nombre LIKE ?)';
+            array_push($params, "%{$buscar}%", "%{$buscar}%", "%{$buscar}%");
         }
 
         // LEFT JOIN: las compras sin proveedor (permitidas desde el móvil) también se listan
@@ -76,6 +76,8 @@ class CompraController extends BaseController
             'margen_precio_a' => (float) ($empresa['margen_precio_a'] ?? 35),
             'margen_precio_b' => (float) ($empresa['margen_precio_b'] ?? 20),
             'margen_precio_c' => (float) ($empresa['margen_precio_c'] ?? 10),
+            // Número que tendrá la compra (automático; se confirma al guardar)
+            'numero_compra'   => \App\Libraries\NumeracionService::siguiente('compra', (int) $this->empresaId(), (int) $this->sucursalId()),
         ]);
     }
 
@@ -129,7 +131,8 @@ class CompraController extends BaseController
 
         $empresa = Db::row("SELECT margen_precio_a, margen_precio_b, margen_precio_c FROM companies WHERE empresa_id = ?", [$this->empresaId()]);
         return $this->render('compras.crear', [
-            'page_title'      => 'Editar orden ' . ($compra['numero_factura_proveedor'] ?: '#' . $id),
+            'page_title'      => 'Editar compra ' . $compra['numero_factura'],
+            'numero_compra'   => (string) $compra['numero_factura'],
             'page_subtitle'   => 'Agregar o cambiar productos antes de recibir',
             'proveedores'     => Fila::lista(Db::all("SELECT * FROM proveedores WHERE empresa_id = ? AND (estado = 'activo' OR proveedor_id = ?) ORDER BY nombre", [$this->empresaId(), (int) $compra['proveedor_id']])),
             'depositos'       => Fila::lista(Db::all("SELECT * FROM depositos WHERE sucursal_id = ? AND estado = 'activo' ORDER BY es_principal DESC, nombre", [(int) $compra['sucursal_id']])),
@@ -147,6 +150,7 @@ class CompraController extends BaseController
                     'terminos'       => '',
                     'notas'          => (string) ($compra['notas'] ?? ''),
                     'con_itbms'      => (float) $compra['monto_itbms'] > 0,
+                    'sin_factura'    => trim((string) ($compra['numero_factura_proveedor'] ?? '')) === '',
                 ],
                 'items' => $items,
             ],

@@ -12,7 +12,7 @@ use App\Libraries\NumeracionService;
 /** Configuración de la empresa, nomenclatura de documentos y páginas informativas. */
 class ConfiguracionController extends BaseController
 {
-    private const TIPOS_NUMERACION = ['cotizacion', 'factura', 'cliente', 'proveedor'];
+    private const TIPOS_NUMERACION = ['cotizacion', 'factura', 'compra', 'cliente', 'proveedor'];
 
     public function sistema(): string
     {
@@ -103,7 +103,7 @@ class ConfiguracionController extends BaseController
     {
         return $this->render('configuracion.numeracion', [
             'page_title'    => 'Nomenclatura',
-            'page_subtitle' => 'Formato de números de cotización, factura, cliente y proveedor',
+            'page_subtitle' => 'Formato de números de cotización, factura, compra, cliente y proveedor',
             'config'        => NumeracionService::configuracionCompleta($this->empresaId()),
             'prefijos_sucursal' => \App\Libraries\Db::all("SELECT nombre, prefijo FROM branches ORDER BY sucursal_id"),
             'prefijo_ejemplo'   => strtoupper((string) (session('sucursal_actual')['prefijo'] ?? '')) ?: 'T',
