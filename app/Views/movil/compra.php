@@ -9,7 +9,6 @@ $estadoCompra = [
 ];
 $ec = $estadoCompra[$compra['estado']] ?? [ucfirst((string) $compra['estado']), 'var(--line)', 'var(--ink-soft)'];
 // Quien no crea compras (encargado) solo confirma la recepción: cantidades fijas (el servidor también lo impone)
-$soloConfirma = !\App\Libraries\Auth::can('compras.crear');
 ?>
 <?php $this->section('content'); ?>
 
@@ -46,11 +45,7 @@ $soloConfirma = !\App\Libraries\Auth::can('compras.crear');
 
 <h2 class="font-head text-sm font-semibold mb-2"><?= $puedeRecibir ? 'Recepción' : 'Productos' ?></h2>
 <?php if ($puedeRecibir): ?>
-  <?php if ($soloConfirma): ?>
-  <p class="text-xs mb-2" style="color:var(--ink-soft)">Revisa que llegó exactamente lo enviado y confirma. Si algo no cuadra, avisa al gerente antes de registrar.</p>
-  <?php else: ?>
-  <p class="text-xs mb-2" style="color:var(--ink-soft)">Escribe lo que realmente llegó. Lo que no llegue queda pendiente para la próxima entrega.</p>
-  <?php endif; ?>
+  <p class="text-xs mb-2" style="color:var(--ink-soft)">Escribe lo que llegó en este viaje (si llegó la mitad, pon esa cantidad). Lo que no llegó queda pendiente para la próxima entrega. No se puede recibir más de lo pedido.</p>
 <?php endif; ?>
 <div class="flex flex-col gap-2 mb-4">
   <?php foreach ($lineas as $l):
@@ -64,8 +59,8 @@ $soloConfirma = !\App\Libraries\Auth::can('compras.crear');
       <?php if ($puedeRecibir && $pend > 0): ?>
         <div class="flex flex-col items-end gap-1 flex-shrink-0">
           <input type="number" inputmode="decimal" min="0" step="any" value="<?= $pend ?>" data-detalle="<?= (int) $l['detalle_id'] ?>" data-pend="<?= $pend ?>" data-factor="1" class="field-input rec-linea"
-                 <?= $soloConfirma ? 'readonly' : '' ?> style="width:84px; text-align:right; padding:6px 8px<?= $soloConfirma ? '; background:var(--line); color:var(--ink-soft)' : '' ?>">
-          <?php if (!empty($l['pres']) && !$soloConfirma): ?>
+                 style="width:84px; text-align:right; padding:6px 8px">
+          <?php if (!empty($l['pres'])): ?>
             <select onchange="cambiarUnidadRecepcion(this)" class="text-[11px] rounded-lg border bg-white px-1 py-1" style="border-color:var(--line); max-width:96px">
               <option value="1">uds</option>
               <?php foreach ($l['pres'] as $p): ?><option value="<?= (float) $p['factor'] ?>"><?= esc(mb_strtolower($p['nombre'])) ?> ×<?= (float) $p['factor'] ?></option><?php endforeach; ?>
@@ -103,10 +98,15 @@ function cambiarUnidadRecepcion(select) {
 
 async function recibirCompra() {
   const recibidas = {};
+  let demas = false;
   // Lo escrito puede estar en bultos (cajas, docenas…): se envía en unidades base
   document.querySelectorAll('.rec-linea').forEach(function (el) {
-    recibidas[el.dataset.detalle] = Math.round((parseFloat(el.value) || 0) * parseFloat(el.dataset.factor) * 100) / 100;
+    const base = Math.round((parseFloat(el.value) || 0) * parseFloat(el.dataset.factor) * 100) / 100;
+    if (base > parseFloat(el.dataset.pend) + 0.001) { demas = true; el.style.borderColor = 'var(--red)'; }
+    recibidas[el.dataset.detalle] = base;
   });
+  if (demas) { toast('No se puede recibir más de lo pendiente (marcado en rojo).', 'error'); return; }
+  if (!Object.keys(recibidas).some(function (k) { return recibidas[k] > 0; })) { toast('Escribe al menos una cantidad que llegó.', 'error'); return; }
   const vencimientos = {};
   document.querySelectorAll('.rec-vence').forEach(function (el) { if (el.value) vencimientos[el.dataset.detalle] = el.value; });
   const boton = document.getElementById('btn-recibir');
