@@ -249,6 +249,117 @@ final class VentaService
     }
 
     /**
+     * Agrega un producto que se quedó fuera de una factura ya hecha (solo del día, no anulada, sin abonos).
+     * Precio de lista de la tienda, valida stock, kardex con el número de la factura, recalcula totales.
+     * El monto extra: si la factura es a crédito se suma al crédito (y al saldo del cliente); si no, entra
+     * con $formaPago (efectivo exige que la caja de la venta siga abierta). El llamador abre la transacción.
+     *
+     * @param array $item {producto_id, cantidad, unidad_id?}
+     * @return array{total: float, agregado: float, numero_factura: string}
+     */
+    public static function agregarLinea(int $ventaId, array $item, ?string $formaPago, array $ctx): array
+    {
+        $v = Db::row("SELECT * FROM ventas WHERE venta_id = ? AND sucursal_id = ? FOR UPDATE", [$ventaId, $ctx['sucursal_id']]);
+        if (!$v) throw new \RuntimeException('Venta no encontrada en esta sucursal.');
+        if ($v['estado'] === 'anulada') throw new \RuntimeException('La venta está anulada.');
+        if (substr((string) $v['fecha'], 0, 10) !== date('Y-m-d')) {
+            throw new \RuntimeException('Solo se pueden agregar productos a facturas de hoy. Para una factura anterior, anúlala y hazla de nuevo.');
+        }
+        if ((float) Db::value("SELECT COALESCE(SUM(monto), 0) FROM cobros_ventas WHERE venta_id = ?", [$ventaId]) > 0) {
+            throw new \RuntimeException('La factura ya tiene abonos; no se puede cambiar.');
+        }
+
+        $productoId = (int) ($item['producto_id'] ?? 0);
+        $cantidad   = round((float) ($item['cantidad'] ?? 0), 2);
+        if ($productoId <= 0 || $cantidad <= 0) throw new \RuntimeException('Indica el producto y una cantidad mayor que cero.');
+        $sucursalId = (int) $v['sucursal_id'];
+        // Mismo depósito que el resto de la factura (o el activo)
+        $depositoId = (int) (Db::value("SELECT deposito_id FROM ventas_detalle WHERE venta_id = ? AND deposito_id IS NOT NULL LIMIT 1", [$ventaId]) ?? 0)
+            ?: (int) ($ctx['deposito_id'] ?? 0);
+        SucursalService::exigirDepositoDeSucursal($depositoId, $sucursalId);
+
+        $factor = 1.0; $unidadId = null; $unidadNombre = null;
+        $precio = self::precioLista($productoId, 'a', $sucursalId);
+        if (!empty($item['unidad_id'])) {
+            $u = null;
+            foreach (PrecioTienda::unidades($productoId, $sucursalId) as $x) {
+                if ((int) $x['unidad_id'] === (int) $item['unidad_id']) $u = $x;
+            }
+            if (!$u) throw new \RuntimeException('La presentación indicada no pertenece al producto.');
+            $factor = max(0.001, (float) $u['factor_conversion']);
+            $unidadId = (int) $u['unidad_id'];
+            $unidadNombre = $u['nombre'];
+            $precio = (float) $u['precio_a'];
+        } else {
+            $um = (string) (Db::value("SELECT unidad_medida FROM productos WHERE producto_id = ?", [$productoId]) ?? 'und');
+            if ($um !== 'und') $unidadNombre = ProductoService::abreviatura($um);
+        }
+        if ($precio <= 0) throw new \RuntimeException('Ese producto no tiene precio en esta tienda.');
+        $cantidadBase = $cantidad * $factor;
+
+        $inv = Db::row("SELECT i.inventario_id, i.existencia, i.ultimo_costo, p.nombre FROM inventario i JOIN productos p ON p.producto_id = i.producto_id
+                        WHERE i.producto_id = ? AND i.deposito_id = ? FOR UPDATE", [$productoId, $depositoId]);
+        if (!$inv || (float) $inv['existencia'] < $cantidadBase - 0.0001) {
+            $nombre = $inv['nombre'] ?? (Db::value("SELECT nombre FROM productos WHERE producto_id = ?", [$productoId]) ?? "#{$productoId}");
+            throw new \RuntimeException("Stock insuficiente de \"{$nombre}\" (hay " . (float) ($inv['existencia'] ?? 0) . ', pides ' . (float) $cantidadBase . ').');
+        }
+
+        // ITBMS igual que el resto de la factura (si la venta no lo llevó, la línea tampoco)
+        $itbmsRate  = (float) $v['itbms'] > 0 ? (float) env('ITBMS_RATE', 0.07) : 0.0;
+        $totalLinea = round($cantidad * $precio, 2);
+        $itbmsLinea = $totalLinea * $itbmsRate;
+        $agregado   = round($totalLinea + $itbmsLinea, 2);
+        $costo      = (float) $inv['ultimo_costo'];
+
+        Db::insert('ventas_detalle', [
+            'venta_id' => $ventaId, 'producto_id' => $productoId, 'cantidad' => $cantidad, 'precio' => $precio,
+            'costo' => $costo, 'itbms' => $itbmsLinea, 'descuento' => 0, 'total_linea' => $agregado,
+            'deposito_id' => $depositoId, 'unidad_id' => $unidadId, 'unidad_nombre' => $unidadNombre, 'factor' => $factor,
+        ]);
+        InventarioService::registrar((int) $inv['inventario_id'], 'salida', $cantidadBase, $ventaId, 'ventas', "Venta #{$v['numero_factura']} (producto agregado después)");
+
+        // Pago del monto agregado
+        $credito = Db::row("SELECT pago_id FROM ventas_pagos WHERE venta_id = ? AND forma_pago = 'CREDITO' LIMIT 1", [$ventaId]);
+        $forma   = $credito ? 'CREDITO' : strtoupper(trim((string) ($formaPago ?: 'EFECTIVO')));
+        if (!in_array($forma, ['EFECTIVO', 'YAPPY', 'TRANSFERENCIA', 'TARJETA', 'CREDITO'], true)) {
+            throw new \RuntimeException('Forma de pago no válida.');
+        }
+        if ($forma === 'CREDITO') {
+            if (!$v['cliente_id']) throw new \RuntimeException('La factura no tiene cliente: no se puede cargar a crédito.');
+            if ($credito) {
+                Db::query("UPDATE ventas_pagos SET monto = monto + ? WHERE pago_id = ?", [$agregado, $credito['pago_id']]);
+            } else {
+                Db::insert('ventas_pagos', ['venta_id' => $ventaId, 'forma_pago' => 'CREDITO', 'monto' => $agregado, 'referencia' => null]);
+            }
+            Db::query("UPDATE clientes SET saldo_pendiente = saldo_pendiente + ? WHERE cliente_id = ?", [$agregado, $v['cliente_id']]);
+        } else {
+            if ($forma === 'EFECTIVO') {
+                $estadoCaja = $v['caja_id'] ? Db::value("SELECT estado FROM cajas WHERE caja_id = ?", [$v['caja_id']]) : null;
+                if ($v['caja_id'] && $estadoCaja !== 'abierta') {
+                    throw new \RuntimeException('La caja de esta venta ya se cerró: el efectivo no cuadraría. Usa otra forma de pago o crédito.');
+                }
+            }
+            Db::insert('ventas_pagos', ['venta_id' => $ventaId, 'forma_pago' => $forma, 'monto' => $agregado, 'referencia' => null]);
+        }
+
+        $formas = array_column(Db::all("SELECT DISTINCT forma_pago FROM ventas_pagos WHERE venta_id = ?", [$ventaId]), 'forma_pago');
+        $total  = round((float) $v['total'] + $agregado, 2);
+        Db::update('ventas', [
+            'subtotal'   => round((float) $v['subtotal'] + $totalLinea, 2),
+            'itbms'      => round((float) $v['itbms'] + $itbmsLinea, 2),
+            'total'      => $total,
+            'costo'      => round((float) $v['costo'] + $costo * $cantidadBase, 2),
+            'forma_pago' => count($formas) === 1 ? $formas[0] : 'MIXTO',
+            'estado'     => in_array('CREDITO', $formas, true) ? 'pendiente' : $v['estado'],
+        ], ['venta_id' => $ventaId]);
+
+        if ($v['caja_id']) {
+            CajaService::refrescarCierre((int) $v['caja_id']); // si la caja estaba cerrada (crédito / digital) actualiza su resumen
+        }
+        return ['total' => $total, 'agregado' => $agregado, 'numero_factura' => (string) $v['numero_factura']];
+    }
+
+    /**
      * Anula una venta: devuelve el stock (con kardex), libera el crédito si estaba pendiente
      * y genera la nota de crédito. El llamador abre y cierra la transacción.
      *

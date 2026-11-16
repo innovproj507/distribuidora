@@ -397,6 +397,28 @@ class VentaController extends BaseController
         return 0.0;
     }
 
+    /**
+     * POST /ventas/venta/{id}/agregar {producto_id, cantidad, unidad_id?, forma_pago?} (JSON)
+     * Producto que se quedó fuera de una factura de hoy. Ver VentaService::agregarLinea().
+     */
+    public function agregarProducto(int $ventaId)
+    {
+        $d = $this->jsonInput();
+        try {
+            Db::begin();
+            $r = VentaService::agregarLinea($ventaId, $d, isset($d['forma_pago']) ? (string) $d['forma_pago'] : null, [
+                'empresa_id' => $this->empresaId(), 'sucursal_id' => $this->sucursalId(), 'deposito_id' => $this->depositoId(),
+            ]);
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            return $this->json(['error' => $e instanceof \RuntimeException || $e instanceof \DomainException ? $e->getMessage() : 'No se pudo agregar el producto.'], 422);
+        }
+        $nombre = (string) (Db::value("SELECT nombre FROM productos WHERE producto_id = ?", [(int) ($d['producto_id'] ?? 0)]) ?? '');
+        AuditService::log('ventas.agregar_producto', "Agregado a {$r['numero_factura']}: " . (float) $d['cantidad'] . " × {$nombre} (+$" . number_format($r['agregado'], 2) . ')', $ventaId, 'venta', $d, $this->empresaId());
+        return $this->json(['success' => true] + $r);
+    }
+
     public function anular(int $ventaId)
     {
         $motivoTipo = (string) ($this->request->getPost('motivo_tipo') ?? '');

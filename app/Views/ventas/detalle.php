@@ -30,6 +30,17 @@ $bc = match($venta['estado']) {
            class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
             <i class="fas fa-print"></i> Imprimir ticket
         </a>
+        <?php
+        // Producto que se quedó fuera: solo facturas de hoy, no anuladas, sin abonos, quien puede anular ventas
+        $puedeAgregar = $venta['estado'] !== 'anulada' && \App\Libraries\Auth::can('ventas.anular')
+            && substr((string) $venta['fecha'], 0, 10) === date('Y-m-d') && empty($abonos);
+        $esCredito = in_array('CREDITO', array_column($pagos_venta ?? [], 'forma_pago'), true);
+        if ($puedeAgregar): ?>
+        <button onclick="abrirAgregar()"
+                class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-sky-300 text-sky-700 rounded-lg text-sm font-semibold hover:bg-sky-50 transition">
+            <i class="fas fa-plus"></i> Agregar producto
+        </button>
+        <?php endif; ?>
         <?php if ($venta['estado'] !== 'anulada'): ?>
         <button onclick="abrirModalAnular(<?= (int) $venta['venta_id'] ?>, <?= esc(json_encode((string) $venta['numero_factura']), 'attr') ?>)"
                 class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition">
@@ -252,6 +263,49 @@ $bc = match($venta['estado']) {
     </div>
 </div>
 
+<?php if (!empty($puedeAgregar)): ?>
+<!-- Modal Agregar producto que se quedó fuera -->
+<div id="modal-agregar" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-1">Agregar producto a <?= esc($venta['numero_factura']) ?></h3>
+        <p class="text-sm text-gray-500 mb-4">Al precio de la tienda; se descuenta del inventario y se suma al total<?= $esCredito ? ' y al <b>crédito</b> del cliente' : '' ?>.</p>
+        <div class="mb-2 relative">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Producto</label>
+            <input type="text" id="ag-buscar" autocomplete="off" placeholder="Nombre, código o escanea" oninput="agBuscar()" onkeydown="if(event.key==='Enter'){event.preventDefault(); agBuscar(true);}"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            <div id="ag-resultados" class="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto hidden"></div>
+            <p id="ag-elegido" class="text-sm font-semibold text-sky-700 mt-1"></p>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+                <input type="number" id="ag-cantidad" min="0.01" step="any" value="1" oninput="agTotal()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Presentación</label>
+                <select id="ag-unidad" onchange="agTotal()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></select>
+            </div>
+        </div>
+        <?php if (!$esCredito): ?>
+        <div class="mb-3">
+            <label class="block text-sm font-medium text-gray-700 mb-1">¿Cómo paga lo agregado?</label>
+            <select id="ag-forma" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                <option value="EFECTIVO">Efectivo</option><option value="YAPPY">Yappy</option>
+                <option value="TRANSFERENCIA">Transferencia</option><option value="TARJETA">Tarjeta</option>
+                <?php if (!empty($venta['cliente_id'])): ?><option value="CREDITO">Crédito</option><?php endif; ?>
+            </select>
+        </div>
+        <?php endif; ?>
+        <p class="text-sm mb-4">Se suma: <b id="ag-total">$0.00</b></p>
+        <p id="ag-error" class="text-sm text-red-600 mb-2"></p>
+        <div class="flex gap-3 justify-end">
+            <button type="button" onclick="document.getElementById('modal-agregar').classList.add('hidden')" class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
+            <button type="button" id="ag-boton" onclick="agGuardar()" class="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm font-semibold hover:bg-sky-700"><i class="fas fa-plus mr-1"></i>Agregar</button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- Modal Anular Venta -->
 <div id="modal-anular" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
@@ -311,6 +365,80 @@ $bc = match($venta['estado']) {
         } catch (e) {
             alert('No se pudo subir el comprobante: ' + e.message);
             if (txt) txt.textContent = 'Adjuntar foto';
+        }
+    }
+
+    // ── Agregar producto que se quedó fuera de la factura ──
+    let agProducto = null, agTimer = null;
+    const agEsc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    function abrirAgregar() {
+        agProducto = null;
+        document.getElementById('ag-buscar').value = '';
+        document.getElementById('ag-elegido').textContent = '';
+        document.getElementById('ag-cantidad').value = 1;
+        document.getElementById('ag-unidad').innerHTML = '';
+        document.getElementById('ag-error').textContent = '';
+        agTotal();
+        document.getElementById('modal-agregar').classList.remove('hidden');
+        setTimeout(() => document.getElementById('ag-buscar').focus(), 50);
+    }
+    function agBuscar(ya) {
+        clearTimeout(agTimer);
+        agTimer = setTimeout(async () => {
+            const q = document.getElementById('ag-buscar').value.trim();
+            const caja = document.getElementById('ag-resultados');
+            if (q.length < 2) { caja.classList.add('hidden'); return; }
+            const r = await fetch('/api/productos/buscar?q=' + encodeURIComponent(q), { credentials: 'same-origin' });
+            const ps = ((await r.json()).productos || []).slice(0, 15);
+            if (ya && ps.length === 1) { agElegir(ps[0]); return; }
+            window._agLista = ps;
+            caja.innerHTML = ps.length ? ps.map((p, i) => '<button type="button" onclick="agElegir(window._agLista[' + i + '])" class="block w-full text-left px-3 py-2 text-sm hover:bg-sky-50">'
+                + agEsc(p.nombre) + ' <span class="text-xs text-gray-400">' + agEsc(p.codigo) + ' · stock ' + Number(p.stock) + ' · $' + Number(p.precio_a).toFixed(2) + '</span></button>').join('')
+                : '<p class="px-3 py-2 text-sm text-gray-400">Sin resultados</p>';
+            caja.classList.remove('hidden');
+        }, ya ? 0 : 250);
+    }
+    function agElegir(p) {
+        agProducto = p;
+        document.getElementById('ag-resultados').classList.add('hidden');
+        document.getElementById('ag-buscar').value = p.nombre;
+        document.getElementById('ag-elegido').textContent = p.nombre + ' — hay ' + Number(p.stock);
+        const sel = document.getElementById('ag-unidad');
+        sel.innerHTML = '<option value="" data-precio="' + Number(p.precio_a) + '">Unidad base ($' + Number(p.precio_a).toFixed(2) + ')</option>'
+            + (p.unidades || []).filter(u => Number(u.factor_conversion) > 1).map(u => '<option value="' + u.unidad_id + '" data-precio="' + Number(u.precio_a) + '">'
+            + agEsc(u.nombre) + ' ×' + Number(u.factor_conversion) + ' ($' + Number(u.precio_a).toFixed(2) + ')</option>').join('');
+        agTotal();
+        document.getElementById('ag-cantidad').focus();
+    }
+    function agTotal() {
+        const sel = document.getElementById('ag-unidad');
+        const precio = sel.selectedIndex >= 0 ? Number(sel.options[sel.selectedIndex].dataset.precio) : 0;
+        const c = parseFloat(document.getElementById('ag-cantidad').value) || 0;
+        document.getElementById('ag-total').textContent = '$' + (Math.round(precio * c * 100) / 100).toFixed(2);
+    }
+    async function agGuardar() {
+        const err = document.getElementById('ag-error');
+        if (!agProducto) { err.textContent = 'Elige el producto.'; return; }
+        const forma = document.getElementById('ag-forma');
+        const boton = document.getElementById('ag-boton');
+        boton.disabled = true;
+        try {
+            const r = await fetch('/ventas/venta/<?= (int) $venta['venta_id'] ?>/agregar', {
+                method: 'POST', credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': <?= json_encode(csrf_hash()) ?> },
+                body: JSON.stringify({
+                    producto_id: agProducto.producto_id,
+                    unidad_id: document.getElementById('ag-unidad').value || null,
+                    cantidad: parseFloat(document.getElementById('ag-cantidad').value) || 0,
+                    forma_pago: forma ? forma.value : null,
+                }),
+            });
+            const d = await r.json().catch(() => ({ error: 'La sesión expiró: recarga la página.' }));
+            if (!r.ok) throw new Error(d.error || 'No se pudo agregar');
+            location.reload();
+        } catch (e) {
+            err.textContent = e.message;
+            boton.disabled = false;
         }
     }
 
