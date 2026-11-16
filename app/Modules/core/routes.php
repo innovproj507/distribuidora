@@ -11,6 +11,7 @@
 $routes->group('', ['filter' => ['auth', 'sucursal']], static function ($routes) {
     $routes->get('/', 'DashboardController::index');
     $routes->get('dashboard', 'DashboardController::index');
+    $routes->get('api/notificaciones', 'NotificacionController::index');
 
     // 2FA
     $routes->get('auth/2fa/setup', 'Auth2faController::setup');

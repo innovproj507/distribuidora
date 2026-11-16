@@ -227,17 +227,39 @@ $breadcrumbLabel = $page_title ?? 'Sistema POS';
                     <div class="relative">
                         <button type="button" class="relative w-9 h-9 flex items-center justify-center rounded-lg bg-amber-50 text-amber-500 hover:bg-amber-500 hover:text-white transition-colors" onclick="let n=document.getElementById('notifDropdown');if(n)n.classList.toggle('hidden');event.stopPropagation();">
                             <i class="fas fa-bell text-sm"></i>
-                            <span class="absolute top-1.5 right-1.5 bg-rose-500 w-2 h-2 rounded-full border-2 border-white"></span>
+                            <span id="notifBadge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-bold rounded-full border-2 border-white flex items-center justify-center"></span>
                         </button>
-                        <div id="notifDropdown" class="hidden absolute top-full right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+                        <div id="notifDropdown" class="hidden absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
                             <div class="px-4 py-3 border-b border-gray-50 bg-amber-50">
-                                <h3 class="text-xs font-bold text-amber-700 uppercase tracking-wider">Notificaciones</h3>
+                                <h3 class="text-xs font-bold text-amber-700 uppercase tracking-wider">Notificaciones · <?= esc($sucursal_actual['nombre'] ?? '') ?></h3>
                             </div>
-                            <div class="px-4 py-8 text-center text-gray-400 text-sm">
-                                <i class="fas fa-bell-slash text-2xl mb-2 block"></i>
-                                No hay notificaciones
+                            <div id="notifLista">
+                                <div class="px-4 py-8 text-center text-gray-400 text-sm">
+                                    <i class="fas fa-bell-slash text-2xl mb-2 block"></i>
+                                    No hay notificaciones
+                                </div>
                             </div>
                         </div>
+                        <script>
+                        // Avisos en vivo de la tienda activa (traslados, compras, stock, vencimientos, cajas, créditos)
+                        (function () {
+                            fetch('/api/notificaciones', { credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                                .then(function (r) { return r.ok ? r.json() : null; })
+                                .then(function (d) {
+                                    if (!d || !d.avisos || !d.avisos.length) return;
+                                    var badge = document.getElementById('notifBadge');
+                                    badge.textContent = d.avisos.length > 9 ? '9+' : d.avisos.length;
+                                    badge.classList.remove('hidden');
+                                    var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+                                    document.getElementById('notifLista').innerHTML = d.avisos.map(function (a) {
+                                        return '<a href="' + esc(a.url) + '" class="flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50">'
+                                            + '<span class="w-8 h-8 rounded-lg bg-' + esc(a.color) + '-100 text-' + esc(a.color) + '-600 flex items-center justify-center shrink-0"><i class="fas ' + esc(a.icono) + ' text-xs"></i></span>'
+                                            + '<span class="text-sm text-gray-700"><b class="text-gray-900">' + Number(a.n) + '</b> ' + esc(a.texto) + '</span></a>';
+                                    }).join('');
+                                })
+                                .catch(function () {});
+                        })();
+                        </script>
                     </div>
 
                     <!-- Usuario -->

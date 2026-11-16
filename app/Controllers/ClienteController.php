@@ -283,6 +283,14 @@ class ClienteController extends BaseController
                  FROM clientes WHERE empresa_id = ?",
                 [$this->empresaId()]
             ),
+            // Lo cobrado hoy en esta tienda, por forma de pago
+            'cobrosHoy'   => Db::all(
+                "SELECT forma_pago, COUNT(*) AS recibos, SUM(monto) AS total FROM cobros
+                 WHERE sucursal_id = ? AND DATE(fecha) = CURDATE() GROUP BY forma_pago ORDER BY total DESC",
+                [$this->sucursalId()]
+            ),
+            'puedeCobrar' => \App\Libraries\Auth::can('ventas.crear') || \App\Libraries\Auth::can('pos.usar'),
+            'ver'         => (string) ($this->request->getGet('ver') ?? ''),
         ]);
     }
 
