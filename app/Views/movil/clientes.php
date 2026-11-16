@@ -192,7 +192,10 @@ function filaHistorial(m) {
   } else if (m.tipo !== 'abono' && (m.estado === 'pagada' && (m.tipo === 'saldo' || m.credito > 0))) {
     estado = etiqueta('Pagada', 'var(--green-light)', 'var(--green)');
   }
-  const abrir = m.tipo === 'venta' && m.ver ? ' onclick="location.href=\'/m/ventas?venta=' + Number(m.id) + '\'" style="cursor:pointer"' : '';
+  // Abono con foto del comprobante: al tocarlo se abre la foto
+  if (m.tipo === 'abono' && m.foto) estado = etiqueta('📎 comprobante', 'var(--navy-light)', 'var(--navy)');
+  const abrir = m.tipo === 'venta' && m.ver ? ' onclick="location.href=\'/m/ventas?venta=' + Number(m.id) + '\'" style="cursor:pointer"'
+    : (m.tipo === 'abono' && m.foto ? ' onclick="window.open(\'/m/api/cobro/' + Number(m.id) + '/comprobante?v=' + esc(m.foto) + '\', \'_blank\')" style="cursor:pointer"' : '');
   return '<div class="card !p-3 flex items-center gap-3' + (anulada ? ' opacity-50' : '') + '"' + abrir + '>' +
     '<div class="text-lg">' + icono + '</div>' +
     '<div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">' + esc(titulo) + '</p>' +

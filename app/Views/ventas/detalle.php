@@ -210,6 +210,16 @@ $bc = match($venta['estado']) {
                 <td class="px-6 py-2 text-xs text-gray-500">
                     <?php if (!empty($a['referencia'])): ?>Ref: <span class="font-mono"><?= esc($a['referencia']) ?></span><?php endif; ?>
                     <?php if (!empty($a['notas'])): ?><span class="block"><?= esc($a['notas']) ?></span><?php endif; ?>
+                    <?php if (!empty($a['comprobante'])): ?>
+                        <a href="/m/api/cobro/<?= (int) $a['cobro_id'] ?>/comprobante?v=<?= md5((string) $a['comprobante']) ?>" target="_blank" class="inline-block mt-1 text-sky-600 font-semibold hover:underline">📎 Ver comprobante</a>
+                    <?php elseif (\App\Libraries\Comprobantes::exigeFoto((string) $a['forma_pago'])
+                                  && ((int) $a['usuario_id'] === (int) \App\Libraries\Auth::id() || \App\Libraries\Auth::can('ventas.anular'))
+                                  && (int) $a['sucursal_id'] === (int) ($sucursal_actual['sucursal_id'] ?? 0)): ?>
+                        <label class="inline-block mt-1 text-amber-600 font-semibold cursor-pointer hover:underline">
+                            📎 Falta la foto — adjuntar
+                            <input type="file" accept="image/*" class="hidden" onchange="adjuntarFotoCobro(this, <?= (int) $a['cobro_id'] ?>)">
+                        </label>
+                    <?php endif; ?>
                 </td>
                 <td class="px-6 py-2 text-gray-600"><?= esc($a['usuario'] ?? '') ?></td>
                 <td class="px-6 py-2 text-right font-semibold">$<?= number_format((float) $a['monto'], 2) ?></td>
@@ -225,7 +235,7 @@ $bc = match($venta['estado']) {
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
         <h3 class="text-lg font-bold text-gray-800 mb-1">Abonar / pagar factura <?= esc($venta['numero_factura']) ?></h3>
         <p class="text-sm text-gray-500 mb-4">Falta por pagar: <strong class="text-amber-700">$<?= number_format((float) ($falta_pagar ?? 0), 2) ?></strong>. Puedes abonar una parte; al llegar a $0 la factura queda <strong>pagada</strong>.</p>
-        <form id="form-pagar" method="POST" action="/ventas/venta/<?= (int) $venta['venta_id'] ?>/pagar" onsubmit="return confirmarAbono()">
+        <form id="form-pagar" method="POST" enctype="multipart/form-data" action="/ventas/venta/<?= (int) $venta['venta_id'] ?>/pagar" onsubmit="return confirmarAbono()">
             <?= csrf_field() ?>
             <div class="mb-3">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Monto</label>
@@ -250,6 +260,12 @@ $bc = match($venta['estado']) {
             <div class="mb-3 hidden" id="pagar-ref-bloque">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Referencia / Nº de comprobante</label>
                 <input type="text" name="referencia" maxlength="100" autocomplete="off" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Nº de confirmación">
+                <label class="block text-sm font-medium text-gray-700 mt-3 mb-1">
+                    Foto del comprobante <span id="pagar-foto-req" class="text-red-500">*</span>
+                    <span class="text-gray-400 font-normal text-xs">(captura del Yappy, transferencia o cheque)</span>
+                </label>
+                <input type="file" name="foto" id="pagar-foto" accept="image/*"
+                       class="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-sky-50 file:text-sky-700 file:font-semibold">
             </div>
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Notas <span class="text-gray-400 font-normal">(opcional)</span></label>
@@ -368,6 +384,26 @@ $bc = match($venta['estado']) {
         }
     }
 
+    // Foto del comprobante de un abono que quedó sin ella
+    async function adjuntarFotoCobro(input, cobroId) {
+        const f = input.files && input.files[0];
+        input.value = '';
+        if (!f) return;
+        let archivo = f;
+        try { if (window.FotoProducto) archivo = await FotoProducto.reducir(f); } catch (e) { archivo = f; }
+        const datos = new FormData();
+        datos.append('foto', archivo, 'comprobante.jpg');
+        try {
+            const r = await fetch('/m/api/cobro/' + cobroId + '/comprobante', {
+                method: 'POST', credentials: 'same-origin', body: datos,
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': <?= json_encode(csrf_hash()) ?> },
+            });
+            const res = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(res.error || 'No se pudo subir');
+            location.reload();
+        } catch (e) { alert('No se pudo subir el comprobante: ' + e.message); }
+    }
+
     // ── Agregar producto que se quedó fuera de la factura ──
     let agProducto = null, agTimer = null;
     const agEsc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -450,6 +486,11 @@ $bc = match($venta['estado']) {
     function cambiarFormaAbono() {
         const f = document.getElementById('pagar-forma').value;
         document.getElementById('pagar-ref-bloque').classList.toggle('hidden', ['YAPPY', 'TRANSFERENCIA', 'TARJETA', 'CHEQUE'].indexOf(f) === -1);
+        // Foto obligatoria para Yappy / transferencia / cheque; opcional con tarjeta (voucher)
+        const exige = ['YAPPY', 'TRANSFERENCIA', 'CHEQUE'].indexOf(f) !== -1;
+        document.getElementById('pagar-foto').required = exige;
+        document.getElementById('pagar-foto-req').style.display = exige ? '' : 'none';
+        if (f === 'EFECTIVO') document.getElementById('pagar-foto').value = '';
     }
     let abonoEnviado = false;
     function confirmarAbono() {

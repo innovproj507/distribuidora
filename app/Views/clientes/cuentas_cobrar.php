@@ -151,9 +151,18 @@ $lista = array_map(fn ($c) => [
             </div>
             <input type="text" x-show="forma !== 'EFECTIVO'" x-model="referencia" maxlength="100" placeholder="Referencia / nº de comprobante (opcional)"
                    class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg mb-3">
+            <!-- Foto del comprobante: obligatoria con Yappy / transferencia / cheque; opcional con tarjeta -->
+            <div x-show="forma !== 'EFECTIVO'" class="mb-3 rounded-lg border p-3" :class="exigeFoto() && !foto ? 'border-amber-300 bg-amber-50' : 'border-slate-200'">
+                <p class="text-sm font-semibold text-slate-700 mb-1">
+                    Foto del comprobante <span x-show="exigeFoto()" class="text-rose-500">* obligatoria</span><span x-show="!exigeFoto()" class="text-slate-400 font-normal">(voucher, opcional)</span>
+                </p>
+                <input type="file" accept="image/*" x-ref="foto" @change="elegirFoto($event)"
+                       class="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-sky-50 file:text-sky-700 file:font-semibold">
+                <img x-show="fotoUrl" :src="fotoUrl" class="mt-2 max-h-32 rounded-lg border border-slate-200">
+            </div>
 
             <p class="text-sm text-rose-600 mb-2" x-text="error"></p>
-            <button type="button" @click="cobrar()" :disabled="guardando || !(monto > 0) || monto > tope() + 0.005"
+            <button type="button" @click="cobrar()" :disabled="guardando || !(monto > 0) || monto > tope() + 0.005 || (exigeFoto() && !foto)"
                     class="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 disabled:opacity-40">
                 <i class="fas fa-check mr-1"></i> <span x-text="guardando ? 'Registrando…' : 'Cobrar ' + dinero(monto || 0) + ' en ' + forma.toLowerCase()"></span>
             </button>
@@ -179,6 +188,7 @@ $lista = array_map(fn ($c) => [
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
+<script src="/assets/js/foto-producto.js?v=1"></script>
 <script>
 function cuentasCobrar() {
     const CSRF = <?= json_encode(csrf_hash()) ?>;
@@ -188,7 +198,15 @@ function cuentasCobrar() {
         clientes: <?= json_encode($lista, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
         q: '', filtro: <?= json_encode(in_array($ver, ['excedidos', 'antiguos'], true) ? $ver : 'todos') ?>, orden: 'saldo',
         abierto: false, cliente: null, facturas: [], factura: null, monto: '', forma: 'EFECTIVO', referencia: '',
-        guardando: false, error: '', recibo: null,
+        guardando: false, error: '', recibo: null, foto: null, fotoUrl: '',
+
+        exigeFoto() { return ['YAPPY', 'TRANSFERENCIA', 'CHEQUE'].includes(this.forma); },
+        async elegirFoto(ev) {
+            const f = ev.target.files && ev.target.files[0];
+            if (!f) { this.foto = null; this.fotoUrl = ''; return; }
+            try { this.foto = window.FotoProducto ? await FotoProducto.reducir(f) : f; } catch (e) { this.foto = f; }
+            this.fotoUrl = URL.createObjectURL(this.foto);
+        },
 
         dinero(n) { return '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
         fecha(f) { const d = String(f || '').slice(0, 10).split('-'); return d.length === 3 ? d[2] + '/' + d[1] : ''; },
@@ -208,6 +226,7 @@ function cuentasCobrar() {
         async abrir(c) {
             this.cliente = c; this.facturas = []; this.factura = null; this.monto = ''; this.forma = 'EFECTIVO';
             this.referencia = ''; this.error = ''; this.recibo = null; this.abierto = true;
+            this.foto = null; this.fotoUrl = ''; if (this.$refs.foto) this.$refs.foto.value = '';
             try {
                 const r = await fetch('/m/api/cliente/' + c.id + '/pendientes', { credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
                 const d = await r.json();
@@ -218,13 +237,20 @@ function cuentasCobrar() {
         },
 
         async cobrar() {
+            if (this.exigeFoto() && !this.foto) { this.error = 'Adjunta la foto del comprobante.'; return; }
             this.guardando = true; this.error = '';
             try {
+                // Cobro y foto van juntos: si la foto no llega, el cobro no se registra
+                const datos = new FormData();
+                datos.append('cliente_id', this.cliente.id);
+                datos.append('monto', Number(this.monto));
+                datos.append('forma_pago', this.forma);
+                datos.append('referencia', this.forma === 'EFECTIVO' ? '' : this.referencia);
+                if (this.factura && this.factura.venta_id) datos.append('venta_id', this.factura.venta_id);
+                if (this.foto && this.forma !== 'EFECTIVO') datos.append('foto', this.foto, 'comprobante.jpg');
                 const r = await fetch('/m/api/cobro', {
-                    method: 'POST', credentials: 'same-origin',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF },
-                    body: JSON.stringify({ cliente_id: this.cliente.id, monto: Number(this.monto), forma_pago: this.forma,
-                        referencia: this.forma === 'EFECTIVO' ? '' : this.referencia, venta_id: this.factura ? this.factura.venta_id : null }),
+                    method: 'POST', credentials: 'same-origin', body: datos,
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF },
                 });
                 const d = await r.json().catch(() => ({ error: 'La sesión expiró: recarga la página.' }));
                 if (!r.ok) throw new Error(d.error || 'No se pudo registrar el cobro');

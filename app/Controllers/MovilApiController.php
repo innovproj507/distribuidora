@@ -266,6 +266,56 @@ class MovilApiController extends BaseController
         return $this->json(['success' => true, 'v' => md5($sub . '/' . $nombre)]);
     }
 
+    /**
+     * POST /m/api/cobro/{id}/comprobante (multipart "foto") — foto del comprobante de un abono
+     * (Yappy / transferencia / cheque; voucher de tarjeta). Quien registró el cobro o quien puede
+     * anular ventas, en la sucursal activa. Se guarda fuera de public/, como las ventas.
+     */
+    public function subirComprobanteCobro(int $id)
+    {
+        $c = Db::row("SELECT cobro_id, numero, usuario_id, comprobante FROM cobros WHERE cobro_id = ? AND sucursal_id = ?", [$id, $this->sucursalId()]);
+        if (!$c) return $this->json(['error' => 'Cobro no encontrado en esta tienda.'], 404);
+        if ((int) $c['usuario_id'] !== (int) Auth::id() && !Auth::can('ventas.anular')) {
+            return $this->json(['error' => 'Sin permiso para este cobro.'], 403);
+        }
+        $file = $this->request->getFile('foto');
+        if ($file === null || !$file->isValid() || $file->hasMoved()) {
+            return $this->json(['error' => 'No llegó la foto.'], 422);
+        }
+        $tipos = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+        $mime  = $file->getMimeType();
+        if (!isset($tipos[$mime]) || $file->getSize() > 8 * 1024 * 1024) {
+            return $this->json(['error' => 'La foto debe ser JPG, PNG o WEBP de menos de 8 MB.'], 422);
+        }
+        $sub    = date('Y/m');
+        $nombre = 'c' . $id . '_' . bin2hex(random_bytes(8)) . '.' . $tipos[$mime];
+        $file->move(WRITEPATH . 'uploads/comprobantes/' . $sub, $nombre);
+        if ($c['comprobante']) {
+            @unlink(WRITEPATH . 'uploads/comprobantes/' . $c['comprobante']);
+        }
+        Db::update('cobros', ['comprobante' => $sub . '/' . $nombre], ['cobro_id' => $id]);
+        AuditService::log('cobros.comprobante', "Comprobante adjuntado al cobro {$c['numero']}", $id, 'cobro', [], $this->empresaId());
+        return $this->json(['success' => true, 'v' => md5($sub . '/' . $nombre)]);
+    }
+
+    /** GET /m/api/cobro/{id}/comprobante — foto del comprobante de un abono (cobros de las sucursales del usuario). */
+    public function verComprobanteCobro(int $id)
+    {
+        if (!Auth::can('clientes.ver') && !Auth::can('ventas.ver')) return $this->json(['error' => 'Sin permiso.'], 403);
+        $sucursales = array_map('intval', array_column(\App\Libraries\SucursalService::disponibles((int) $this->empresaId()), 'sucursal_id')) ?: [0];
+        $ruta = Db::value(
+            "SELECT comprobante FROM cobros WHERE cobro_id = ? AND sucursal_id IN (" . implode(',', array_fill(0, count($sucursales), '?')) . ")",
+            array_merge([$id], $sucursales)
+        );
+        $archivo = $ruta ? realpath(WRITEPATH . 'uploads/comprobantes/' . $ruta) : false;
+        $base    = realpath(WRITEPATH . 'uploads/comprobantes');
+        if (!$archivo || !$base || !str_starts_with($archivo, $base) || !is_file($archivo)) {
+            return $this->response->setStatusCode(404)->setBody('Sin comprobante.');
+        }
+        $mime = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp'][strtolower(pathinfo($archivo, PATHINFO_EXTENSION))] ?? 'application/octet-stream';
+        return $this->response->setHeader('Content-Type', $mime)->setHeader('Cache-Control', 'private, max-age=86400')->setBody((string) file_get_contents($archivo));
+    }
+
     /** GET /m/api/venta/{id}/comprobante — muestra la foto (ventas de las sucursales del usuario). */
     public function verComprobante(int $id)
     {
@@ -621,7 +671,7 @@ class MovilApiController extends BaseController
             ];
         }
         foreach (Db::all(
-            "SELECT c.cobro_id, c.numero, c.fecha, c.monto, c.forma_pago, c.referencia,
+            "SELECT c.cobro_id, c.numero, c.fecha, c.monto, c.forma_pago, c.referencia, c.comprobante,
                     (SELECT GROUP_CONCAT(COALESCE(v.numero_factura, s.numero) SEPARATOR ', ')
                      FROM cobros_ventas cv LEFT JOIN ventas v ON v.venta_id = cv.venta_id LEFT JOIN saldos_anteriores s ON s.saldo_id = cv.saldo_id
                      WHERE cv.cobro_id = c.cobro_id) AS aplicado
@@ -631,6 +681,7 @@ class MovilApiController extends BaseController
             $mov[] = [
                 'tipo' => 'abono', 'id' => (int) $c['cobro_id'], 'numero' => $c['numero'], 'fecha' => $c['fecha'],
                 'monto' => (float) $c['monto'], 'forma' => $c['forma_pago'], 'referencia' => $c['referencia'], 'aplicado' => $c['aplicado'],
+                'foto'  => $c['comprobante'] ? md5((string) $c['comprobante']) : null,
             ];
         }
         usort($mov, fn ($a, $b) => strcmp($b['fecha'], $a['fecha']));
@@ -646,20 +697,34 @@ class MovilApiController extends BaseController
     public function crearCobro()
     {
         if (!Auth::can('ventas.crear') && !Auth::can('pos.usar')) return $this->json(['error' => 'Sin permiso para registrar cobros.'], 403);
-        $d = $this->jsonInput();
+        // JSON (sin foto) o multipart con "foto": Yappy / transferencia / cheque exigen la foto del comprobante
+        $d    = str_contains((string) $this->request->getHeaderLine('Content-Type'), 'multipart/') ? (array) $this->request->getPost() : $this->jsonInput();
+        $foto = $this->request->getFile('foto');
+        $forma = strtoupper((string) ($d['forma_pago'] ?? 'EFECTIVO'));
+        $tieneFoto = $foto !== null && $foto->isValid() && !$foto->hasMoved();
+        $ruta = null;
         try {
+            if (\App\Libraries\Comprobantes::exigeFoto($forma) || $tieneFoto) {
+                \App\Libraries\Comprobantes::validar($foto);
+            }
             Db::begin();
             $res = \App\Libraries\CobroService::registrar(
-                (int) ($d['cliente_id'] ?? 0), (float) ($d['monto'] ?? 0), (string) ($d['forma_pago'] ?? 'EFECTIVO'),
+                (int) ($d['cliente_id'] ?? 0), (float) ($d['monto'] ?? 0), $forma,
                 isset($d['referencia']) ? (string) $d['referencia'] : null, null,
                 ['empresa_id' => $this->empresaId(), 'sucursal_id' => $this->sucursalId()],
                 !empty($d['venta_id']) ? (int) $d['venta_id'] : null
             );
+            if ($tieneFoto) {
+                $ruta = \App\Libraries\Comprobantes::guardar($foto, 'c' . $res['cobro_id']);
+                Db::update('cobros', ['comprobante' => $ruta], ['cobro_id' => $res['cobro_id']]);
+            }
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollback();
+            \App\Libraries\Comprobantes::borrar($ruta);
             return $this->json(['error' => $e instanceof \RuntimeException ? $e->getMessage() : 'No se pudo registrar el cobro.'], 422);
         }
+        $res['comprobante'] = $ruta !== null;
         AuditService::log('ventas.cobro', "Cobro {$res['numero']} de \${$res['monto']} (móvil)", $res['cobro_id'], 'cobro', ['cliente_id' => (int) ($d['cliente_id'] ?? 0)], $this->empresaId());
         return $this->json(['success' => true] + $res);
     }

@@ -374,7 +374,8 @@ class VentaController extends BaseController
             'pagos_venta' => Db::all("SELECT forma_pago, monto, referencia FROM ventas_pagos WHERE venta_id = ? ORDER BY pago_id", [$ventaId]),
             // Abonos (cobros) aplicados a esta factura y lo que aún falta
             'abonos'      => Db::all(
-                "SELECT c.cobro_id, c.numero, c.fecha, c.forma_pago, c.referencia, c.notas, cv.monto, u.username AS usuario
+                "SELECT c.cobro_id, c.numero, c.fecha, c.forma_pago, c.referencia, c.notas, cv.monto, u.username AS usuario,
+                        c.comprobante, c.usuario_id, c.sucursal_id
                  FROM cobros_ventas cv JOIN cobros c ON c.cobro_id = cv.cobro_id LEFT JOIN users u ON u.id = c.usuario_id
                  WHERE cv.venta_id = ? ORDER BY c.fecha, c.cobro_id",
                 [$ventaId]
@@ -463,6 +464,12 @@ class VentaController extends BaseController
             $monto     = $montoPost === '' ? $falta : round((float) str_replace(',', '.', $montoPost), 2);
             $forma     = strtoupper((string) ($this->request->getPost('forma_pago') ?? 'EFECTIVO'));
             $notas     = trim((string) ($this->request->getPost('notas') ?? ''));
+            // Yappy / transferencia / cheque: foto del comprobante obligatoria (tarjeta: opcional)
+            $foto      = $this->request->getFile('foto');
+            $tieneFoto = $foto !== null && $foto->isValid() && !$foto->hasMoved();
+            if (\App\Libraries\Comprobantes::exigeFoto($forma) || $tieneFoto) {
+                \App\Libraries\Comprobantes::validar($foto);
+            }
 
             Db::begin();
             $recibo = \App\Libraries\CobroService::registrar(
@@ -470,6 +477,9 @@ class VentaController extends BaseController
                 $notas !== '' ? $notas : ($monto >= $falta - 0.004 ? 'Pago total' : 'Abono') . ' desde detalle de venta',
                 ['empresa_id' => $this->empresaId(), 'sucursal_id' => $this->sucursalId()], $ventaId
             );
+            if ($tieneFoto) {
+                Db::update('cobros', ['comprobante' => \App\Libraries\Comprobantes::guardar($foto, 'c' . $recibo['cobro_id'])], ['cobro_id' => $recibo['cobro_id']]);
+            }
             Db::commit();
             AuditService::log('cobros.crear', "Abono {$recibo['numero']} de $" . number_format($monto, 2) . " ({$forma}) a la venta #{$ventaId}", $ventaId, 'venta', [], $this->empresaId());
             $queda = round($falta - $monto, 2);

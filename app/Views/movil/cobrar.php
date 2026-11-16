@@ -88,7 +88,24 @@ $cobradoHoy = array_sum(array_map(fn ($c) => (float) $c['total'], $cobrosHoy));
     <button type="button" class="chip-pago chip-cb" data-forma="TARJETA" onclick="elegirFormaCobro('TARJETA')">💳 Tarjeta</button>
     <button type="button" class="chip-pago chip-cb" data-forma="CHEQUE" onclick="elegirFormaCobro('CHEQUE')">🧾 Cheque</button>
   </div>
-  <input id="cb-ref" class="field-input mb-4" style="font-family:'Inter'; display:none" placeholder="Referencia / nº de comprobante (opcional)">
+  <input id="cb-ref" class="field-input mb-3" style="font-family:'Inter'; display:none" placeholder="Referencia / nº de comprobante (opcional)">
+  <!-- Foto del comprobante: obligatoria con Yappy / transferencia / cheque; opcional con tarjeta (voucher) -->
+  <div id="cb-foto-bloque" class="rounded-xl p-3 mb-4" style="display:none; border:1.5px solid var(--line)">
+    <p class="text-sm font-semibold mb-2">Foto del comprobante <span id="cb-foto-req" style="color:var(--red)">* obligatoria</span><span id="cb-foto-opc" style="color:var(--ink-soft); font-weight:400">(voucher, opcional)</span></p>
+    <div class="flex gap-2">
+      <label class="flex-1 text-center py-2.5 rounded-xl text-sm font-medium cursor-pointer" style="background:var(--navy-light); color:var(--navy)">📷 Tomar foto
+        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="elegirFotoCobro(this)">
+      </label>
+      <label class="flex-1 text-center py-2.5 rounded-xl text-sm font-medium cursor-pointer" style="background:var(--navy-light); color:var(--navy)">🖼️ Galería
+        <input type="file" accept="image/*" class="hidden" onchange="elegirFotoCobro(this)">
+      </label>
+    </div>
+    <div id="cb-foto-previa" class="mt-2 items-center gap-2" style="display:none">
+      <img id="cb-foto-img" alt="Comprobante" class="w-16 h-16 rounded-lg object-cover border" style="border-color:var(--line)">
+      <span class="text-xs flex-1" style="color:var(--green)">✓ Foto lista</span>
+      <button type="button" onclick="quitarFotoCobro()" class="text-xs font-semibold px-2 py-1 rounded-lg" style="color:var(--red)">Quitar</button>
+    </div>
+  </div>
   <button type="button" id="btn-cobro" onclick="confirmarCobro()" class="btn-primario" style="background:var(--teal)">Cobrar</button>
 </div>
 
@@ -109,8 +126,26 @@ $cobradoHoy = array_sum(array_map(fn ($c) => (float) $c['total'], $cobrosHoy));
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
+<script src="/assets/js/foto-producto.js?v=1"></script>
 <script>
-let clienteCobro = null, facturasCobro = [], facturaElegida = null, formaCobro = 'EFECTIVO', filtroActual = 'todos';
+let clienteCobro = null, facturasCobro = [], facturaElegida = null, formaCobro = 'EFECTIVO', filtroActual = 'todos', fotoCobro = null;
+const FORMAS_CON_FOTO = ['YAPPY', 'TRANSFERENCIA', 'CHEQUE'];
+
+async function elegirFotoCobro(input) {
+  const f = input.files && input.files[0];
+  input.value = '';
+  if (!f) return;
+  try { fotoCobro = window.FotoProducto ? await FotoProducto.reducir(f) : f; } catch (e) { fotoCobro = f; }
+  document.getElementById('cb-foto-img').src = URL.createObjectURL(fotoCobro);
+  document.getElementById('cb-foto-previa').style.display = 'flex';
+  resumenCobro();
+}
+function quitarFotoCobro() {
+  fotoCobro = null;
+  document.getElementById('cb-foto-previa').style.display = 'none';
+  document.getElementById('cb-foto-img').removeAttribute('src');
+  resumenCobro();
+}
 const sinAcento = function (s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); };
 
 // ── Lista: buscar y filtrar ──
@@ -144,6 +179,10 @@ function elegirFormaCobro(f) {
   formaCobro = f;
   document.querySelectorAll('.chip-cb').forEach(function (b) { b.classList.toggle('activo', b.dataset.forma === f); });
   document.getElementById('cb-ref').style.display = f === 'EFECTIVO' ? 'none' : '';
+  const exige = FORMAS_CON_FOTO.indexOf(f) !== -1;
+  document.getElementById('cb-foto-bloque').style.display = f === 'EFECTIVO' ? 'none' : '';
+  document.getElementById('cb-foto-req').style.display = exige ? '' : 'none';
+  document.getElementById('cb-foto-opc').style.display = exige ? 'none' : '';
   resumenCobro();
 }
 
@@ -178,7 +217,10 @@ function resumenCobro() {
   if (m > tope() + 0.005) { q.textContent = 'Es más de lo que debe (' + dinero(tope()) + ')'; q.style.color = 'var(--red)'; }
   else { q.textContent = m > 0 ? 'Quedará debiendo ' + dinero(deuda() - m) : ' '; q.style.color = 'var(--ink-soft)'; }
   const nombres = { EFECTIVO: 'efectivo', YAPPY: 'Yappy', TRANSFERENCIA: 'transferencia', TARJETA: 'tarjeta', CHEQUE: 'cheque' };
-  boton.textContent = m > 0 ? 'Cobrar ' + dinero(m) + ' en ' + nombres[formaCobro] : 'Cobrar';
+  const faltaFoto = FORMAS_CON_FOTO.indexOf(formaCobro) !== -1 && !fotoCobro;
+  document.getElementById('cb-foto-bloque').style.borderColor = faltaFoto ? 'var(--orange)' : 'var(--line)';
+  boton.textContent = faltaFoto ? 'Falta la foto del comprobante' : (m > 0 ? 'Cobrar ' + dinero(m) + ' en ' + nombres[formaCobro] : 'Cobrar');
+  boton.style.opacity = faltaFoto ? '.6' : '';
 }
 
 async function abrirCobro(id) {
@@ -191,6 +233,7 @@ async function abrirCobro(id) {
     document.getElementById('cb-saldo').textContent = dinero(deuda());
     document.getElementById('cb-monto').value = '';
     document.getElementById('cb-ref').value = '';
+    quitarFotoCobro();
     pintarFacturas();
     elegirFormaCobro('EFECTIVO');
     abrirSheet('sheet-cobro');
@@ -201,14 +244,24 @@ async function confirmarCobro() {
   const monto = parseFloat(document.getElementById('cb-monto').value) || 0;
   if (monto <= 0) { toast('Escribe cuánto paga.', 'error'); return; }
   if (monto > tope() + 0.005) { toast('Es más de lo que debe (' + dinero(tope()) + ').', 'error'); return; }
+  if (FORMAS_CON_FOTO.indexOf(formaCobro) !== -1 && !fotoCobro) { toast('Toma o elige la foto del comprobante.', 'error'); return; }
   const boton = document.getElementById('btn-cobro');
   boton.disabled = true; boton.textContent = 'Registrando…';
   try {
-    const r = await api('/m/api/cobro', { method: 'POST', body: {
-      cliente_id: clienteCobro, monto: monto, forma_pago: formaCobro,
-      referencia: formaCobro === 'EFECTIVO' ? '' : document.getElementById('cb-ref').value.trim(),
-      venta_id: facturaElegida ? facturaElegida.venta_id : null,
-    }});
+    // Cobro y foto van juntos: si la foto no llega, el cobro no se registra
+    const datos = new FormData();
+    datos.append('cliente_id', clienteCobro);
+    datos.append('monto', monto);
+    datos.append('forma_pago', formaCobro);
+    datos.append('referencia', formaCobro === 'EFECTIVO' ? '' : document.getElementById('cb-ref').value.trim());
+    if (facturaElegida && facturaElegida.venta_id) datos.append('venta_id', facturaElegida.venta_id);
+    if (fotoCobro && formaCobro !== 'EFECTIVO') datos.append('foto', fotoCobro, 'comprobante.jpg');
+    const resp = await fetch('/m/api/cobro', {
+      method: 'POST', credentials: 'same-origin', body: datos,
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF_TOKEN },
+    });
+    const r = await resp.json().catch(function () { return { error: 'La sesión expiró: vuelve a entrar.' }; });
+    if (!resp.ok) throw new Error(r.error || 'No se pudo registrar el cobro');
     cerrarSheet('sheet-cobro');
     document.getElementById('rc-numero').textContent = r.numero;
     document.getElementById('rc-monto').textContent = dinero(r.monto);
