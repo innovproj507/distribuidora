@@ -101,6 +101,12 @@ $bc = match($venta['estado']) {
                             </span>
                             <?php if (!empty($pg['referencia'])): ?><span class="text-xs text-gray-500">Ref: <span class="font-mono"><?= esc($pg['referencia']) ?></span></span><?php endif; ?>
                         <?php endforeach; ?>
+                        <?php if (($vuelto ?? 0) > 0): ?>
+                            <span class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
+                                <i class="fas fa-coins"></i> Vuelto en efectivo −$<?= number_format((float) $vuelto, 2) ?>
+                            </span>
+                            <span class="text-xs text-gray-500">Salió de la caja #<?= (int) $venta['caja_id'] ?> (pagó de más)</span>
+                        <?php endif; ?>
                     </div>
                 <?php else: ?>
                     <span class="text-sm text-gray-600 uppercase"><?= esc($venta['forma_pago'] ?? '—') ?></span>

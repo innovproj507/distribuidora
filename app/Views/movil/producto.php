@@ -187,7 +187,7 @@ $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.')
 <?php $this->endSection(); ?>
 
 <?php $this->section('extra_js'); ?>
-<script src="/assets/js/ticket.js?v=6"></script>
+<script src="/assets/js/ticket.js?v=7"></script>
 <?php if ($tieneFoto): ?>
 <div id="visor-foto" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="background:rgba(0,0,0,.88)" onclick="cerrarFoto()">
   <img src="/assets/uploads/<?= esc($p['imagen_principal'], 'attr') ?>" alt="" class="max-w-full max-h-full rounded-xl object-contain">

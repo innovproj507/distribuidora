@@ -125,7 +125,7 @@ $listaJs = json_encode($productos, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_
 
 <?php $this->section('extra_js'); ?>
 <script src="/assets/js/lector-teclado.js?v=2"></script>
-<script src="/assets/js/ticket.js?v=6"></script>
+<script src="/assets/js/ticket.js?v=7"></script>
 <script>
 function codigosBarras() {
     const CSRF = <?= json_encode(csrf_hash()) ?>;

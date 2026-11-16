@@ -111,6 +111,8 @@
         dosColumnas(nombres[p.forma_pago] || p.forma_pago, dinero(p.monto)).forEach(function (x) { izq(x); });
         if (p.referencia) izq('  Ref: ' + p.referencia);
       });
+      // Pagó de más por Yappy / transferencia: el vuelto salió en efectivo
+      if (Number(v.vuelto) > 0) dosColumnas('Vuelto (efectivo)', '-' + dinero(v.vuelto)).forEach(function (x) { izq(x); });
     }
     if ((v.pagos || []).some(function (p) { return p.forma_pago === 'CREDITO'; })) {
       izq('');

@@ -360,7 +360,7 @@ class MovilApiController extends BaseController
     private function datosVenta(int $id): ?array
     {
         $v = Db::row(
-            "SELECT v.venta_id, v.numero_factura, v.subtotal, v.itbms, v.descuento, v.total, v.estado, v.forma_pago, v.fecha, v.notas, v.vendedor_id,
+            "SELECT v.venta_id, v.numero_factura, v.subtotal, v.itbms, v.descuento, v.total, v.estado, v.forma_pago, v.fecha, v.notas, v.vendedor_id, v.caja_id,
                     (v.comprobante IS NOT NULL) AS tiene_comprobante, MD5(COALESCE(v.comprobante, '')) AS comprobante_v,
                     c.nombre AS cliente_nombre, c.ruc AS cliente_ruc, u.username AS vendedor
              FROM ventas v LEFT JOIN clientes c ON v.cliente_id = c.cliente_id LEFT JOIN users u ON u.id = v.vendedor_id
@@ -373,6 +373,8 @@ class MovilApiController extends BaseController
             [$id]
         );
         $v['pagos'] = Db::all("SELECT forma_pago, monto, referencia FROM ventas_pagos WHERE venta_id = ?", [$id]);
+        $v['vuelto'] = \App\Libraries\VentaService::vueltoEfectivo((string) $v['numero_factura'], $v['caja_id'] ? (int) $v['caja_id'] : null);
+        unset($v['caja_id']);
         // Adjuntar / cambiar el comprobante después de cobrar: quien hizo la venta o quien puede anular
         $v['puede_comprobante'] = $v['estado'] !== 'anulada'
             && ((int) $v['vendedor_id'] === (int) Auth::id() || Auth::can('ventas.anular'));

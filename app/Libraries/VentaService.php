@@ -248,6 +248,16 @@ final class VentaService
         ];
     }
 
+    /** Vuelto entregado en efectivo por un pago de más con Yappy / transferencia (salida de caja de la venta). */
+    public static function vueltoEfectivo(string $numeroFactura, ?int $cajaId): float
+    {
+        if (!$cajaId || $numeroFactura === '') return 0.0;
+        return round((float) Db::value(
+            "SELECT COALESCE(SUM(monto), 0) FROM caja_movimientos WHERE caja_id = ? AND tipo = 'salida' AND motivo LIKE ?",
+            [$cajaId, 'Vuelto en efectivo%(venta ' . $numeroFactura . ')']
+        ), 2);
+    }
+
     /**
      * Agrega un producto que se quedó fuera de una factura ya hecha (solo del día, no anulada, sin abonos).
      * Precio de lista de la tienda, valida stock, kardex con el número de la factura, recalcula totales.

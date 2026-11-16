@@ -381,6 +381,8 @@ class VentaController extends BaseController
                 [$ventaId]
             ),
             'falta_pagar' => $this->faltaPagar($venta),
+            // Vuelto en efectivo de un pago de más por Yappy / transferencia (salida de caja de esta venta)
+            'vuelto'      => \App\Libraries\VentaService::vueltoEfectivo((string) $venta['numero_factura'], $venta['caja_id'] ? (int) $venta['caja_id'] : null),
         ]);
     }
 

@@ -85,7 +85,7 @@ foreach ($ventas as $v) {
 
 <?php $this->section('extra_js'); ?>
 <script src="/assets/js/foto-producto.js?v=1"></script>
-<script src="/assets/js/ticket.js?v=6"></script>
+<script src="/assets/js/ticket.js?v=7"></script>
 <script>
 document.getElementById('input-busqueda').addEventListener('input', function () {
   const q = this.value.trim().toLowerCase();
@@ -139,6 +139,7 @@ async function verVenta(id) {
     document.getElementById('v-itbms').textContent = dinero(v.itbms);
     document.getElementById('v-total').textContent = dinero(v.total);
     document.getElementById('v-pagos').textContent = 'Pagos: ' + (v.pagos.length ? v.pagos.map(function (p) { return p.forma_pago + ' ' + dinero(p.monto) + (p.referencia ? ' (ref. ' + p.referencia + ')' : ''); }).join(' · ') : v.forma_pago)
+      + (Number(v.vuelto) > 0 ? ' · vuelto en efectivo −' + dinero(v.vuelto) : '')
       + (v.notas && v.notas !== 'Venta desde móvil' ? ' — ' + v.notas.replace(/^Venta desde móvil — /, '') : '');
     mostrarComprobante(v, id);
     const web = document.getElementById('v-web');
