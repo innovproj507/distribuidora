@@ -84,6 +84,7 @@ $routes->group('', ['filter' => ['auth', 'sucursal']], static function ($routes)
     $routes->get('compras/(:num)', 'CompraController::detalle/$1', ['filter' => 'permiso:compras.ver']);
     $routes->get('compras/(:num)/editar', 'CompraController::editar/$1', ['filter' => 'permiso:compras.crear']);
     $routes->post('compras/(:num)/actualizar', 'CompraController::actualizar/$1', ['filter' => 'permiso:compras.crear']);
+    $routes->post('compras/(:num)/anular', 'CompraController::anular/$1', ['filter' => 'permiso:compras.crear']);
     $routes->get('compras/(:num)/recibir', 'CompraController::recibir/$1', ['filter' => 'permiso:compras.recibir']);
     $routes->post('compras/(:num)/procesar-recepcion', 'CompraController::procesarRecepcion/$1', ['filter' => 'permiso:compras.recibir']);
 

@@ -35,6 +35,10 @@ $cancelada = $est === 'cancelada';
            class="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 transition shadow-sm">
             <i class="fas fa-pen"></i> Editar / agregar productos
         </a>
+        <button type="button" onclick="document.getElementById('modal-anular-compra').classList.remove('hidden')"
+                class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 transition">
+            <i class="fas fa-ban"></i> Anular compra
+        </button>
         <?php endif; ?>
         <a href="/compras" class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
             Volver
@@ -166,6 +170,31 @@ $cancelada = $est === 'cancelada';
             <?php endif; ?>
         </table>
     </div>
+</div>
+<?php endif; ?>
+
+<?php if (($compra['estado'] ?? '') === 'pendiente' && \App\Libraries\Auth::can('compras.crear')): ?>
+<!-- Anular una orden pendiente sin nada recibido -->
+<div id="modal-anular-compra" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <form method="POST" action="/compras/<?= (int) $compra['compra_id'] ?>/anular" class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
+          onsubmit="return confirm('¿Anular la compra <?= esc($compra['numero_factura'], 'js') ?>? No se puede deshacer.')">
+        <?= csrf_field() ?>
+        <h3 class="text-lg font-bold text-gray-800 mb-1">Anular compra <?= esc($compra['numero_factura']) ?></h3>
+        <p class="text-sm text-gray-500 mb-4">Queda como <b>anulada</b> con el motivo. No entró nada al inventario, así que el stock no cambia.</p>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Motivo</label>
+        <select name="motivo" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-2"
+                onchange="document.getElementById('anular-otro').classList.toggle('hidden', this.value !== 'otro')">
+            <option value="Compra duplicada">Compra duplicada (se registró dos veces)</option>
+            <option value="Se registró por error">Se registró por error</option>
+            <option value="El proveedor no entregó">El proveedor no entregó</option>
+            <option value="otro">Otro motivo…</option>
+        </select>
+        <input type="text" name="motivo_otro" id="anular-otro" maxlength="200" placeholder="Escribe el motivo" class="hidden w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-2">
+        <div class="flex gap-3 justify-end mt-3">
+            <button type="button" onclick="document.getElementById('modal-anular-compra').classList.add('hidden')" class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
+            <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700"><i class="fas fa-ban mr-1"></i>Anular compra</button>
+        </div>
+    </form>
 </div>
 <?php endif; ?>
 

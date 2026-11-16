@@ -21,12 +21,12 @@
     <!-- Barra de acciones + pipeline de estado -->
     <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div class="flex items-center gap-2">
-            <button @click="saveCompra(false)"
-                class="bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold py-2 px-5 rounded-lg shadow-sm transition-colors flex items-center gap-2">
-                <i class="fas fa-clock text-xs"></i> <?= $editar ? 'Guardar orden' : 'Orden Pendiente' ?>
+            <button @click="saveCompra(false)" :disabled="enviando"
+                class="bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold py-2 px-5 rounded-lg shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50">
+                <i class="fas fa-clock text-xs"></i> <span x-text="enviando ? 'Guardando…' : <?= esc(json_encode($editar ? 'Guardar orden' : 'Orden Pendiente'), 'attr') ?>"></span>
             </button>
-            <button @click="saveCompra(true)"
-                class="bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold py-2 px-5 rounded-lg shadow-sm transition-colors flex items-center gap-2">
+            <button @click="saveCompra(true)" :disabled="enviando"
+                class="bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold py-2 px-5 rounded-lg shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50">
                 <i class="fas fa-save text-xs"></i> <?= $editar ? 'Guardar y recibir' : 'Recibir Ahora' ?>
             </button>
             <a href="<?= $editar ? '/compras/' . (int) $editar['compra_id'] : '/compras' ?>"
@@ -493,6 +493,7 @@ function compraForm() {
         borradorRecuperado: false,
         borradorHora: '',
         guardando: false,
+        enviando: false, // mientras se guarda: bloquea un segundo clic
 
         init() {
             // Pistola de códigos escaneando con el cursor fuera del buscador
@@ -801,6 +802,8 @@ function compraForm() {
         },
 
         async saveCompra(recibir = true) {
+            // Un segundo clic mientras se guarda duplicaba la compra (COMP-S-2026-000029/000030, 16/11)
+            if (this.enviando) return;
             if (!this.compra.proveedor_id) return alert('Seleccione un proveedor');
             if (this.items.length === 0)   return alert('Agregue al menos un producto');
             const sospechosos = this.items.filter(i => this.pareceDelBulto(i)).map(i => '• ' + i.nombre + ': $' + i.precio_a + ' por ' + this.nombreBase(i));
@@ -811,6 +814,8 @@ function compraForm() {
                 ? (recibir ? 'guardar la orden y pasar a recibirla' : 'guardar los cambios de la orden')
                 : (recibir ? 'registrar esta entrada de inventario' : 'guardar como orden pendiente');
             if (!confirm('¿Seguro que desea ' + accion + '?')) return;
+            if (this.enviando) return;
+            this.enviando = true;
 
             try {
                 // Editando: se guarda la orden (sigue pendiente) y "recibir" lleva a la pantalla de recepción
@@ -839,6 +844,7 @@ function compraForm() {
                 } catch (e) {
                     // La sesión venció (el servidor respondió con la página de login): lo escrito queda en el borrador
                     alert('Tu sesión se cerró. La compra quedó guardada en este navegador: inicia sesión y vuelve a "Nueva compra" para recuperarla.');
+                    this.enviando = false;
                     return;
                 }
                 if (json.success) {
@@ -849,9 +855,11 @@ function compraForm() {
                         : (recibir ? '/compras' : `/compras/${json.compra_id}`);
                 } else {
                     alert('Error: ' + json.error);
+                    this.enviando = false;
                 }
             } catch (e) {
                 alert('Ocurrió un error al guardar la compra');
+                this.enviando = false;
             }
         }
     }

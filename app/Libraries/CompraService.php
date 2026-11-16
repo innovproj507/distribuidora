@@ -111,6 +111,29 @@ final class CompraService
 
     /** Inserta las líneas de una compra (y la recibe si no es pendiente). */
     /**
+     * Anula una orden de compra pendiente que no tiene nada recibido (duplicada, error, el proveedor no
+     * entregó…): queda "cancelada" con el motivo en las notas. No toca inventario (no entró nada).
+     * Una compra ya recibida no se anula aquí: habría que sacar del inventario lo que entró.
+     */
+    public static function anularPendiente(int $compraId, string $motivo, array $ctx): array
+    {
+        $c = Db::row("SELECT * FROM compras WHERE compra_id = ? AND empresa_id = ? FOR UPDATE", [$compraId, $ctx['empresa_id']]);
+        if (!$c) throw new \RuntimeException('Compra no encontrada.');
+        if ($c['estado'] === 'cancelada') throw new \RuntimeException('La compra ya está anulada.');
+        $recibido = (float) Db::value("SELECT COALESCE(SUM(cantidad_recibida), 0) FROM compras_detalle WHERE compra_id = ?", [$compraId]);
+        if ($c['estado'] !== 'pendiente' || $recibido > 0) {
+            throw new \RuntimeException('Solo se puede anular una compra pendiente sin nada recibido. Esta ya tiene mercancía en el inventario.');
+        }
+        $motivo = trim($motivo) !== '' ? mb_substr(trim($motivo), 0, 200) : 'Sin motivo';
+        $nota   = 'ANULADA ' . date('d/m/Y H:i') . ' por ' . (Auth::user()['username'] ?? ('usuario #' . Auth::id())) . ': ' . $motivo;
+        Db::update('compras', [
+            'estado' => 'cancelada',
+            'notas'  => trim(($c['notas'] ? $c['notas'] . "\n" : '') . $nota),
+        ], ['compra_id' => $compraId]);
+        return ['numero' => (string) $c['numero_factura'], 'motivo' => $motivo];
+    }
+
+    /**
      * Nº de factura del proveedor que escribió el usuario (campo numero_factura_proveedor; los
      * formularios y la API anteriores lo mandan como numero_factura). '' = el proveedor no dio factura.
      */

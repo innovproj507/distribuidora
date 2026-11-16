@@ -180,6 +180,29 @@ class CompraController extends BaseController
         return $this->json(['success' => true, 'compra_id' => $id]);
     }
 
+    /** POST /compras/{id}/anular {motivo} — orden pendiente sin nada recibido (duplicada, error…). */
+    public function anular(int $id)
+    {
+        if (!$this->buscar($id)) {
+            $this->error('Compra no encontrada en esta tienda.');
+            return redirect()->to('/compras');
+        }
+        $motivo = (string) ($this->request->getPost('motivo') ?? '');
+        if ($motivo === 'otro') $motivo = (string) ($this->request->getPost('motivo_otro') ?? '');
+        try {
+            Db::begin();
+            $r = CompraService::anularPendiente($id, $motivo, ['empresa_id' => $this->empresaId()]);
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            $this->error($e instanceof \RuntimeException ? $e->getMessage() : 'No se pudo anular la compra.');
+            return redirect()->to("/compras/{$id}");
+        }
+        AuditService::log('compras.anular', "Compra {$r['numero']} anulada: {$r['motivo']}", $id, 'compra', [], $this->empresaId());
+        $this->success("Compra {$r['numero']} anulada ({$r['motivo']}). No se tocó el inventario.");
+        return redirect()->to("/compras/{$id}");
+    }
+
     public function detalle(int $id)
     {
         $compra = $this->buscar($id);
