@@ -101,7 +101,7 @@ class CompraController extends BaseController
              WHERE cd.compra_id = ? ORDER BY cd.detalle_id",
             [$id]
         );
-        $nombresBase = ['und' => 'Unidad', 'lb' => 'Libra', 'kg' => 'Kg', 'oz' => 'Onza', 'gal' => 'Galón', 'lt' => 'Litro', 'm' => 'Metro', 'pie' => 'Pie', 'yd' => 'Yarda'];
+        $nombresBase = ['und' => 'Unidad', 'lb' => 'Libra', 'kg' => 'Kg', 'oz' => 'Onza', 'gal' => 'Galón', 'lt' => 'Litro', 'm' => 'Metro', 'pie' => 'Pie', 'yd' => 'Yarda', 'pulg' => 'Pulgada'];
         $items = array_map(function (array $l) use ($compra, $nombresBase): array {
             $costo  = (float) $l['costo'];
             $precio = (float) $l['precio_a'];

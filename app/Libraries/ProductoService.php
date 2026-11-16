@@ -32,6 +32,9 @@ final class ProductoService
         'm'   => ['Metro', 'm', true],
         'pie' => ['Pie', 'pie', true],
         'yd'  => ['Yarda', 'yd', true],
+        // Telas: se cortan por pulgadas (3" = $0.25). En pulgadas el precio es exacto; en yardas con
+        // 2 decimales 3" = 0.08 yd daría $0.24. Presentaciones: Yarda = 36, Pieza = yardas × 36.
+        'pulg' => ['Pulgada', 'pulg', true],
     ];
 
     /** Clave válida de unidad de medida ('und' si no es una conocida). */

@@ -654,7 +654,7 @@ function compraForm() {
 
         // Presentaciones de un producto para comprar: la unidad base (factor 1) + caja, paca… (factor > 1)
         presentacionesDe(p) {
-            const base = { und: 'Unidad', lb: 'Libra', kg: 'Kg', oz: 'Onza', gal: 'Galón', lt: 'Litro', m: 'Metro', pie: 'Pie', yd: 'Yarda' }[p.unidad_medida || 'und'] || 'Unidad';
+            const base = { und: 'Unidad', lb: 'Libra', kg: 'Kg', oz: 'Onza', gal: 'Galón', lt: 'Litro', m: 'Metro', pie: 'Pie', yd: 'Yarda', pulg: 'Pulgada' }[p.unidad_medida || 'und'] || 'Unidad';
             const lista = [{ nombre: base, factor: 1 }];
             (p.unidades || []).forEach(u => {
                 const f = parseFloat(u.factor_conversion ?? u.factor) || 0;

@@ -240,9 +240,9 @@ $puedeDescontar = $maxDescuentoPct > 0;
       <input type="number" inputmode="decimal" step="0.01" min="0" id="peso-monto" class="field-input text-lg" placeholder="0.00" oninput="document.getElementById('peso-pulg').value=''; pesoTotal(true)" onkeydown="if(event.key==='Enter'){event.preventDefault(); agregarPeso();}">
     </div>
   </div>
-  <!-- Telas (por yarda): también se puede escribir en pulgadas; 1 yarda = 36" -->
+  <!-- Telas: por yarda se puede escribir en pulgadas, y por pulgada en yardas (1 yarda = 36") -->
   <div id="peso-pulgadas" class="mb-2" style="display:none">
-    <label class="field-label">o en pulgadas (")</label>
+    <label class="field-label" id="peso-alt-label">o en pulgadas (")</label>
     <input type="number" inputmode="numeric" step="1" min="0" id="peso-pulg" class="field-input text-lg" placeholder="Ej: 20"
            oninput="pulgadasAYardas()" onkeydown="if(event.key==='Enter'){event.preventDefault(); agregarPeso();}">
   </div>
@@ -327,7 +327,9 @@ const lista = new ListaProductos({
           (enCarrito > 0 ? ' · <b style="color:var(--teal)">' + numero(enCarrito) + ' en carrito</b>' : '') + '</p>' +
         (pres ? '<p class="text-[10px] truncate" style="color:var(--navy)">' + pres + '</p>' : '') +
       '</div>' +
-      '<p class="font-mono text-sm font-semibold flex-shrink-0 self-center">' + dinero(p.precio_a) + (p.fraccion ? '<span class="text-[10px] font-normal" style="color:var(--ink-soft)">/' + esc(um(p)) + '</span>' : '') + '</p>' +
+      (p.unidad_medida === 'pulg'
+        ? '<p class="font-mono text-sm font-semibold flex-shrink-0 self-center">' + dinero(p.precio_a * 36) + '<span class="text-[10px] font-normal" style="color:var(--ink-soft)">/yd</span></p>'
+        : '<p class="font-mono text-sm font-semibold flex-shrink-0 self-center">' + dinero(p.precio_a) + (p.fraccion ? '<span class="text-[10px] font-normal" style="color:var(--ink-soft)">/' + esc(um(p)) + '</span>' : '') + '</p>') +
     '</button>';
   },
 });
@@ -345,15 +347,22 @@ let pesoId = null;
 function abrirPeso(p) {
   pesoId = p.producto_id;
   document.getElementById('peso-nombre').textContent = p.nombre;
-  document.getElementById('peso-info').textContent = dinero(p.precio_a) + ' por ' + um(p) + ' · hay ' + textoStock(p);
-  document.querySelectorAll('.peso-um').forEach(function (e) { e.textContent = um(p); });
+  const esYarda = p.unidad_medida === 'yd';
+  const esPulg  = p.unidad_medida === 'pulg';
+  document.getElementById('peso-info').textContent = (esPulg
+    ? dinero(p.precio_a * 3) + ' cada 3" · ' + dinero(p.precio_a * 36) + ' la yarda'
+    : dinero(p.precio_a) + ' por ' + um(p)) + ' · hay ' + textoStock(p);
+  document.querySelectorAll('.peso-um').forEach(function (e) { e.textContent = esPulg ? 'pulgadas "' : um(p); });
   document.getElementById('peso-cantidad').value = '';
   document.getElementById('peso-monto').value = '';
-  const esYarda = p.unidad_medida === 'yd';
-  document.getElementById('peso-pulgadas').style.display = esYarda ? '' : 'none';
+  document.getElementById('peso-pulgadas').style.display = esYarda || esPulg ? '' : 'none';
+  document.getElementById('peso-alt-label').textContent = esPulg ? 'o en yardas (yd)' : 'o en pulgadas (")';
+  document.getElementById('peso-pulg').step = esPulg ? '0.25' : '1';
   document.getElementById('peso-pulg').value = '';
-  // Telas: cuartos de yarda y medidas en pulgadas; lo demás: 0.5, 1, 2, 5
-  const rapidos = esYarda
+  // Telas en pulgadas: las medidas que cortan (cada 3", con su precio); en yardas: cuartos y pulgadas; lo demás: 0.5, 1, 2, 5
+  const rapidos = esPulg
+    ? [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36].map(function (n) { return [n, n + '" ' + dinero(redondear(n * p.precio_a))]; })
+    : esYarda
     ? [[0.25, '¼ yd'], [0.5, '½ yd'], [0.75, '¾ yd'], [1, '1 yd'], [2, '2 yd'], ['p9', '9"'], ['p18', '18"'], ['p27', '27"']]
     : [0.5, 1, 2, 5].map(function (n) { return [n, numero(n) + ' ' + um(p)]; });
   document.getElementById('peso-rapidos').innerHTML = rapidos.map(function (r) {
@@ -375,10 +384,13 @@ function pesoRapido(n) {
   document.getElementById('peso-pulg').value = '';
   pesoTotal();
 }
-// Pulgadas → yardas (36" = 1 yd). Se guarda con 2 decimales: 20" = 0.56 yd (diferencia máx. ⅓ de pulgada)
+// Campo alterno de telas: producto por yarda → se escribe en pulgadas (÷ 36, 2 decimales: 20" = 0.56 yd);
+// producto por pulgada → se escribe en yardas (× 36: 1.5 yd = 54")
 function pulgadasAYardas() {
-  const pulg = parseFloat(document.getElementById('peso-pulg').value) || 0;
-  document.getElementById('peso-cantidad').value = pulg > 0 ? redondear(pulg / 36) : '';
+  const p = pesoProducto();
+  const v = parseFloat(document.getElementById('peso-pulg').value) || 0;
+  const enPulg = p && p.unidad_medida === 'pulg';
+  document.getElementById('peso-cantidad').value = v > 0 ? redondear(enPulg ? v * 36 : v / 36) : '';
   document.getElementById('peso-monto').value = '';
   pesoTotal();
 }
@@ -394,9 +406,11 @@ function pesoTotal(desdeMonto) {
   }
   const c = parseFloat(cant.value) || 0;
   const total = redondear(c * p.precio_a);
-  // Telas: también muestra cuántas pulgadas son (0.5 yd = 18")
-  const pulg = p.unidad_medida === 'yd' && c > 0 ? ' (' + Math.round(c * 36) + '")' : '';
-  document.getElementById('peso-total').textContent = c > 0 ? numero(c) + ' ' + um(p) + pulg + ' = ' + dinero(total) : '';
+  // Telas: también la otra medida (0.5 yd = 18"; 54" = 1.5 yd)
+  const otra = c > 0 && p.unidad_medida === 'yd' ? ' (' + Math.round(c * 36) + '")'
+             : c > 0 && p.unidad_medida === 'pulg' ? ' (' + numero(redondear(c / 36)) + ' yd)' : '';
+  const texto = p.unidad_medida === 'pulg' ? numero(c) + '"' : numero(c) + ' ' + um(p);
+  document.getElementById('peso-total').textContent = c > 0 ? texto + otra + ' = ' + dinero(total) : '';
 }
 function agregarPeso() {
   const c = redondear(parseFloat(document.getElementById('peso-cantidad').value) || 0);
