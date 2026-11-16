@@ -90,6 +90,10 @@ $lista = array_map(fn ($c) => [
                                 <i class="fas fa-hand-holding-usd"></i> Cobrar
                             </button>
                             <?php endif; ?>
+                            <button type="button" @click="whatsapp(c)" title="Enviar estado de cuenta por WhatsApp"
+                                    class="inline-flex w-8 h-8 rounded-lg text-white items-center justify-center align-middle" style="background:#25D366">
+                                <i class="fab fa-whatsapp"></i>
+                            </button>
                             <a :href="'/clientes/' + c.id" title="Ver cliente" class="inline-flex w-8 h-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 items-center justify-center align-middle">
                                 <i class="fas fa-chevron-right text-xs"></i>
                             </a>
@@ -201,6 +205,16 @@ function cuentasCobrar() {
         guardando: false, error: '', recibo: null, foto: null, fotoUrl: '',
 
         exigeFoto() { return ['YAPPY', 'TRANSFERENCIA', 'CHEQUE'].includes(this.forma); },
+        // Estado de cuenta por WhatsApp: la ventana se abre ya (si no, el navegador la bloquea) y luego va a wa.me
+        async whatsapp(c) {
+            const w = window.open('', '_blank');
+            try {
+                const r = await fetch('/m/api/cliente/' + c.id + '/estado-cuenta', { credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                const d = await r.json();
+                if (!r.ok) throw new Error(d.error || 'No se pudo armar el estado de cuenta');
+                if (w) w.location = d.url; else location.href = d.url;
+            } catch (e) { if (w) w.close(); alert(e.message); }
+        },
         async elegirFoto(ev) {
             const f = ev.target.files && ev.target.files[0];
             if (!f) { this.foto = null; this.fotoUrl = ''; return; }

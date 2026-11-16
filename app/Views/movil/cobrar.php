@@ -54,8 +54,8 @@ $cobradoHoy = array_sum(array_map(fn ($c) => (float) $c['total'], $cobrosHoy));
         <?php endif; ?>
         <?php if ($tel): ?>
           <a href="tel:<?= esc($tel) ?>" class="flex-1 text-center text-xs py-2 rounded-lg font-medium" style="background:var(--navy-light); color:var(--navy)">📞</a>
-          <a href="https://wa.me/<?= esc(ltrim($tel, '+')) ?>?text=<?= rawurlencode('Hola ' . $c['nombre'] . ', le recordamos su saldo pendiente de $' . number_format($saldo, 2) . '.') ?>" class="flex-1 text-center text-xs py-2 rounded-lg font-medium" style="background:var(--green-light); color:var(--green)">WhatsApp</a>
         <?php endif; ?>
+        <button type="button" onclick="enviarEstadoCuenta(<?= (int) $c['cliente_id'] ?>)" class="flex-1 text-center text-xs py-2 rounded-lg font-semibold" style="background:#25D366; color:white" title="Enviar estado de cuenta por WhatsApp">💬 Estado</button>
       </div>
     </div>
   <?php endforeach; ?>
@@ -128,6 +128,15 @@ $cobradoHoy = array_sum(array_map(fn ($c) => (float) $c['total'], $cobrosHoy));
 <?php $this->section('extra_js'); ?>
 <script src="/assets/js/foto-producto.js?v=1"></script>
 <script>
+// Estado de cuenta por WhatsApp (mismo texto que la web)
+async function enviarEstadoCuenta(id) {
+  try {
+    const d = await api('/m/api/cliente/' + id + '/estado-cuenta');
+    if (!d.telefono) toast('El cliente no tiene teléfono: elige el contacto en WhatsApp.');
+    location.href = d.url;
+  } catch (e) { toast(e.message, 'error'); }
+}
+
 let clienteCobro = null, facturasCobro = [], facturaElegida = null, formaCobro = 'EFECTIVO', filtroActual = 'todos', fotoCobro = null;
 const FORMAS_CON_FOTO = ['YAPPY', 'TRANSFERENCIA', 'CHEQUE'];
 

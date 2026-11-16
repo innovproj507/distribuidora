@@ -635,6 +635,19 @@ class MovilApiController extends BaseController
         ]);
     }
 
+    /** GET /m/api/cliente/{id}/estado-cuenta — mensaje de WhatsApp con el estado de cuenta (texto + enlace wa.me). */
+    public function estadoCuenta(int $id)
+    {
+        if (!Auth::can('clientes.ver')) return $this->json(['error' => 'Sin permiso.'], 403);
+        try {
+            $r = \App\Libraries\EstadoCuenta::whatsapp($id, (int) $this->empresaId(), (int) $this->sucursalId());
+        } catch (\RuntimeException $e) {
+            return $this->json(['error' => $e->getMessage()], 404);
+        }
+        AuditService::log('clientes.estado_cuenta', 'Estado de cuenta por WhatsApp (saldo $' . number_format($r['saldo'], 2) . ')', $id, 'cliente', [], $this->empresaId());
+        return $this->json($r);
+    }
+
     /**
      * GET /m/api/cliente/{id}/historial — movimientos del cliente, el más reciente primero:
      * compras (ventas, de todas las tiendas), saldos anteriores y abonos.

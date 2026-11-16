@@ -82,6 +82,7 @@ $totalPorCobrar = array_sum(array_map(fn ($c) => (float) $c['saldo_pendiente'], 
     <div class="card !p-3"><p class="text-xs" style="color:var(--ink-soft)">Crédito disponible</p><p class="font-mono font-semibold" id="det-disponible"></p></div>
   </div>
   <a id="det-cobrar" href="#" class="block w-full py-3 rounded-xl font-semibold text-center text-white mb-3" style="background:var(--teal); display:none">Cobrar abono</a>
+  <button type="button" id="det-whatsapp" onclick="enviarEstadoCuenta(clienteVisto)" class="block w-full py-3 rounded-xl font-semibold text-center mb-3" style="background:#25D366; color:white">💬 Enviar estado de cuenta por WhatsApp</button>
   <p class="text-xs font-semibold uppercase mb-2" style="color:var(--ink-soft)">Historial</p>
   <div id="det-historial" class="flex flex-col gap-2 mb-3" style="max-height:42vh; overflow-y:auto"></div>
   <?php if (!in_array(\App\Libraries\Auth::rol(), \App\Filters\SoloMovilFilter::ROLES, true)): ?>
@@ -122,7 +123,19 @@ $totalPorCobrar = array_sum(array_map(fn ($c) => (float) $c['saldo_pendiente'], 
 
 <?php $this->section('extra_js'); ?>
 <script>
+// Estado de cuenta por WhatsApp (el texto lo arma el servidor, igual que en la web)
+let clienteVisto = null;
+async function enviarEstadoCuenta(id) {
+  if (!id) return;
+  try {
+    const d = await api('/m/api/cliente/' + id + '/estado-cuenta');
+    if (!d.telefono) toast('El cliente no tiene teléfono: elige el contacto en WhatsApp.');
+    location.href = d.url;
+  } catch (e) { toast(e.message, 'error'); }
+}
+
 function verCliente(c) {
+  clienteVisto = c.id;
   document.getElementById('det-nombre').textContent = c.nombre;
   document.getElementById('det-codigo').textContent = c.codigo || '—';
   const tel = document.getElementById('det-telefono');

@@ -15,6 +15,10 @@
            class="inline-flex items-center gap-1.5 px-4 py-2 bg-sky-500 text-white rounded-lg text-sm font-semibold hover:bg-sky-600 transition shadow-sm">
             <i class="fas fa-pen"></i> Editar
         </a>
+        <button type="button" onclick="verEstadoCuenta()"
+                class="inline-flex items-center gap-1.5 px-4 py-2 text-white rounded-lg text-sm font-semibold transition shadow-sm" style="background:#25D366">
+            <i class="fab fa-whatsapp"></i> Estado de cuenta
+        </button>
         <a href="/clientes" class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
             Volver
         </a>
@@ -231,4 +235,49 @@
     </div>
 </div>
 
+<!-- Estado de cuenta por WhatsApp: vista previa del mensaje antes de enviarlo -->
+<div id="modal-estado" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-lg font-bold text-gray-800"><i class="fab fa-whatsapp mr-1" style="color:#25D366"></i> Estado de cuenta</h3>
+            <button type="button" onclick="document.getElementById('modal-estado').classList.add('hidden')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+        </div>
+        <p id="estado-tel" class="text-xs text-gray-500 mb-2"></p>
+        <pre id="estado-texto" class="whitespace-pre-wrap text-sm bg-[#e7fbe6] border border-green-100 rounded-xl p-4 max-h-[55vh] overflow-y-auto font-sans text-gray-800">Cargando…</pre>
+        <div class="flex gap-2 mt-4">
+            <button type="button" onclick="copiarEstado()" class="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200"><i class="far fa-copy mr-1"></i> Copiar</button>
+            <a id="estado-enviar" href="#" target="_blank" rel="noopener" class="flex-[2] py-2.5 text-center text-white rounded-lg text-sm font-semibold" style="background:#25D366"><i class="fab fa-whatsapp mr-1"></i> Abrir WhatsApp</a>
+        </div>
+    </div>
+</div>
+
+<?php $this->endSection(); ?>
+
+<?php $this->section('extra_js'); ?>
+<script>
+    let estadoTexto = '';
+    async function verEstadoCuenta() {
+        const modal = document.getElementById('modal-estado');
+        document.getElementById('estado-texto').textContent = 'Cargando…';
+        modal.classList.remove('hidden');
+        try {
+            const r = await fetch('/m/api/cliente/<?= (int) $cliente->cliente_id ?>/estado-cuenta', { credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || 'No se pudo armar el estado de cuenta');
+            estadoTexto = d.texto;
+            document.getElementById('estado-texto').textContent = d.texto;
+            document.getElementById('estado-tel').textContent = d.telefono ? 'Se enviará al +' + d.telefono : 'El cliente no tiene teléfono válido: WhatsApp te dejará elegir el contacto.';
+            document.getElementById('estado-enviar').href = d.url;
+        } catch (e) {
+            document.getElementById('estado-texto').textContent = e.message;
+        }
+    }
+    function copiarEstado() {
+        if (!estadoTexto) return;
+        (navigator.clipboard ? navigator.clipboard.writeText(estadoTexto) : Promise.reject()).then(
+            () => alert('Mensaje copiado. Pégalo en el chat del cliente.'),
+            () => prompt('Copia el mensaje:', estadoTexto)
+        );
+    }
+</script>
 <?php $this->endSection(); ?>

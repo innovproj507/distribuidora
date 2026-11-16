@@ -37,6 +37,7 @@ $routes->group('m', ['filter' => ['movilauth', 'sucursal']], static function ($r
     $routes->post('api/compra/(:num)/reparto', 'MovilApiController::repartoCompra/$1');
     $routes->get('api/cliente/(:num)/pendientes', 'MovilApiController::clientePendientes/$1');
     $routes->get('api/cliente/(:num)/historial', 'MovilApiController::clienteHistorial/$1');
+    $routes->get('api/cliente/(:num)/estado-cuenta', 'MovilApiController::estadoCuenta/$1');
     $routes->post('api/cobro', 'MovilApiController::crearCobro');
     $routes->post('api/cobro/(:num)/comprobante', 'MovilApiController::subirComprobanteCobro/$1');
     $routes->get('api/cobro/(:num)/comprobante', 'MovilApiController::verComprobanteCobro/$1');
