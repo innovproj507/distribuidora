@@ -20,7 +20,7 @@ class SoloMovilFilter implements FilterInterface
 
     /** Prefijos de ruta permitidos (sin barra inicial). */
     private const PERMITIDAS = [
-        'm', 'login', 'logout', 'auth/2fa', 'c/',
+        'm', 'login', 'logout', 'auth/2fa', 'c/', 'ec', // ec/{token}: estado de cuenta público del cliente
         'ventas/procesar', 'ventas/clientes/rapido',
         'caja/abrir', 'caja/movimiento', 'caja/cerrar',
         'sucursales/cambiar', 'sucursales/cambiar-deposito',

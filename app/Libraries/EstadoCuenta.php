@@ -70,6 +70,11 @@ final class EstadoCuenta
             $l[] = '*Su cuenta está al día.* No tiene saldo pendiente.';
         }
         $l[] = '';
+        // Enlace al estado de cuenta completo (todas las facturas y todos los abonos)
+        $l[] = '📄 *Vea su estado de cuenta completo aquí:*';
+        $l[] = self::crearEnlace($clienteId, $empresaId);
+        $l[] = '_Enlace personal, válido por ' . self::DIAS_ENLACE . ' días._';
+        $l[] = '';
         $l[] = '¡Gracias por su preferencia!';
 
         $texto    = implode("\n", $l);
@@ -80,6 +85,79 @@ final class EstadoCuenta
             // Sin teléfono válido WhatsApp abre para elegir el contacto
             'url'      => 'https://wa.me/' . $telefono . '?text=' . rawurlencode($texto),
             'saldo'    => $total,
+        ];
+    }
+
+    public const DIAS_ENLACE = 30;
+
+    /**
+     * Enlace público al estado de cuenta completo (/ec/{token}). Token de 43 caracteres al azar
+     * (32 bytes); en la base solo queda su SHA-256. Revoca los enlaces anteriores del cliente.
+     */
+    public static function crearEnlace(int $clienteId, int $empresaId): string
+    {
+        $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+        Db::query("UPDATE clientes_enlaces SET revocado = 1 WHERE cliente_id = ? AND empresa_id = ? AND revocado = 0", [$clienteId, $empresaId]);
+        Db::insert('clientes_enlaces', [
+            'empresa_id' => $empresaId,
+            'cliente_id' => $clienteId,
+            'token_hash' => hash('sha256', $token),
+            'creado_por' => Auth::id(),
+            'creado_en'  => date('Y-m-d H:i:s'),
+            'expira_en'  => date('Y-m-d H:i:s', strtotime('+' . self::DIAS_ENLACE . ' days')),
+        ]);
+        return base_url('ec/' . $token);
+    }
+
+    /** Enlace vigente para ese token, o null (no existe, revocado o vencido). Cuenta el acceso. */
+    public static function porToken(string $token): ?array
+    {
+        if (!preg_match('/^[A-Za-z0-9_-]{40,60}$/', $token)) return null;
+        $e = Db::row(
+            "SELECT * FROM clientes_enlaces WHERE token_hash = ? AND revocado = 0 AND expira_en > NOW()",
+            [hash('sha256', $token)]
+        );
+        if ($e) {
+            Db::query("UPDATE clientes_enlaces SET accesos = accesos + 1, ultimo_acceso = NOW() WHERE enlace_id = ?", [$e['enlace_id']]);
+        }
+        return $e;
+    }
+
+    /**
+     * Datos para la página pública: empresa, cliente, pendientes (con sus productos), todos los pagos
+     * (con la factura a la que se aplicaron) y compras a crédito ya pagadas de los últimos 6 meses.
+     */
+    public static function datosPublicos(int $clienteId, int $empresaId): array
+    {
+        $c = Db::row("SELECT cliente_id, codigo, nombre, saldo_pendiente, limite_credito FROM clientes WHERE cliente_id = ? AND empresa_id = ?", [$clienteId, $empresaId]) ?? [];
+        $pend = CobroService::pendientes($clienteId, $empresaId);
+        foreach ($pend as &$p) {
+            $p['items'] = $p['venta_id'] === null ? [] : Db::all(
+                "SELECT pr.nombre, d.cantidad, d.unidad_nombre, d.total_linea FROM ventas_detalle d JOIN productos pr ON pr.producto_id = d.producto_id WHERE d.venta_id = ?",
+                [$p['venta_id']]
+            );
+        }
+        unset($p);
+        return [
+            'empresa'  => Db::row("SELECT nombre_comercial, razon_social, ruc, dv FROM companies WHERE empresa_id = ?", [$empresaId]) ?? [],
+            'cliente'  => $c,
+            'pend'     => $pend,
+            'total'    => round(array_sum(array_map(fn ($p) => (float) $p['pendiente'], $pend)), 2),
+            'pagos'    => Db::all(
+                "SELECT c.numero, c.fecha, c.forma_pago, c.monto,
+                        (SELECT GROUP_CONCAT(COALESCE(v.numero_factura, s.numero) SEPARATOR ', ')
+                         FROM cobros_ventas cv LEFT JOIN ventas v ON v.venta_id = cv.venta_id LEFT JOIN saldos_anteriores s ON s.saldo_id = cv.saldo_id
+                         WHERE cv.cobro_id = c.cobro_id) AS aplicado
+                 FROM cobros c WHERE c.cliente_id = ? AND c.empresa_id = ? ORDER BY c.fecha DESC, c.cobro_id DESC",
+                [$clienteId, $empresaId]
+            ),
+            'pagadas'  => Db::all(
+                "SELECT v.numero_factura, v.fecha, v.total FROM ventas v
+                 WHERE v.cliente_id = ? AND v.empresa_id = ? AND v.estado = 'pagada' AND v.fecha >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+                   AND EXISTS (SELECT 1 FROM ventas_pagos p WHERE p.venta_id = v.venta_id AND p.forma_pago = 'CREDITO')
+                 ORDER BY v.fecha DESC",
+                [$clienteId, $empresaId]
+            ),
         ];
     }
 

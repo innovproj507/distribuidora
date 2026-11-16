@@ -50,6 +50,9 @@ $routes->group('', ['filter' => ['auth', 'sucursal']], static function ($routes)
 $routes->get('c', 'CotizacionController::verPublico');
 $routes->get('c/pdf', 'CotizacionController::descargarPdfPublico');
 
+// Estado de cuenta del cliente: sin sesión, enlace personal con token (lo manda el WhatsApp del estado de cuenta)
+$routes->get('ec/(:segment)', 'EstadoCuentaPublicoController::ver/$1');
+
 // ── API v1 (token Bearer) ───────────────────────────────────────────────────
 $routes->group('api/v1', ['namespace' => 'App\Controllers\Api', 'filter' => 'apitoken'], static function ($routes) {
     $routes->get('ventas/historial', 'ApiVentaController::historial', ['filter' => 'permiso:ventas.ver']);
