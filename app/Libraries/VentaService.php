@@ -248,6 +248,94 @@ final class VentaService
         ];
     }
 
+    /**
+     * Devolución parcial de una línea de la factura (producto dañado o que el cliente regresa).
+     * - Producto: $reingresa = vuelve al stock (kardex "entrada"); si no (dañado), no vuelve a la venta.
+     * - Dinero: primero baja lo que la factura debe a crédito (y el saldo del cliente); lo que ya estaba
+     *   pagado se reembolsa con $reembolso (EFECTIVO sale de la caja abierta de quien devuelve; YAPPY /
+     *   TRANSFERENCIA solo se registra).
+     * - Baja el total de la factura y genera una nota de crédito. El llamador abre la transacción.
+     *
+     * @return array{nota: string, monto: float, a_credito: float, reembolso: float, forma: string}
+     */
+    public static function devolverLinea(int $ventaId, int $detalleId, float $cantidad, bool $reingresa, string $motivo, string $reembolso, array $ctx): array
+    {
+        $v = Db::row("SELECT * FROM ventas WHERE venta_id = ? AND sucursal_id = ? FOR UPDATE", [$ventaId, $ctx['sucursal_id']]);
+        if (!$v) throw new \RuntimeException('Venta no encontrada en esta sucursal.');
+        if ($v['estado'] === 'anulada') throw new \RuntimeException('La venta está anulada.');
+        $d = Db::row("SELECT d.*, p.nombre FROM ventas_detalle d JOIN productos p ON p.producto_id = d.producto_id WHERE d.detalle_id = ? AND d.venta_id = ? FOR UPDATE", [$detalleId, $ventaId]);
+        if (!$d) throw new \RuntimeException('Esa línea no es de esta factura.');
+        $motivo   = trim($motivo);
+        $cantidad = round($cantidad, 2);
+        $quedan   = round((float) $d['cantidad'] - (float) $d['cantidad_devuelta'], 2);
+        if ($motivo === '') throw new \RuntimeException('Escribe el motivo de la devolución.');
+        if ($cantidad <= 0 || $cantidad > $quedan + 0.001) {
+            throw new \RuntimeException('Cantidad inválida: de esta línea se pueden devolver ' . (float) $quedan . '.');
+        }
+
+        // Monto proporcional de la línea (incluye su ITBMS y descuento)
+        $proporcion = $cantidad / (float) $d['cantidad'];
+        $monto      = round((float) $d['total_linea'] * $proporcion, 2);
+        $itbms      = round((float) $d['itbms'] * $proporcion, 2);
+        $factor     = max(0.001, (float) $d['factor']);
+
+        // Producto en buen estado: vuelve al stock del depósito de la venta
+        if ($reingresa && $d['deposito_id']) {
+            $inventarioId = InventarioService::inventarioId((int) $d['producto_id'], (int) $d['deposito_id']);
+            if ($inventarioId) {
+                InventarioService::registrar($inventarioId, 'entrada', $cantidad * $factor, $ventaId, 'ventas_devolucion', "Devolución venta #{$v['numero_factura']}: {$motivo}");
+            }
+        }
+
+        // Dinero: primero lo que la factura todavía debe a crédito
+        $credito  = (float) Db::value("SELECT COALESCE(SUM(monto), 0) FROM ventas_pagos WHERE venta_id = ? AND forma_pago = 'CREDITO'", [$ventaId]);
+        $abonado  = CobroService::abonado($ventaId);
+        $aCredito = round(min($monto, max(0, $credito - $abonado)), 2);
+        $devolver = round($monto - $aCredito, 2);
+        $forma    = $devolver > 0.004 ? strtoupper(trim($reembolso)) : 'CREDITO';
+        if ($aCredito > 0) {
+            Db::query("UPDATE ventas_pagos SET monto = monto - ? WHERE venta_id = ? AND forma_pago = 'CREDITO' ORDER BY pago_id LIMIT 1", [$aCredito, $ventaId]);
+            if ($v['cliente_id']) {
+                Db::query("UPDATE clientes SET saldo_pendiente = GREATEST(0, saldo_pendiente - ?) WHERE cliente_id = ?", [$aCredito, $v['cliente_id']]);
+            }
+        }
+        if ($devolver > 0.004) {
+            if (!in_array($forma, ['EFECTIVO', 'YAPPY', 'TRANSFERENCIA'], true)) throw new \RuntimeException('Elige cómo se le devuelve el dinero al cliente.');
+            if ($forma === 'EFECTIVO') {
+                $caja = CajaService::abiertaId((int) $ctx['sucursal_id']);
+                if (!$caja) throw new \RuntimeException('Para devolver efectivo abre tu caja primero (o devuélvelo por Yappy / transferencia).');
+                CajaService::movimiento($caja, 'salida', $devolver, "Devolución en efectivo (venta {$v['numero_factura']})");
+            }
+        }
+
+        $numeroNota = 'NC' . date('Ymd') . str_pad((string) ((int) Db::value("SELECT COUNT(*) FROM notas_credito WHERE DATE(fecha) = CURDATE()") + 1), 4, '0', STR_PAD_LEFT);
+        $descripcion = 'Devolución: ' . (float) $cantidad . ' × ' . $d['nombre'] . " — {$motivo}" . ($reingresa ? ' (vuelve al inventario)' : ' (dañado, no vuelve a la venta)');
+        $notaId = Db::insert('notas_credito', [
+            'venta_id' => $ventaId, 'sucursal_id' => $v['sucursal_id'], 'empresa_id' => $v['empresa_id'],
+            'numero' => $numeroNota, 'motivo' => $descripcion, 'monto' => $monto, 'estado' => 'aplicada', 'usuario_id' => Auth::id(),
+        ]);
+        Db::insert('ventas_devoluciones', [
+            'venta_id' => $ventaId, 'detalle_id' => $detalleId, 'nota_id' => $notaId, 'cantidad' => $cantidad, 'monto' => $monto,
+            'reingresa' => $reingresa ? 1 : 0, 'reembolso' => $forma, 'motivo' => mb_substr($motivo, 0, 255),
+            'usuario_id' => Auth::id(), 'fecha' => date('Y-m-d H:i:s'),
+        ]);
+        Db::query("UPDATE ventas_detalle SET cantidad_devuelta = cantidad_devuelta + ? WHERE detalle_id = ?", [$cantidad, $detalleId]);
+
+        // La factura baja su total; si ya no debe nada queda pagada
+        $nuevoTotal = round((float) $v['total'] - $monto, 2);
+        $pendiente  = (float) Db::value("SELECT COALESCE(SUM(monto), 0) FROM ventas_pagos WHERE venta_id = ? AND forma_pago = 'CREDITO'", [$ventaId]) - $abonado;
+        Db::update('ventas', [
+            'subtotal' => round((float) $v['subtotal'] - ($monto - $itbms), 2),
+            'itbms'    => round((float) $v['itbms'] - $itbms, 2),
+            'total'    => $nuevoTotal,
+            'costo'    => round(max(0, (float) $v['costo'] - (float) $d['costo'] * $cantidad * $factor), 2),
+            'estado'   => $v['estado'] === 'pendiente' && $pendiente <= 0.004 ? 'pagada' : $v['estado'],
+        ], ['venta_id' => $ventaId]);
+        if ($v['caja_id']) CajaService::refrescarCierre((int) $v['caja_id']);
+
+        return ['nota' => $numeroNota, 'monto' => $monto, 'a_credito' => $aCredito, 'reembolso' => $devolver, 'forma' => $forma, 'numero_factura' => (string) $v['numero_factura'], 'descripcion' => $descripcion];
+    }
+
     /** Vuelto entregado en efectivo por un pago de más con Yappy / transferencia (salida de caja de la venta). */
     public static function vueltoEfectivo(string $numeroFactura, ?int $cajaId): float
     {
@@ -388,12 +476,15 @@ final class VentaService
             throw new \RuntimeException('Esta venta tiene abonos registrados ($' . number_format(CobroService::abonado($ventaId), 2) . '); no se puede anular sin devolver ese dinero al cliente.');
         }
 
-        foreach (Db::all("SELECT producto_id, cantidad, deposito_id, factor FROM ventas_detalle WHERE venta_id = ?", [$ventaId]) as $d) {
+        foreach (Db::all("SELECT producto_id, cantidad, cantidad_devuelta, deposito_id, factor FROM ventas_detalle WHERE venta_id = ?", [$ventaId]) as $d) {
             if (!$d['deposito_id']) continue;
+            // Lo ya devuelto (devolución parcial) no se repone otra vez
+            $cantidad = (float) $d['cantidad'] - (float) $d['cantidad_devuelta'];
+            if ($cantidad <= 0) continue;
             $inventarioId = InventarioService::inventarioId((int) $d['producto_id'], (int) $d['deposito_id']);
             if ($inventarioId) {
                 // cantidad está en la presentación vendida; el stock se repone en unidades base
-                InventarioService::registrar($inventarioId, 'entrada', (float) $d['cantidad'] * max(0.001, (float) $d['factor']), $ventaId, 'ventas_anulacion', "Anulación venta #{$venta['numero_factura']}");
+                InventarioService::registrar($inventarioId, 'entrada', $cantidad * max(0.001, (float) $d['factor']), $ventaId, 'ventas_anulacion', "Anulación venta #{$venta['numero_factura']}");
             }
         }
 

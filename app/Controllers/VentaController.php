@@ -372,6 +372,16 @@ class VentaController extends BaseController
                 [$ventaId]
             ),
             'pagos_venta' => Db::all("SELECT forma_pago, monto, referencia FROM ventas_pagos WHERE venta_id = ? ORDER BY pago_id", [$ventaId]),
+            // Devoluciones parciales (cada una con su nota de crédito)
+            'devoluciones' => Db::all(
+                "SELECT dv.*, n.numero AS nota, p.nombre AS producto, u.username AS usuario
+                 FROM ventas_devoluciones dv
+                 LEFT JOIN notas_credito n ON n.nota_id = dv.nota_id
+                 JOIN ventas_detalle d ON d.detalle_id = dv.detalle_id JOIN productos p ON p.producto_id = d.producto_id
+                 LEFT JOIN users u ON u.id = dv.usuario_id
+                 WHERE dv.venta_id = ? ORDER BY dv.devolucion_id",
+                [$ventaId]
+            ),
             // Abonos (cobros) aplicados a esta factura y lo que aún falta
             'abonos'      => Db::all(
                 "SELECT c.cobro_id, c.numero, c.fecha, c.forma_pago, c.referencia, c.notas, cv.monto, u.username AS usuario,
@@ -419,6 +429,29 @@ class VentaController extends BaseController
         }
         $nombre = (string) (Db::value("SELECT nombre FROM productos WHERE producto_id = ?", [(int) ($d['producto_id'] ?? 0)]) ?? '');
         AuditService::log('ventas.agregar_producto', "Agregado a {$r['numero_factura']}: " . (float) $d['cantidad'] . " × {$nombre} (+$" . number_format($r['agregado'], 2) . ')', $ventaId, 'venta', $d, $this->empresaId());
+        return $this->json(['success' => true] + $r);
+    }
+
+    /**
+     * POST /ventas/venta/{id}/devolver {detalle_id, cantidad, reingresa, motivo, reembolso} (JSON)
+     * Devolución parcial de un producto. Ver VentaService::devolverLinea().
+     */
+    public function devolver(int $ventaId)
+    {
+        $d = $this->jsonInput();
+        try {
+            Db::begin();
+            $r = VentaService::devolverLinea(
+                $ventaId, (int) ($d['detalle_id'] ?? 0), (float) ($d['cantidad'] ?? 0), !empty($d['reingresa']),
+                (string) ($d['motivo'] ?? ''), (string) ($d['reembolso'] ?? ''),
+                ['empresa_id' => $this->empresaId(), 'sucursal_id' => $this->sucursalId()]
+            );
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            return $this->json(['error' => $e instanceof \RuntimeException ? $e->getMessage() : 'No se pudo registrar la devolución.'], 422);
+        }
+        AuditService::log('ventas.devolucion', "{$r['nota']} en {$r['numero_factura']}: {$r['descripcion']} (\$" . number_format($r['monto'], 2) . ')', $ventaId, 'venta', $d, $this->empresaId());
         return $this->json(['success' => true] + $r);
     }
 

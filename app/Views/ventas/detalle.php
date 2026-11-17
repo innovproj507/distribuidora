@@ -161,16 +161,23 @@ $bc = match($venta['estado']) {
                 <th class="px-6 py-3 text-right">Desc.</th>
                 <th class="px-6 py-3 text-right">ITBMS</th>
                 <th class="px-6 py-3 text-right">Total</th>
+                <?php $puedeDevolver = $venta['estado'] !== 'anulada' && \App\Libraries\Auth::can('ventas.anular'); ?>
+                <?php if ($puedeDevolver): ?><th class="px-3 py-3"></th><?php endif; ?>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-50">
-            <?php foreach (($detalles ?? []) as $d): ?>
-            <tr class="hover:bg-gray-50/50 transition-colors">
+            <?php foreach (($detalles ?? []) as $d):
+                $devuelta = (float) ($d['cantidad_devuelta'] ?? 0);
+                $quedan   = round((float) $d['cantidad'] - $devuelta, 2); ?>
+            <tr class="hover:bg-gray-50/50 transition-colors <?= $quedan <= 0 ? 'opacity-60' : '' ?>">
                 <td class="px-6 py-3">
                     <span class="text-gray-400 text-xs mr-2 font-mono"><?= esc($d['producto_codigo']) ?></span>
-                    <span class="font-medium text-gray-800"><?= esc($d['producto_nombre']) ?></span>
+                    <span class="font-medium text-gray-800 <?= $quedan <= 0 ? 'line-through' : '' ?>"><?= esc($d['producto_nombre']) ?></span>
                     <?php if (!empty($d['deposito_nombre'])): ?>
                     <span class="text-xs text-gray-400 ml-1">(<?= esc($d['deposito_nombre']) ?>)</span>
+                    <?php endif; ?>
+                    <?php if ($devuelta > 0): ?>
+                    <span class="ml-1 inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700">Devuelto <?= (float) $devuelta ?></span>
                     <?php endif; ?>
                 </td>
                 <td class="px-6 py-3 text-right text-gray-600">$<?= number_format((float)$d['precio'], 2) ?></td>
@@ -178,10 +185,25 @@ $bc = match($venta['estado']) {
                 <td class="px-6 py-3 text-right text-gray-500">$<?= number_format((float)$d['descuento'], 2) ?></td>
                 <td class="px-6 py-3 text-right text-gray-500">$<?= number_format((float)$d['itbms'], 2) ?></td>
                 <td class="px-6 py-3 text-right font-semibold text-gray-800">$<?= number_format((float)$d['total_linea'], 2) ?></td>
+                <?php if ($puedeDevolver): ?>
+                <td class="px-3 py-3 text-right">
+                    <?php if ($quedan > 0): ?>
+                    <button type="button" title="Devolver este producto"
+                            onclick='abrirDevolucion(<?= json_encode(["id" => (int) $d["detalle_id"], "nombre" => (string) $d["producto_nombre"], "quedan" => $quedan, "unit" => (float) $d["total_linea"] / max(0.0001, (float) $d["cantidad"]), "um" => (string) ($d["unidad_nombre"] ?? "")], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) ?>)'
+                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100">
+                        <i class="fas fa-undo"></i> Devolver
+                    </button>
+                    <?php endif; ?>
+                </td>
+                <?php endif; ?>
             </tr>
             <?php endforeach; ?>
         </tbody>
         <tfoot class="bg-gray-50 border-t-2 border-gray-100">
+            <?php $totalDevuelto = array_sum(array_map(fn ($x) => (float) $x['monto'], $devoluciones ?? [])); ?>
+            <?php if ($totalDevuelto > 0): ?>
+            <tr><td colspan="5" class="px-6 py-2 text-right text-xs text-rose-600 font-semibold">Devoluciones (notas de crédito)</td><td class="px-6 py-2 text-right font-semibold text-sm text-rose-600">−$<?= number_format($totalDevuelto, 2) ?></td></tr>
+            <?php endif; ?>
             <tr><td colspan="5" class="px-6 py-2 text-right text-xs text-gray-500">Subtotal</td><td class="px-6 py-2 text-right font-medium text-sm">$<?= number_format((float)$venta['subtotal'], 2) ?></td></tr>
             <tr><td colspan="5" class="px-6 py-2 text-right text-xs text-gray-500">Descuento</td><td class="px-6 py-2 text-right font-medium text-sm text-red-600">-$<?= number_format((float)$venta['descuento'], 2) ?></td></tr>
             <?php if ((float) $venta["itbms"] > 0): ?><tr><td colspan="5" class="px-6 py-2 text-right text-xs text-gray-500">ITBMS</td><td class="px-6 py-2 text-right font-medium text-sm">$<?= number_format((float)$venta['itbms'], 2) ?></td></tr><?php endif; ?>
@@ -284,6 +306,79 @@ $bc = match($venta['estado']) {
         </form>
     </div>
 </div>
+
+<?php if (!empty($devoluciones)): ?>
+<!-- Devoluciones parciales de esta factura -->
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mt-4">
+    <div class="px-6 py-3 border-b border-gray-100 text-sm font-bold text-rose-700"><i class="fas fa-undo mr-1"></i> Devoluciones</div>
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-100">
+            <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th class="px-6 py-2">Nota</th><th class="px-6 py-2">Fecha</th><th class="px-6 py-2">Producto</th>
+                <th class="px-6 py-2">Motivo</th><th class="px-6 py-2">Dinero</th><th class="px-6 py-2 text-right">Monto</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+            <?php foreach ($devoluciones as $dv): ?>
+            <tr>
+                <td class="px-6 py-2 font-mono text-xs"><?= esc($dv['nota'] ?? '') ?></td>
+                <td class="px-6 py-2 text-gray-600"><?= date('d/m/Y H:i', strtotime($dv['fecha'])) ?></td>
+                <td class="px-6 py-2"><?= (float) $dv['cantidad'] ?> × <?= esc($dv['producto']) ?>
+                    <span class="block text-[11px] <?= $dv['reingresa'] ? 'text-emerald-600' : 'text-amber-600' ?>"><?= $dv['reingresa'] ? 'Volvió al inventario' : 'Dañado: no vuelve a la venta' ?></span></td>
+                <td class="px-6 py-2 text-xs text-gray-600"><?= esc($dv['motivo']) ?> <span class="block text-gray-400"><?= esc($dv['usuario'] ?? '') ?></span></td>
+                <td class="px-6 py-2 text-xs"><?= $dv['reembolso'] === 'CREDITO' ? 'Se descontó del crédito' : 'Reembolso en ' . esc(strtolower($dv['reembolso'])) ?></td>
+                <td class="px-6 py-2 text-right font-semibold text-rose-600">−$<?= number_format((float) $dv['monto'], 2) ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($puedeDevolver)): ?>
+<!-- Modal Devolver producto -->
+<div id="modal-devolver" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-1"><i class="fas fa-undo text-rose-500 mr-1"></i> Devolver producto</h3>
+        <p class="text-sm text-gray-500 mb-4" id="dv-nombre"></p>
+        <div class="mb-3">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Cantidad que devuelve</label>
+            <input type="number" id="dv-cantidad" min="0.01" step="any" oninput="dvResumen()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            <p class="text-xs text-gray-400 mt-1" id="dv-max"></p>
+        </div>
+        <div class="mb-3">
+            <label class="block text-sm font-medium text-gray-700 mb-1">¿Cómo está el producto?</label>
+            <label class="flex items-start gap-2 p-2.5 rounded-lg border border-gray-200 mb-1.5 cursor-pointer">
+                <input type="radio" name="dv-estado" value="0" checked class="mt-0.5">
+                <span class="text-sm"><b>Dañado / no funciona</b><span class="block text-xs text-gray-500">No vuelve al inventario de venta (para reclamar al proveedor).</span></span>
+            </label>
+            <label class="flex items-start gap-2 p-2.5 rounded-lg border border-gray-200 cursor-pointer">
+                <input type="radio" name="dv-estado" value="1" class="mt-0.5">
+                <span class="text-sm"><b>En buen estado</b><span class="block text-xs text-gray-500">Vuelve al stock y se puede vender otra vez.</span></span>
+            </label>
+        </div>
+        <div class="mb-3">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Motivo <span class="text-red-500">*</span></label>
+            <input type="text" id="dv-motivo" maxlength="200" placeholder="Ej: la estufa no enciende" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+        </div>
+        <?php $pendienteCredito = (float) ($falta_pagar ?? 0); ?>
+        <div class="mb-3" id="dv-reembolso-bloque">
+            <label class="block text-sm font-medium text-gray-700 mb-1">¿Cómo se le devuelve el dinero?</label>
+            <select id="dv-reembolso" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                <option value="EFECTIVO">Efectivo (sale de tu caja)</option>
+                <option value="YAPPY">Yappy</option>
+                <option value="TRANSFERENCIA">Transferencia</option>
+            </select>
+        </div>
+        <div class="rounded-lg bg-rose-50 text-rose-800 text-sm p-3 mb-3" id="dv-resumen"></div>
+        <p id="dv-error" class="text-sm text-red-600 mb-2"></p>
+        <div class="flex gap-3 justify-end">
+            <button type="button" onclick="document.getElementById('modal-devolver').classList.add('hidden')" class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
+            <button type="button" id="dv-boton" onclick="dvGuardar()" class="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-semibold hover:bg-rose-700"><i class="fas fa-undo mr-1"></i>Registrar devolución</button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php if (!empty($puedeAgregar)): ?>
 <!-- Modal Agregar producto que se quedó fuera -->
@@ -388,6 +483,56 @@ $bc = match($venta['estado']) {
             alert('No se pudo subir el comprobante: ' + e.message);
             if (txt) txt.textContent = 'Adjuntar foto';
         }
+    }
+
+    // ── Devolución parcial de un producto ──
+    let dvLinea = null;
+    const DV_PENDIENTE_CREDITO = <?= json_encode(round((float) ($falta_pagar ?? 0), 2)) ?>;
+    function abrirDevolucion(linea) {
+        dvLinea = linea;
+        document.getElementById('dv-nombre').textContent = linea.nombre;
+        document.getElementById('dv-cantidad').value = linea.quedan;
+        document.getElementById('dv-max').textContent = 'Se pueden devolver hasta ' + linea.quedan + (linea.um ? ' ' + linea.um : '');
+        document.getElementById('dv-motivo').value = '';
+        document.getElementById('dv-error').textContent = '';
+        dvResumen();
+        document.getElementById('modal-devolver').classList.remove('hidden');
+        setTimeout(() => document.getElementById('dv-motivo').focus(), 50);
+    }
+    function dvResumen() {
+        if (!dvLinea) return;
+        const c = Math.min(parseFloat(document.getElementById('dv-cantidad').value) || 0, dvLinea.quedan);
+        const monto = Math.round(dvLinea.unit * c * 100) / 100;
+        const aCredito = Math.min(monto, DV_PENDIENTE_CREDITO);
+        const devolver = Math.round((monto - aCredito) * 100) / 100;
+        const f = n => '$' + n.toFixed(2);
+        document.getElementById('dv-reembolso-bloque').style.display = devolver > 0.004 ? '' : 'none';
+        document.getElementById('dv-resumen').innerHTML = 'La factura baja <b>' + f(monto) + '</b>.'
+            + (aCredito > 0 ? '<br>Se descuentan <b>' + f(aCredito) + '</b> de lo que debe a crédito.' : '')
+            + (devolver > 0.004 ? '<br>Se le devuelven <b>' + f(devolver) + '</b> al cliente.' : '');
+    }
+    async function dvGuardar() {
+        const err = document.getElementById('dv-error');
+        const motivo = document.getElementById('dv-motivo').value.trim();
+        if (!motivo) { err.textContent = 'Escribe el motivo.'; return; }
+        const boton = document.getElementById('dv-boton');
+        boton.disabled = true;
+        try {
+            const r = await fetch('/ventas/venta/<?= (int) $venta['venta_id'] ?>/devolver', {
+                method: 'POST', credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': <?= json_encode(csrf_hash()) ?> },
+                body: JSON.stringify({
+                    detalle_id: dvLinea.id,
+                    cantidad: parseFloat(document.getElementById('dv-cantidad').value) || 0,
+                    reingresa: document.querySelector('input[name="dv-estado"]:checked').value === '1',
+                    motivo: motivo,
+                    reembolso: document.getElementById('dv-reembolso').value,
+                }),
+            });
+            const d = await r.json().catch(() => ({ error: 'La sesión expiró: recarga la página.' }));
+            if (!r.ok) throw new Error(d.error || 'No se pudo registrar la devolución');
+            location.reload();
+        } catch (e) { err.textContent = e.message; boton.disabled = false; }
     }
 
     // Foto del comprobante de un abono que quedó sin ella
