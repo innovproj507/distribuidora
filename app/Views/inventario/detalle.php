@@ -172,7 +172,7 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
 <!-- Agregar stock (mismo formulario de siempre) -->
 <div id="agregar-stock" class="bg-white rounded-2xl border border-gray-100 shadow-sm mb-4 print:hidden">
     <div class="border-b border-gray-100 px-4 sm:px-6 py-3"><h2 class="text-sm font-semibold text-gray-900">Agregar stock</h2></div>
-    <form action="/inventario/<?= $id ?>/stock" method="POST" class="p-4 sm:p-6 grid sm:grid-cols-4 gap-4 items-end">
+    <form action="/inventario/<?= $id ?>/stock" method="POST" class="p-4 sm:p-6 grid sm:grid-cols-5 gap-4 items-end">
         <?= csrf_field() ?>
         <div>
             <label class="block text-xs font-semibold text-gray-500 mb-1">Depósito *</label>
@@ -182,10 +182,10 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
                 <?php endforeach; ?>
             </select>
         </div>
-        <div>
+        <div class="sm:col-span-2">
             <label class="block text-xs font-semibold text-gray-500 mb-1">Cantidad *</label>
             <div class="flex gap-2">
-                <input type="number" name="cantidad" min="0.01" step="any" required placeholder="0" class="<?= $campo ?> font-bold">
+                <input type="number" name="cantidad" min="0.01" step="any" required placeholder="0" class="<?= $campo ?> !text-lg font-bold min-w-[7rem] flex-1">
                 <?php if (!empty($unidades)): ?>
                 <select name="unidad_id" class="<?= $campo ?> !w-auto" title="En qué se cuenta lo que entra">
                     <option value=""><?= esc(\App\Libraries\ProductoService::abreviatura($producto->unidad_medida ?? 'und')) ?></option>
@@ -216,26 +216,26 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
     <div class="border-b border-gray-100 px-4 sm:px-6 py-3">
         <h2 class="text-sm font-semibold text-gray-900">Sacar stock <span class="font-normal text-gray-400">(consumo, uso local, merma — no es venta, no toca la caja)</span></h2>
     </div>
-    <form action="/inventario/<?= $id ?>/salida" method="POST" class="p-4 sm:p-6 grid sm:grid-cols-5 gap-4 items-end"
-          onsubmit="return confirm('¿Sacar este stock del inventario?')">
+    <form action="/inventario/<?= $id ?>/salida" method="POST" class="p-4 sm:p-6 grid sm:grid-cols-6 gap-4 items-end"
+          onsubmit="return confirmarSalidaStock(this)">
         <?= csrf_field() ?>
         <div>
             <label class="block text-xs font-semibold text-gray-500 mb-1">Depósito *</label>
             <select name="deposito_id" required class="<?= $campo ?>">
                 <?php foreach (($inventarios ?? []) as $inv): ?>
-                    <option value="<?= $inv['deposito_id'] ?>" <?= ((int) ($deposito_actual['deposito_id'] ?? 0)) === (int) $inv['deposito_id'] ? 'selected' : '' ?>><?= esc($inv['deposito_nombre'] ?? 'Depósito ' . $inv['deposito_id']) ?></option>
+                    <option value="<?= $inv['deposito_id'] ?>" data-existencia="<?= (float) $inv['existencia'] ?>" <?= ((int) ($deposito_actual['deposito_id'] ?? 0)) === (int) $inv['deposito_id'] ? 'selected' : '' ?>><?= esc($inv['deposito_nombre'] ?? 'Depósito ' . $inv['deposito_id']) ?></option>
                 <?php endforeach; ?>
             </select>
         </div>
-        <div>
+        <div class="sm:col-span-2">
             <label class="block text-xs font-semibold text-gray-500 mb-1">Cantidad *</label>
             <div class="flex gap-2">
-                <input type="number" name="cantidad" min="0.01" step="any" required placeholder="0" class="<?= $campo ?> font-bold">
+                <input type="number" name="cantidad" min="0.01" step="any" required placeholder="0" class="<?= $campo ?> !text-lg font-bold min-w-[7rem] flex-1">
                 <?php if (!empty($unidades)): ?>
                 <select name="unidad_id" class="<?= $campo ?> !w-auto">
-                    <option value=""><?= esc(\App\Libraries\ProductoService::abreviatura($producto->unidad_medida ?? 'und')) ?></option>
+                    <option value="" data-factor="1"><?= esc(\App\Libraries\ProductoService::abreviatura($producto->unidad_medida ?? 'und')) ?></option>
                     <?php foreach ($unidades as $u): ?>
-                        <option value="<?= (int) $u['unidad_id'] ?>"><?= esc($u['nombre']) ?> ×<?= $num($u['factor_conversion']) ?></option>
+                        <option value="<?= (int) $u['unidad_id'] ?>" data-factor="<?= (float) $u['factor_conversion'] ?>"><?= esc($u['nombre']) ?> ×<?= $num($u['factor_conversion']) ?></option>
                     <?php endforeach; ?>
                 </select>
                 <?php endif; ?>
@@ -258,6 +258,25 @@ $campo  = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white f
         </button>
     </form>
 </div>
+<script>
+// Confirma con el número exacto y lo que queda: 631 en vez de 63 de guineo pasó sin verse (2026-11-17)
+function confirmarSalidaStock(f) {
+    const cant = parseFloat(f.cantidad.value) || 0;
+    const uSel = f.unidad_id ? f.unidad_id.options[f.unidad_id.selectedIndex] : null;
+    const factor = uSel ? (parseFloat(uSel.dataset.factor) || 1) : 1;
+    const dSel = f.deposito_id.options[f.deposito_id.selectedIndex];
+    const hay = parseFloat(dSel.dataset.existencia) || 0;
+    const base = cant * factor;
+    const fmt = n => n.toLocaleString('es-PA', {maximumFractionDigits: 2});
+    const unidad = <?= json_encode(\App\Libraries\ProductoService::abreviatura($producto->unidad_medida ?? 'und')) ?>;
+    let msg = 'Vas a SACAR ' + fmt(cant) + ' ' + (uSel && uSel.value ? uSel.text.split(' ×')[0] : unidad)
+        + (factor !== 1 ? ' (= ' + fmt(base) + ' ' + unidad + ')' : '')
+        + '\nde ' + <?= json_encode((string) ($producto->nombre ?? '')) ?> + ' en ' + dSel.text.trim() + '.'
+        + '\n\nHay ' + fmt(hay) + ' → quedarán ' + fmt(hay - base) + ' ' + unidad + '.';
+    if (hay > 0 && base > hay * 0.3) msg += '\n\n⚠ Es mucho (' + Math.round(base / hay * 100) + '% del stock). Revisa que el número esté bien.';
+    return confirm(msg + '\n\n¿Es correcto?');
+}
+</script>
 <?php endif; ?>
 
 </div>
