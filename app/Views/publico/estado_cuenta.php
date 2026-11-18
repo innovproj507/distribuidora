@@ -19,6 +19,7 @@ $totalPagado = array_sum(array_map(fn ($p) => (float) $p['monto'], $pagos));
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
 <title>Estado de cuenta · <?= esc($nombreEmpresa) ?></title>
+<link rel="icon" type="image/png" href="/assets/img/favicon.png?v=2">
 <style>
   :root { --azul:#0F2E6B; --azul2:#1d4ed8; --tinta:#1f2937; --suave:#6b7280; --linea:#e5e7eb; --fondo:#f3f4f6; --rojo:#dc2626; --verde:#059669; --ambar:#d97706; color-scheme: light; }
   * { box-sizing: border-box; }
@@ -52,6 +53,7 @@ $totalPagado = array_sum(array_map(fn ($p) => (float) $p['monto'], $pagos));
 </head>
 <body>
 <div class="cab">
+  <img src="/assets/img/logo-simbolo.png?v=2" alt="" style="width:52px;height:52px;background:#fff;border-radius:14px;padding:4px;float:right;margin-left:12px">
   <h1><?= esc(mb_strtoupper($nombreEmpresa, 'UTF-8')) ?></h1>
   <p>Estado de cuenta<?= $ruc !== '' ? ' · RUC ' . esc($ruc) : '' ?></p>
 </div>

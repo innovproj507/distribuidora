@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verificación en dos pasos | Sistema POS</title>
+    <title>Verificación en dos pasos | Inversiones Arango</title>
+    <link rel="icon" type="image/png" href="/assets/img/favicon.png?v=2">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -14,8 +15,8 @@
         <div class="max-w-sm w-full space-y-8">
 
             <div class="text-center">
-                <div class="mx-auto w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-indigo-500/30">
-                    <i class="fas fa-shield-halved text-white text-2xl"></i>
+                <div class="mx-auto w-20 h-20 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-lg p-2">
+                    <img src="/assets/img/logo-simbolo.png?v=2" alt="Inversiones Arango" class="w-full h-full object-contain">
                 </div>
                 <h2 class="text-2xl font-bold text-white">Verificación en dos pasos</h2>
                 <p class="mt-2 text-sm text-gray-400">Ingresa el código de tu aplicación de autenticación</p>

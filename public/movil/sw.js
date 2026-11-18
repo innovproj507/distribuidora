@@ -2,7 +2,7 @@
 // para que su alcance sea /m/. Bump CACHE_NAME y el ?v= de app.css / app.js en layouts/movil.php
 // cuando cambien: los archivos de /movil/ se guardan por URL exacta (con su ?v=), así una versión
 // nueva nunca se confunde con la vieja guardada.
-const CACHE_NAME = 'movil-v4';
+const CACHE_NAME = 'movil-v5';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

@@ -23,8 +23,8 @@ $inicial     = mb_strtoupper(mb_substr($auth['name'] ?? 'U', 0, 1, 'UTF-8'), 'UT
 <title><?= esc($page_title ?? 'Distribuidora') ?></title>
 
 <link rel="manifest" href="/m/manifest.webmanifest">
-<link rel="icon" href="/movil/icons/icon-192.png">
-<link rel="apple-touch-icon" href="/movil/icons/icon-192.png">
+<link rel="icon" href="/movil/icons/icon-192.png?v=2">
+<link rel="apple-touch-icon" href="/movil/icons/icon-192.png?v=2">
 
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -34,8 +34,9 @@ $inicial     = mb_strtoupper(mb_substr($auth['name'] ?? 'U', 0, 1, 'UTF-8'), 'UT
 <body class="pb-24">
 
 <header class="header-grad pt-8 pb-6 px-5 rounded-b-[28px] safe-top">
-  <div class="flex items-center justify-between">
-    <div class="min-w-0">
+  <div class="flex items-center justify-between gap-3">
+    <img src="/assets/img/logo-simbolo.png?v=2" alt="" class="w-10 h-10 rounded-xl bg-white p-1 flex-shrink-0">
+    <div class="min-w-0 flex-1">
       <h1 class="font-head text-white text-lg font-semibold truncate"><?= esc($headerTitle) ?></h1>
       <?php if (!empty($deposito_actual['nombre'])): ?>
         <p class="text-xs text-white/70 truncate"><?= esc($deposito_actual['nombre']) ?></p>

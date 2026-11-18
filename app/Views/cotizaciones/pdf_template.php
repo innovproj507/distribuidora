@@ -64,6 +64,9 @@ $itbmsPct = (int) round(((float)($_ENV['ITBMS_RATE'] ?? 0.07)) * 100);
 <body>
 
     <div class="encabezado-empresa centro">
+        <?php $logoPdf = FCPATH . 'assets/img/logo.png'; if (is_file($logoPdf)): // data URI: Dompdf no lee archivos remotos ?>
+            <img src="data:image/png;base64,<?= base64_encode((string) file_get_contents($logoPdf)) ?>" alt="" style="height: 80px; margin-bottom: 2px;">
+        <?php endif; ?>
         <h1><?= esc($empresaNombre) ?></h1>
         <?php if ($empresaRazon && $empresaRazon !== $empresaNombre): ?><p class="chica"><?= esc($empresaRazon) ?></p><?php endif; ?>
         <?php if ($empresaRuc): ?><p class="chica">RUC: <?= esc($empresaRuc) ?></p><?php endif; ?>

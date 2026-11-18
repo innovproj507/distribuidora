@@ -54,8 +54,8 @@ class MovilController extends BaseController
                 'background_color' => '#F2F4F9',
                 'theme_color'      => '#0F2E6B',
                 'icons'            => [
-                    ['src' => '/movil/icons/icon-192.png', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
-                    ['src' => '/movil/icons/icon-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
+                    ['src' => '/movil/icons/icon-192.png?v=2', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
+                    ['src' => '/movil/icons/icon-512.png?v=2', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
                 ],
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }

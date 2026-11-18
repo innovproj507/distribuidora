@@ -249,6 +249,7 @@ $itbmsPct = (int) round(((float)($_ENV['ITBMS_RATE'] ?? 0.07)) * 100);
 
         <!-- Encabezado de la empresa, centrado -->
         <div class="text-center mb-2">
+            <img src="/assets/img/logo.png?v=2" alt="<?= esc($empresaNombre) ?>" class="h-24 w-auto mx-auto mb-1">
             <h1 class="text-base font-bold uppercase"><?= esc($empresaNombre) ?></h1>
             <?php if ($empresaRazon && $empresaRazon !== $empresaNombre): ?>
                 <p class="text-xs"><?= esc($empresaRazon) ?></p>

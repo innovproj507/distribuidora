@@ -58,6 +58,8 @@ $breadcrumbLabel = $page_title ?? 'Sistema POS';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= esc($page_title ?? 'Sistema POS') ?></title>
+    <link rel="icon" type="image/png" href="/assets/img/favicon.png?v=2">
+    <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png?v=2">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -104,8 +106,8 @@ $breadcrumbLabel = $page_title ?? 'Sistema POS';
         <!-- Logo / Empresa -->
         <div class="px-4 py-4 border-b border-slate-800">
             <div class="flex items-center gap-3" :class="sidebarCollapsed ? 'justify-center' : ''">
-                <div class="w-10 h-10 rounded-xl bg-sky-500 flex items-center justify-center flex-shrink-0 shadow-sm shadow-sky-500/40">
-                    <i class="fas fa-cash-register text-white text-base"></i>
+                <div class="w-11 h-11 rounded-xl bg-white flex items-center justify-center flex-shrink-0 shadow-sm p-1">
+                    <img src="/assets/img/logo-simbolo.png?v=2" alt="Inversiones Arango" class="w-full h-full object-contain">
                 </div>
                 <div x-show="!sidebarCollapsed" x-cloak class="min-w-0">
                     <p class="text-sm font-extrabold text-white leading-tight truncate" title="<?= esc($empresa_actual['nombre_comercial'] ?? 'Sistema POS') ?>"><?= esc($empresa_actual['nombre_comercial'] ?? 'Sistema POS') ?></p>

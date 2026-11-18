@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Iniciar Sesión | Inversiones Arango</title>
+    <link rel="icon" type="image/png" href="/assets/img/favicon.png?v=2">
+    <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png?v=2">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -14,10 +16,10 @@
         <div class="max-w-md w-full space-y-8">
             <!-- Logo -->
             <div class="text-center">
-                <div class="mx-auto w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-blue-500/30">
-                    <i class="fas fa-store text-white text-2xl"></i>
+                <div class="mx-auto w-44 h-44 bg-white rounded-3xl flex items-center justify-center mb-4 shadow-lg p-3">
+                    <img src="/assets/img/logo.png?v=2" alt="Inversiones Arango" class="w-full h-full object-contain">
                 </div>
-                <h2 class="text-3xl font-bold text-white">Inversiones Arango</h2>
+                <h2 class="sr-only">Inversiones Arango</h2>
                 <p class="mt-2 text-sm text-gray-400">Punto de Venta e Inventario</p>
             </div>
 

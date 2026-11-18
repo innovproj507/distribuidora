@@ -5,7 +5,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>POS | Sistema POS</title>
+    <title>POS | Inversiones Arango</title>
+    <link rel="icon" type="image/png" href="/assets/img/favicon.png?v=2" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -118,9 +119,7 @@
             <div class="flex justify-between items-center">
                 <!-- Logo y Empresa -->
                 <div class="flex items-center space-x-4">
-                    <div class="bg-pos p-2 rounded-xl shadow-lg shadow-pos/20">
-                        <i class="fas fa-cash-register text-white text-xl"></i>
-                    </div>
+                    <img src="/assets/img/logo-simbolo.png?v=2" alt="Inversiones Arango" class="w-11 h-11 object-contain">
                     <div>
                         <h1 class="text-sm font-black text-slate-800 uppercase tracking-tight leading-none"><?= esc($empresa_actual['nombre_comercial'] ?? $empresa_actual['razon_social'] ?? 'Mi Empresa') ?></h1>
                         <div class="flex items-center gap-2 mt-0.5">

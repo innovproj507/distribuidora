@@ -9,8 +9,8 @@
 <title><?= esc($page_title ?? 'Iniciar sesión') ?></title>
 
 <link rel="manifest" href="/m/manifest.webmanifest">
-<link rel="icon" href="/movil/icons/icon-192.png">
-<link rel="apple-touch-icon" href="/movil/icons/icon-192.png">
+<link rel="icon" href="/movil/icons/icon-192.png?v=2">
+<link rel="apple-touch-icon" href="/movil/icons/icon-192.png?v=2">
 
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,8 +22,8 @@
 <div class="min-h-screen flex flex-col items-center justify-center px-6">
   <div class="w-full max-w-xs">
     <div class="text-center mb-8">
-      <img src="/movil/icons/icon-192.png" alt="" class="w-16 h-16 rounded-2xl mx-auto mb-3">
-      <h1 class="font-head text-2xl font-semibold" style="color:var(--navy)"><?= esc($empresa_actual['nombre_comercial'] ?? 'Distribuidora') ?></h1>
+      <img src="/assets/img/logo.png?v=2" alt="Inversiones Arango" class="w-44 h-auto mx-auto mb-3">
+      <h1 class="sr-only"><?= esc($empresa_actual['nombre_comercial'] ?? 'Inversiones Arango') ?></h1>
       <p class="text-sm mt-1" style="color:var(--ink-soft)">Inicia sesión para continuar</p>
     </div>
 
