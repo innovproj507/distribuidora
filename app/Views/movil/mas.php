@@ -102,7 +102,7 @@ $enlace = function (string $href, string $emoji, string $bg, string $titulo, str
 <?php endif; ?>
 
 <?php if (Auth::can('productos.editar')) $enlace('/m/codigos', '🏷️', 'var(--amber-light)', 'Códigos de barras', 'Escanear el código de cada producto, referencia del proveedor y etiquetas'); ?>
-<?php if (Auth::can('compras.crear')) $enlace('/m/pedido', '🛒', 'var(--green-light)', 'Pedido a la ciudad', 'Qué comprar en total y cuánto va a cada tienda'); ?>
+<?php if (Auth::can('pedidos.crear')) $enlace('/m/pedidos', '🛒', 'var(--green-light)', 'Hacer pedido', 'Lista de lo que falta para el comprador en la ciudad, por WhatsApp'); ?>
 <?php if (Auth::can('conteos.ver')) $enlace('/m/conteos', '📋', 'var(--purple-light)', 'Conteo físico', 'Contar estantes, ubicar productos y ajustar faltantes'); ?>
 <?php if (Auth::can('traslados.ver')) $enlace('/m/traslados', '🚤', 'var(--navy-light)', 'Traslados entre tiendas', 'Enviar mercancía y recibirla con conteo'); ?>
 <?php if (Auth::can('caja.usar')) $enlace('/m/caja', '🧮', 'var(--green-light)', 'Mi caja', !empty($caja_actual) ? 'Abierta · entradas, salidas y cierre' : 'Abrir caja con el fondo inicial'); ?>

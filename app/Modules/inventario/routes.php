@@ -74,6 +74,11 @@ $routes->group('', ['filter' => ['auth', 'sucursal']], static function ($routes)
     $routes->post('api/inventario/marca-rapida', 'ProductoController::crearMarcaRapida', ['filter' => 'permiso:productos.crear,productos.editar']);
 
     // Compras
+    // Hacer pedido (lista para el comprador en la ciudad por WhatsApp → compra pendiente)
+    $routes->get('pedidos', 'PedidoController::index', ['filter' => 'permiso:pedidos.crear']);
+    $routes->post('pedidos/guardar', 'PedidoController::guardar', ['filter' => 'permiso:pedidos.crear']);
+    $routes->post('pedidos/config', 'PedidoController::config', ['filter' => 'permiso:pedidos.crear']);
+    $routes->get('pedidos/(:num)', 'PedidoController::detalle/$1', ['filter' => 'permiso:pedidos.crear']);
     $routes->get('compras', 'CompraController::index', ['filter' => 'permiso:compras.ver']);
     $routes->get('compras/nueva', 'CompraController::crear', ['filter' => 'permiso:compras.crear']);
     $routes->post('compras/guardar', 'CompraController::guardar', ['filter' => 'permiso:compras.crear']);

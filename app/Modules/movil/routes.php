@@ -49,8 +49,11 @@ $routes->group('m', ['filter' => ['movilauth', 'sucursal']], static function ($r
     $routes->post('api/conteo/(:num)/linea', 'MovilApiController::anotarConteo/$1');
     $routes->post('api/conteo/(:num)/aplicar', 'MovilApiController::aplicarConteo/$1');
     $routes->post('api/conteo/(:num)/cancelar', 'MovilApiController::cancelarConteo/$1');
-    $routes->get('pedido', 'MovilController::pedido');
-    $routes->post('api/pedido', 'MovilApiController::crearPedido');
+    $routes->get('pedido', 'MovilController::pedido'); // enlace viejo → /m/pedidos
+    $routes->get('pedidos', 'PedidoController::movil');
+    $routes->post('api/pedidos/guardar', 'PedidoController::guardar');
+    $routes->post('api/pedidos/config', 'PedidoController::config');
+    $routes->get('api/pedidos/(:num)', 'PedidoController::detalle/$1');
     $routes->get('traslados', 'MovilController::traslados');
     $routes->get('api/traslado/(:num)', 'MovilApiController::traslado/$1');
     $routes->post('api/traslado', 'MovilApiController::enviarTraslado');

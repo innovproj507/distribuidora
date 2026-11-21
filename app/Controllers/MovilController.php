@@ -799,20 +799,10 @@ class MovilController extends BaseController
         return $lineas;
     }
 
+    /** Enlace viejo "Pedido a la ciudad": ahora es Hacer pedido (lista por WhatsApp → compra pendiente). */
     public function pedido()
     {
-        if ($r = $this->exigir('compras.crear', '/m/mas')) return $r;
-
-        $dias = (int) ($this->request->getGet('dias') ?? 7);
-        $plan = \App\Libraries\PedidoCiudadService::calcular($this->empresaId(), $dias);
-
-        return $this->render('movil.pedido', [
-            'page_title'  => 'Pedido a la ciudad',
-            'headerTitle' => 'Pedido a la ciudad',
-            'activeTab'   => 'mas',
-            'dias'        => max(1, min(60, $dias)),
-            'plan'        => $plan,
-        ]);
+        return redirect()->to('/m/pedidos');
     }
 
     public function traslados()

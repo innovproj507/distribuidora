@@ -744,27 +744,6 @@ class MovilApiController extends BaseController
         return $this->json(['success' => true] + $res);
     }
 
-    /** POST /m/api/pedido {lineas: [{producto_id, cantidades: {deposito_id: cantidad}}]} */
-    public function crearPedido()
-    {
-        if (!Auth::can('compras.crear')) return $this->json(['error' => 'Sin permiso.'], 403);
-        try {
-            Db::begin();
-            $ordenes = \App\Libraries\PedidoCiudadService::crearOrdenes(
-                (array) ($this->jsonInput()['lineas'] ?? []),
-                ['empresa_id' => $this->empresaId(), 'sucursal_id' => $this->sucursalId()]
-            );
-            Db::commit();
-        } catch (\Throwable $e) {
-            Db::rollback();
-            return $this->json(['error' => $e instanceof \RuntimeException ? $e->getMessage() : 'No se pudo crear el pedido.'], 422);
-        }
-        foreach ($ordenes as $o) {
-            AuditService::log('compras.crear', "Orden #{$o['compra_id']} del pedido consolidado (móvil)", $o['compra_id'], 'compra', [], $this->empresaId());
-        }
-        return $this->json(['success' => true, 'ordenes' => $ordenes]);
-    }
-
     /** GET /m/api/traslado/{id} — líneas de un traslado de la sucursal (origen o destino). */
     public function traslado(int $id)
     {

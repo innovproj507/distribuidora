@@ -17,6 +17,7 @@ return [
         ['type' => 'link', 'label' => 'Marcas',          'icon' => 'fas fa-certificate',          'href' => '/inventario/marcas'],
         ['type' => 'link', 'label' => 'Proveedores',     'icon' => 'fas fa-truck',                'href' => '/inventario/proveedores'],
         ['type' => 'link', 'label' => 'Depósitos',       'icon' => 'fas fa-warehouse',            'href' => '/inventario/depositos'],
+        ['type' => 'link', 'label' => 'Hacer pedido',    'icon' => 'fab fa-whatsapp',             'href' => '/pedidos', 'permission' => 'pedidos.crear'],
         ['type' => 'link', 'label' => 'Compras',         'icon' => 'fas fa-file-invoice-dollar',  'href' => '/compras'],
         ['type' => 'link', 'label' => 'Traslados',       'icon' => 'fas fa-exchange-alt',         'href' => '/inventario/traslados'],
         ['type' => 'link', 'label' => 'Kardex',          'icon' => 'fas fa-stream',               'href' => '/inventario/kardex'],

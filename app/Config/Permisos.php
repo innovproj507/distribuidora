@@ -28,6 +28,8 @@ class Permisos extends BaseConfig
             // Recibe en el celular la mercancía que manda la otra tienda
             'traslados.ver',
             'traslados.recibir',
+            // Arma la lista de pedido para el comprador en la ciudad (queda como compra pendiente)
+            'pedidos.crear',
         ],
 
         // Vendedor de tienda: trabaja solo desde la PWA (/m), fijo en su sucursal. Vende, cobra,
@@ -54,6 +56,7 @@ class Permisos extends BaseConfig
             'traslados.recibir',
             'compras.ver',
             'compras.recibir',
+            'pedidos.crear',
         ],
 
         // Encargado de tienda: administra SU sucursal (web y celular). Todo lo del vendedor más
@@ -90,6 +93,7 @@ class Permisos extends BaseConfig
             'conteos.reconciliar',
             'compras.ver',
             'compras.recibir',
+            'pedidos.crear',
             'proveedores.ver',
             'traslados.ver',
             'traslados.crear',
@@ -161,6 +165,7 @@ class Permisos extends BaseConfig
             'compras.ver',
             'compras.crear',
             'compras.recibir',
+            'pedidos.crear',
             'proveedores.ver',
             'proveedores.crear',
             'proveedores.editar',
