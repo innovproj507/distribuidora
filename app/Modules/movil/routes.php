@@ -59,6 +59,9 @@ $routes->group('m', ['filter' => ['movilauth', 'sucursal']], static function ($r
     $routes->post('api/traslado', 'MovilApiController::enviarTraslado');
     $routes->post('api/traslado/(:num)/recibir', 'MovilApiController::recibirTraslado/$1');
     $routes->get('api/venta/(:num)', 'MovilApiController::venta/$1');
+    // Devolver un producto / agregar uno olvidado (mismos servicios que el detalle web)
+    $routes->post('api/venta/(:num)/devolver', 'VentaController::devolver/$1', ['filter' => 'permiso:ventas.anular']);
+    $routes->post('api/venta/(:num)/agregar', 'VentaController::agregarProducto/$1', ['filter' => 'permiso:ventas.anular']);
     $routes->get('venta/(:num)/ticket', 'MovilApiController::ticket/$1');
     $routes->post('api/venta/(:num)/comprobante', 'MovilApiController::subirComprobante/$1');
     $routes->get('api/venta/(:num)/comprobante', 'MovilApiController::verComprobante/$1');

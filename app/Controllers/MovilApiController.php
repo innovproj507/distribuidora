@@ -369,9 +369,25 @@ class MovilApiController extends BaseController
         );
         if (!$v) return null;
         $v['items'] = Db::all(
-            "SELECT p.nombre, d.cantidad, d.unidad_nombre, d.precio, d.total_linea FROM ventas_detalle d JOIN productos p ON p.producto_id = d.producto_id WHERE d.venta_id = ?",
+            "SELECT d.detalle_id, p.nombre, d.cantidad, d.cantidad_devuelta, d.unidad_nombre, d.precio, d.total_linea FROM ventas_detalle d JOIN productos p ON p.producto_id = d.producto_id WHERE d.venta_id = ?",
             [$id]
         );
+
+        // Devolver un producto / agregar uno que se quedó fuera (mismas reglas que el detalle web)
+        $puedeAnular = $v['estado'] !== 'anulada' && Auth::can('ventas.anular');
+        $abonos      = (int) Db::value("SELECT COUNT(*) FROM cobros_ventas WHERE venta_id = ?", [$id]);
+        $clienteId   = (int) (Db::value("SELECT cliente_id FROM ventas WHERE venta_id = ?", [$id]) ?? 0);
+        $v['puede_devolver'] = $puedeAnular;
+        $v['puede_agregar']  = $puedeAnular && substr((string) $v['fecha'], 0, 10) === date('Y-m-d') && $abonos === 0;
+        $v['tiene_cliente']  = $clienteId > 0;
+        $v['falta_pagar']    = 0.0;
+        if ($v['estado'] === 'pendiente' && $clienteId > 0) {
+            foreach (\App\Libraries\CobroService::pendientes($clienteId, (int) $this->empresaId()) as $p) {
+                if ($p['venta_id'] !== null && (int) $p['venta_id'] === $id) {
+                    $v['falta_pagar'] = round((float) $p['pendiente'], 2);
+                }
+            }
+        }
         $v['pagos'] = Db::all("SELECT forma_pago, monto, referencia FROM ventas_pagos WHERE venta_id = ?", [$id]);
         $v['vuelto'] = \App\Libraries\VentaService::vueltoEfectivo((string) $v['numero_factura'], $v['caja_id'] ? (int) $v['caja_id'] : null);
         unset($v['caja_id']);

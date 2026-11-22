@@ -74,11 +74,81 @@ foreach ($ventas as $v) {
     </div>
   </div>
   <div class="mb-2"></div>
+  <button type="button" id="v-agregar" onclick="abrirAgregar()" class="w-full py-3 rounded-xl font-semibold text-center mb-2" style="display:none; background:var(--navy-light); color:var(--navy)">➕ Agregar producto que se quedó fuera</button>
   <button type="button" onclick="if (ventaActual) TicketPOS.imprimirVenta(ventaActual.venta_id)" class="block w-full py-3 rounded-xl font-semibold text-center text-white mb-2" style="background:var(--navy)">🖨️ Imprimir ticket</button>
   <button type="button" onclick="compartirTicket()" class="block w-full py-3 rounded-xl font-medium text-center text-white mb-2" style="background:var(--green)">📤 Compartir ticket (WhatsApp…)</button>
   <?php if (!in_array(\App\Libraries\Auth::rol(), \App\Filters\SoloMovilFilter::ROLES, true)): ?>
   <a id="v-web" href="#" class="block w-full py-3 rounded-xl font-medium text-center" style="background:var(--navy-light); color:var(--navy)">Anular / abonar (versión web)</a>
   <?php endif; ?>
+</div>
+
+<!-- Devolver un producto de la venta -->
+<div id="sheet-devolver" class="sheet" style="transform:translateY(110%)">
+  <div class="sheet-handle"></div>
+  <div class="flex items-center justify-between mb-1">
+    <h2 class="font-head text-lg font-semibold">↶ Devolver producto</h2>
+    <button type="button" onclick="volverAVenta('sheet-devolver')" class="w-8 h-8 rounded-full flex items-center justify-center" style="background:var(--navy-light); color:var(--navy)">✕</button>
+  </div>
+  <p class="text-sm mb-3" style="color:var(--ink-soft)" id="dv-nombre"></p>
+  <label class="block text-xs font-semibold mb-1">Cantidad que devuelve</label>
+  <input type="number" id="dv-cantidad" min="0.01" step="any" inputmode="decimal" oninput="dvResumen()" class="w-full px-3 py-3 rounded-xl border text-lg font-semibold mb-1" style="border-color:var(--line)">
+  <p class="text-xs mb-3" style="color:var(--ink-soft)" id="dv-max"></p>
+  <p class="text-xs font-semibold mb-1">¿Cómo está el producto?</p>
+  <label class="flex items-start gap-2 p-3 rounded-xl border mb-2" style="border-color:var(--line)">
+    <input type="radio" name="dv-estado" value="0" checked class="mt-1">
+    <span class="text-sm"><b>Dañado / no funciona</b><span class="block text-xs" style="color:var(--ink-soft)">No vuelve al inventario de venta (para reclamar al proveedor).</span></span>
+  </label>
+  <label class="flex items-start gap-2 p-3 rounded-xl border mb-3" style="border-color:var(--line)">
+    <input type="radio" name="dv-estado" value="1" class="mt-1">
+    <span class="text-sm"><b>En buen estado</b><span class="block text-xs" style="color:var(--ink-soft)">Vuelve al stock y se puede vender otra vez.</span></span>
+  </label>
+  <label class="block text-xs font-semibold mb-1">Motivo *</label>
+  <input type="text" id="dv-motivo" maxlength="200" placeholder="Ej: la estufa no enciende" class="w-full px-3 py-3 rounded-xl border mb-3" style="border-color:var(--line)">
+  <div id="dv-reembolso-bloque" class="mb-3">
+    <label class="block text-xs font-semibold mb-1">¿Cómo se le devuelve el dinero?</label>
+    <select id="dv-reembolso" class="w-full px-3 py-3 rounded-xl border bg-white" style="border-color:var(--line)">
+      <option value="EFECTIVO">Efectivo (sale de tu caja)</option>
+      <option value="YAPPY">Yappy</option>
+      <option value="TRANSFERENCIA">Transferencia</option>
+    </select>
+  </div>
+  <div class="rounded-xl p-3 mb-3 text-sm" style="background:#fff1f2; color:#9f1239" id="dv-resumen"></div>
+  <button type="button" id="dv-boton" onclick="dvGuardar()" class="block w-full py-3.5 rounded-xl font-semibold text-white" style="background:#e11d48">Registrar devolución</button>
+</div>
+
+<!-- Agregar un producto que se quedó fuera (facturas de hoy) -->
+<div id="sheet-agregar" class="sheet" style="transform:translateY(110%)">
+  <div class="sheet-handle"></div>
+  <div class="flex items-center justify-between mb-1">
+    <h2 class="font-head text-lg font-semibold">➕ Agregar producto</h2>
+    <button type="button" onclick="volverAVenta('sheet-agregar')" class="w-8 h-8 rounded-full flex items-center justify-center" style="background:var(--navy-light); color:var(--navy)">✕</button>
+  </div>
+  <p class="text-xs mb-3" style="color:var(--ink-soft)" id="ag-ayuda"></p>
+  <input type="search" id="ag-buscar" autocomplete="off" placeholder="Buscar producto o código…" oninput="agBuscar()" class="w-full px-3 py-3 rounded-xl border mb-2" style="border-color:var(--line)">
+  <div id="ag-resultados" class="flex flex-col gap-1.5 mb-2 max-h-60 overflow-y-auto"></div>
+  <div id="ag-form" style="display:none">
+    <p class="text-sm font-semibold mb-2" style="color:var(--navy)" id="ag-elegido"></p>
+    <div class="grid grid-cols-2 gap-2 mb-3">
+      <div>
+        <label class="block text-xs font-semibold mb-1">Cantidad</label>
+        <input type="number" id="ag-cantidad" min="0.01" step="any" inputmode="decimal" value="1" oninput="agTotal()" class="w-full px-3 py-3 rounded-xl border text-lg font-semibold" style="border-color:var(--line)">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold mb-1">Presentación</label>
+        <select id="ag-unidad" onchange="agTotal()" class="w-full px-3 py-3 rounded-xl border bg-white" style="border-color:var(--line)"></select>
+      </div>
+    </div>
+    <div id="ag-forma-bloque" class="mb-3">
+      <label class="block text-xs font-semibold mb-1">¿Cómo paga lo agregado?</label>
+      <select id="ag-forma" class="w-full px-3 py-3 rounded-xl border bg-white" style="border-color:var(--line)">
+        <option value="EFECTIVO">Efectivo</option><option value="YAPPY">Yappy</option>
+        <option value="TRANSFERENCIA">Transferencia</option><option value="TARJETA">Tarjeta</option>
+        <option value="CREDITO" id="ag-op-credito">Crédito</option>
+      </select>
+    </div>
+    <p class="text-sm mb-3">Se suma a la factura: <b class="font-mono" id="ag-total">$0.00</b></p>
+    <button type="button" id="ag-boton" onclick="agGuardar()" class="block w-full py-3.5 rounded-xl font-semibold text-white" style="background:var(--navy)">Agregar a la factura</button>
+  </div>
 </div>
 
 <?php $this->endSection(); ?>
@@ -130,11 +200,17 @@ async function verVenta(id) {
     const v = await api('/m/api/venta/' + id);
     document.getElementById('v-factura').textContent = 'Factura ' + v.numero_factura;
     document.getElementById('v-meta').textContent = (v.cliente_nombre || 'Consumidor final') + ' · ' + v.fecha + (v.estado === 'anulada' ? ' · ANULADA' : '');
-    document.getElementById('v-items').innerHTML = v.items.map(function (i) {
-      return '<div class="card !p-3 flex justify-between gap-3"><div class="min-w-0"><p class="text-sm truncate">' + esc(i.nombre) + '</p>' +
-        '<p class="text-xs font-mono" style="color:var(--ink-soft)">' + numero(i.cantidad) + (i.unidad_nombre ? ' ' + esc(i.unidad_nombre.toLowerCase()) : '') + ' × ' + dinero(i.precio) + '</p></div>' +
-        '<p class="font-mono text-sm font-semibold">' + dinero(i.total_linea) + '</p></div>';
+    document.getElementById('v-items').innerHTML = v.items.map(function (i, n) {
+      const devuelta = Number(i.cantidad_devuelta) || 0;
+      const quedan = Math.round((Number(i.cantidad) - devuelta) * 100) / 100;
+      return '<div class="card !p-3"><div class="flex justify-between gap-3"><div class="min-w-0"><p class="text-sm truncate' + (quedan <= 0 ? ' line-through' : '') + '">' + esc(i.nombre) + '</p>' +
+        '<p class="text-xs font-mono" style="color:var(--ink-soft)">' + numero(i.cantidad) + (i.unidad_nombre ? ' ' + esc(i.unidad_nombre.toLowerCase()) : '') + ' × ' + dinero(i.precio) + '</p>' +
+        (devuelta > 0 ? '<span class="inline-block mt-1 px-2 py-0.5 rounded-full text-[11px] font-bold" style="background:#ffe4e6; color:#be123c">Devuelto ' + numero(devuelta) + '</span>' : '') + '</div>' +
+        '<p class="font-mono text-sm font-semibold">' + dinero(i.total_linea) + '</p></div>' +
+        (v.puede_devolver && quedan > 0 ? '<button type="button" onclick="abrirDevolucion(' + n + ')" class="mt-2 w-full py-2 rounded-lg text-xs font-semibold" style="background:#fff1f2; color:#be123c">↶ Devolver este producto</button>' : '') +
+        '</div>';
     }).join('');
+    document.getElementById('v-agregar').style.display = v.puede_agregar ? 'block' : 'none';
     document.getElementById('v-sub').textContent = dinero(v.subtotal);
     document.getElementById('v-itbms').textContent = dinero(v.itbms);
     document.getElementById('v-total').textContent = dinero(v.total);
@@ -189,6 +265,136 @@ async function adjuntarComprobante(input) {
   } catch (e) {
     toast('No se pudo subir el comprobante: ' + e.message, 'error');
   }
+}
+
+/** Cierra una hoja secundaria y vuelve al detalle de la venta. */
+function volverAVenta(hoja) {
+  cerrarSheet(hoja);
+  if (ventaActual) setTimeout(function () { abrirSheet('sheet-venta'); }, 200);
+}
+
+/** Después de devolver o agregar: se recarga el detalle (totales y líneas al día). */
+function recargarVenta(hoja, mensaje) {
+  cerrarSheet(hoja);
+  toast(mensaje, 'success');
+  const id = ventaActual.venta_id;
+  setTimeout(function () { verVenta(id); }, 250);
+}
+
+// ── Devolución parcial de un producto ──
+let dvLinea = null;
+function abrirDevolucion(n) {
+  const i = ventaActual.items[n];
+  const quedan = Math.round((Number(i.cantidad) - (Number(i.cantidad_devuelta) || 0)) * 100) / 100;
+  dvLinea = { id: Number(i.detalle_id), quedan: quedan, unit: Number(i.total_linea) / Math.max(0.0001, Number(i.cantidad)), um: (i.unidad_nombre || '').toLowerCase() };
+  document.getElementById('dv-nombre').textContent = i.nombre + ' · ' + ventaActual.numero_factura;
+  document.getElementById('dv-cantidad').value = quedan;
+  document.getElementById('dv-max').textContent = 'Se pueden devolver hasta ' + numero(quedan) + (dvLinea.um ? ' ' + dvLinea.um : '');
+  document.getElementById('dv-motivo').value = '';
+  document.querySelector('input[name="dv-estado"][value="0"]').checked = true;
+  document.getElementById('dv-boton').disabled = false;
+  dvResumen();
+  cerrarSheet('sheet-venta');
+  setTimeout(function () { abrirSheet('sheet-devolver'); }, 200);
+}
+function dvResumen() {
+  if (!dvLinea) return;
+  const c = Math.min(parseFloat(document.getElementById('dv-cantidad').value) || 0, dvLinea.quedan);
+  const monto = Math.round(dvLinea.unit * c * 100) / 100;
+  const aCredito = Math.min(monto, Number(ventaActual.falta_pagar) || 0);
+  const devolver = Math.round((monto - aCredito) * 100) / 100;
+  document.getElementById('dv-reembolso-bloque').style.display = devolver > 0.004 ? '' : 'none';
+  document.getElementById('dv-resumen').innerHTML = 'La factura baja <b>' + dinero(monto) + '</b>.'
+    + (aCredito > 0 ? '<br>Se descuentan <b>' + dinero(aCredito) + '</b> de lo que debe a crédito.' : '')
+    + (devolver > 0.004 ? '<br>Se le devuelven <b>' + dinero(devolver) + '</b> al cliente.' : '');
+}
+async function dvGuardar() {
+  const motivo = document.getElementById('dv-motivo').value.trim();
+  const cantidad = parseFloat(document.getElementById('dv-cantidad').value) || 0;
+  if (cantidad <= 0 || cantidad > dvLinea.quedan + 0.001) { toast('Cantidad entre 0 y ' + numero(dvLinea.quedan), 'error'); return; }
+  if (!motivo) { toast('Escribe el motivo', 'error'); return; }
+  const boton = document.getElementById('dv-boton');
+  boton.disabled = true;
+  try {
+    const r = await api('/m/api/venta/' + ventaActual.venta_id + '/devolver', { method: 'POST', body: {
+      detalle_id: dvLinea.id, cantidad: cantidad, motivo: motivo,
+      reingresa: document.querySelector('input[name="dv-estado"]:checked').value === '1',
+      reembolso: document.getElementById('dv-reembolso').value,
+    } });
+    recargarVenta('sheet-devolver', 'Devolución registrada' + (r.nota ? ' (' + r.nota + ')' : ''));
+  } catch (e) { toast(e.message, 'error'); boton.disabled = false; }
+}
+
+// ── Agregar un producto que se quedó fuera de la factura ──
+let agProducto = null, agTimer = null, agLista = [];
+function abrirAgregar() {
+  const v = ventaActual;
+  const credito = (v.pagos || []).some(function (p) { return p.forma_pago === 'CREDITO'; });
+  agProducto = null;
+  document.getElementById('ag-buscar').value = '';
+  document.getElementById('ag-resultados').innerHTML = '';
+  document.getElementById('ag-form').style.display = 'none';
+  document.getElementById('ag-boton').disabled = false;
+  document.getElementById('ag-ayuda').innerHTML = 'Se cobra al precio de la tienda, sale del inventario y se suma a <b>' + esc(v.numero_factura) + '</b>'
+    + (credito ? ' y al <b>crédito</b> del cliente.' : '.');
+  document.getElementById('ag-forma-bloque').style.display = credito ? 'none' : '';
+  document.getElementById('ag-op-credito').hidden = !v.tiene_cliente;
+  document.getElementById('ag-forma').value = 'EFECTIVO';
+  cerrarSheet('sheet-venta');
+  setTimeout(function () { abrirSheet('sheet-agregar'); document.getElementById('ag-buscar').focus(); }, 200);
+}
+function agBuscar() {
+  clearTimeout(agTimer);
+  agTimer = setTimeout(async function () {
+    const q = document.getElementById('ag-buscar').value.trim();
+    const caja = document.getElementById('ag-resultados');
+    if (q.length < 2) { caja.innerHTML = ''; return; }
+    try {
+      const r = await api('/m/api/productos?q=' + encodeURIComponent(q));
+      agLista = (r.productos || []).slice(0, 15);
+      caja.innerHTML = agLista.length ? agLista.map(function (p, n) {
+        return '<button type="button" onclick="agElegir(' + n + ')" class="card !p-2.5 text-left flex justify-between gap-2"><span class="text-sm min-w-0">' + esc(p.nombre)
+          + '<span class="block text-[11px]" style="color:var(--ink-soft)">' + esc(p.codigo) + ' · hay ' + numero(p.existencia) + ' ' + esc(p.um) + '</span></span>'
+          + '<span class="font-mono text-sm font-semibold">' + dinero(p.precio_a) + '</span></button>';
+      }).join('') : '<p class="text-sm text-center py-2" style="color:var(--ink-soft)">Sin resultados</p>';
+    } catch (e) { toast(e.message, 'error'); }
+  }, 250);
+}
+function agElegir(n) {
+  const p = agLista[n];
+  agProducto = p;
+  document.getElementById('ag-resultados').innerHTML = '';
+  document.getElementById('ag-buscar').value = p.nombre;
+  document.getElementById('ag-elegido').textContent = p.nombre + ' — hay ' + numero(p.existencia) + ' ' + p.um;
+  document.getElementById('ag-unidad').innerHTML = '<option value="" data-precio="' + Number(p.precio_a) + '">' + esc(p.um) + ' (' + dinero(p.precio_a) + ')</option>'
+    + (p.unidades || []).filter(function (u) { return Number(u.factor) > 1; }).map(function (u) {
+      return '<option value="' + u.unidad_id + '" data-precio="' + Number(u.precio) + '">' + esc(u.nombre) + ' ×' + numero(u.factor) + ' (' + dinero(u.precio) + ')</option>';
+    }).join('');
+  document.getElementById('ag-cantidad').value = 1;
+  document.getElementById('ag-form').style.display = 'block';
+  agTotal();
+}
+function agTotal() {
+  const sel = document.getElementById('ag-unidad');
+  const precio = sel.selectedIndex >= 0 ? Number(sel.options[sel.selectedIndex].dataset.precio) : 0;
+  const c = parseFloat(document.getElementById('ag-cantidad').value) || 0;
+  document.getElementById('ag-total').textContent = dinero(Math.round(precio * c * 100) / 100);
+}
+async function agGuardar() {
+  if (!agProducto) { toast('Elige el producto', 'error'); return; }
+  const cantidad = parseFloat(document.getElementById('ag-cantidad').value) || 0;
+  if (cantidad <= 0) { toast('Escribe la cantidad', 'error'); return; }
+  const boton = document.getElementById('ag-boton');
+  boton.disabled = true;
+  const credito = (ventaActual.pagos || []).some(function (p) { return p.forma_pago === 'CREDITO'; });
+  try {
+    await api('/m/api/venta/' + ventaActual.venta_id + '/agregar', { method: 'POST', body: {
+      producto_id: agProducto.producto_id, cantidad: cantidad,
+      unidad_id: document.getElementById('ag-unidad').value || null,
+      forma_pago: credito ? null : document.getElementById('ag-forma').value,
+    } });
+    recargarVenta('sheet-agregar', agProducto.nombre + ' agregado a la factura');
+  } catch (e) { toast(e.message, 'error'); boton.disabled = false; }
 }
 
 // /m/ventas?venta=ID abre directamente el detalle (enlaces del inicio y del ticket de venta)
