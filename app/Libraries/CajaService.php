@@ -159,7 +159,23 @@ final class CajaService
         }
         $esperado['EFECTIVO'] = round((float) $caja['monto_inicial'] + $esperado['EFECTIVO'] + $entradas - $salidas, 2);
 
+        // Pagos con tarjeta (datáfono) uno por uno, con su nº de autorización, para cuadrar con el banco
+        $tarjetas = Db::all(
+            "SELECT * FROM (
+                SELECT v.fecha, CONVERT(v.numero_factura USING utf8mb4) COLLATE utf8mb4_unicode_ci AS documento, p.monto,
+                       CONVERT(p.referencia USING utf8mb4) COLLATE utf8mb4_unicode_ci AS referencia, v.venta_id, NULL AS cobro_id
+                FROM ventas_pagos p JOIN ventas v ON v.venta_id = p.venta_id
+                WHERE v.caja_id = ? AND v.estado <> 'anulada' AND p.forma_pago = 'TARJETA'
+                UNION ALL
+                SELECT co.fecha, CONVERT(co.numero USING utf8mb4) COLLATE utf8mb4_unicode_ci, co.monto,
+                       CONVERT(co.referencia USING utf8mb4) COLLATE utf8mb4_unicode_ci, NULL, co.cobro_id
+                FROM cobros co WHERE co.caja_id = ? AND co.forma_pago = 'TARJETA'
+             ) t ORDER BY fecha",
+            [$cajaId, $cajaId]
+        );
+
         return [
+            'tarjetas'         => $tarjetas,
             'caja'             => $caja,
             'ventas'           => ['cantidad' => (int) $ventas['cantidad'], 'total' => round((float) $ventas['total'], 2)],
             'por_forma_ventas' => $porFormaVentas,

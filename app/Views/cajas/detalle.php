@@ -61,6 +61,8 @@ $etiquetaDif = fn (float $d) => abs($d) < 0.005 ? '<span class="text-emerald-600
     <?php if ($c['notas_cierre']): ?><p class="text-xs text-gray-500 mt-1"><b>Notas de cierre:</b> <?= esc($c['notas_cierre']) ?></p><?php endif; ?>
 </div>
 
+<?= view('cajas/_tarjetas', ['r' => $r]) ?>
+
 <?php if ($puedeCerrar): ?>
 <div class="mb-4 print:hidden">
     <p class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 mb-3"><i class="fas fa-triangle-exclamation mr-1"></i> Esta caja sigue abierta. Como gerente puedes cerrarla haciendo el arqueo con el efectivo entregado.</p>

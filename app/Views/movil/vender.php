@@ -115,6 +115,12 @@ $puedeDescontar = $maxDescuentoPct > 0;
     <div id="billetes" class="flex flex-wrap gap-1.5 mt-2"></div>
   </div>
 
+  <div id="bloque-tarjeta" class="mb-3" style="display:none">
+    <label class="field-label">Nº de autorización del voucher</label>
+    <input type="text" id="pago-autorizacion" maxlength="30" class="field-input" style="font-family:'Inter'" placeholder="Ej: 123456 (lo imprime el datáfono)" autocomplete="off" autocapitalize="characters">
+    <p class="text-xs mt-1" style="color:var(--ink-soft)">Sirve para cuadrar con el banco al cerrar la caja.</p>
+  </div>
+
   <div id="bloque-referencia" class="mb-3" style="display:none">
     <div id="bloque-recibido-digital" class="flex items-end gap-3 mb-2">
       <div class="flex-1">
@@ -668,6 +674,8 @@ function elegirForma(forma) {
   document.getElementById('bloque-mixto').style.display = forma === 'MIXTO' ? 'block' : 'none';
   // Yappy / transferencia (o mixto que los incluya): referencia del comprobante y notas
   document.getElementById('bloque-referencia').style.display = ['YAPPY', 'TRANSFERENCIA', 'MIXTO'].indexOf(forma) !== -1 ? 'block' : 'none';
+  // Tarjeta (datáfono): nº de autorización del voucher
+  document.getElementById('bloque-tarjeta').style.display = forma === 'TARJETA' || forma === 'MIXTO' ? 'block' : 'none';
   // "Monto recibido" + vuelto en efectivo solo con un único pago digital (en mixto el vuelto sale del efectivo)
   document.getElementById('bloque-recibido-digital').style.display = forma === 'YAPPY' || forma === 'TRANSFERENCIA' ? 'flex' : 'none';
   document.getElementById('ref-etiqueta').textContent = forma === 'YAPPY' ? 'Referencia de Yappy' : (forma === 'TRANSFERENCIA' ? 'Referencia de la transferencia' : 'Referencia (Yappy / transferencia)');
@@ -721,6 +729,7 @@ function vaciarCarrito() {
   const da = document.getElementById('desc-activo');
   if (da && da.checked) { da.checked = false; document.getElementById('bloque-descuento').style.display = 'none'; }
   document.getElementById('pago-referencia').value = '';
+  document.getElementById('pago-autorizacion').value = '';
   document.getElementById('pago-notas').value = '';
   document.getElementById('recibido-digital').value = '';
   quitarComprobante();
@@ -899,6 +908,16 @@ async function confirmarVenta() {
   const notasPago  = document.getElementById('pago-notas').value.trim();
   if (referencia) {
     pagos.forEach(function (p) { if (p.forma_pago === 'YAPPY' || p.forma_pago === 'TRANSFERENCIA') p.referencia = referencia; });
+  }
+  // Tarjeta: el nº de autorización del voucher es obligatorio (cuadre con el banco)
+  if (pagos.some(function (p) { return p.forma_pago === 'TARJETA'; })) {
+    const autorizacion = document.getElementById('pago-autorizacion').value.trim();
+    if (!autorizacion) {
+      toast('Escribe el nº de autorización del voucher de la tarjeta.', 'error');
+      document.getElementById('pago-autorizacion').focus();
+      return;
+    }
+    pagos.forEach(function (p) { if (p.forma_pago === 'TARJETA') p.referencia = 'Aut. ' + autorizacion; });
   }
 
   const payload = {

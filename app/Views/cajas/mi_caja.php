@@ -108,6 +108,8 @@
     </form>
 </div>
 
+<?= view('cajas/_tarjetas', ['r' => $r]) ?>
+
 <?= view('cajas/_cierre', ['r' => $r, 'formas' => $formas, 'denominaciones' => $denominaciones]) ?>
 <?php endif; ?>
 

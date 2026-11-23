@@ -231,6 +231,12 @@
                             </button>
                         </template>
                     </div>
+                    <!-- Tarjeta (datáfono): nº de autorización del voucher -->
+                    <div x-show="formaPago === 'tarjeta'" class="mt-3">
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Nº de autorización del voucher</label>
+                        <input type="text" x-model.trim="autorizacion" maxlength="30" autocomplete="off"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono" placeholder="Ej: 123456 (lo imprime el datáfono)">
+                    </div>
                     <!-- Aviso de crédito -->
                     <div x-show="formaPago === 'credito'" class="mt-3 rounded-xl border px-3 py-2 text-xs"
                          :class="avisoCredito().nivel === 'ok' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'">
@@ -466,6 +472,7 @@
             clienteDireccion: 'Consumidor Final',
             depositoId: '<?= $depositos[0]->deposito_id ?? '' ?>',
             formaPago: 'efectivo',
+            autorizacion: '',
             hoy: '<?= date('Y-m-d') ?>',
             fechaVenta: '<?= date('Y-m-d') ?>',
             estado: '<?= ($tipo_documento ?? 'venta') === 'cotizacion' ? 'pendiente' : 'pagada' ?>',
@@ -690,12 +697,15 @@
                     if (!this.clienteId) { this.notify('Elige el cliente del crédito.', 'error'); return; }
                     if (!confirm('¿Registrar esta venta a crédito con fecha ' + this.fechaVenta.split('-').reverse().join('/') + '?')) return;
                 }
+                const conTarjeta = this.tipoDocumento === 'venta' && this.formaPago === 'tarjeta';
+                if (conTarjeta && !this.autorizacion) { this.notify('Escribe el nº de autorización del voucher de la tarjeta.', 'error'); return; }
                 this.processing = true;
                 const payload = {
                     tipo: this.tipoDocumento,
                     cliente_id: this.clienteId,
                     deposito_id: this.depositoId,
                     forma_pago: this.formaPago,
+                    referencia: conTarjeta ? 'Aut. ' + this.autorizacion : null,
                     estado: this.estado,
                     descuento: this.descuentoGlobal,
                     notas: this.observaciones,

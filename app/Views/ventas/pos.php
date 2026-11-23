@@ -731,15 +731,22 @@
             cont.innerHTML = '';
             pagos.forEach(function(pago, i) {
                 const div = document.createElement('div');
-                div.className = 'flex items-center gap-2';
+                div.className = 'flex items-center gap-2 flex-wrap';
 
                 const opciones = METODOS_PAGO.map(m =>
                     `<option value="${m}" ${pago.forma_pago === m ? 'selected' : ''}>${m}</option>`
                 ).join('');
 
+                // Tarjeta (datáfono): nº de autorización del voucher, obligatorio
+                const filaAutorizacion = pago.forma_pago === 'TARJETA'
+                    ? `<input type="text" maxlength="30" value="${escHtml(pago.autorizacion || '')}" placeholder="Nº de autorización del voucher"
+                            class="w-full border border-violet-200 bg-violet-50 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-pos"
+                            oninput="pagos[${i}].autorizacion=this.value.trim();" autocomplete="off">`
+                    : '';
+
                 div.innerHTML = `
                     <select class="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-bold focus:outline-none focus:border-pos bg-white"
-                            onchange="pagos[${i}].forma_pago=this.value; actualizarResumenPagos();">
+                            onchange="pagos[${i}].forma_pago=this.value; renderPagos();">
                         ${opciones}
                     </select>
                     <div class="relative w-24">
@@ -752,6 +759,7 @@
                     ${pagos.length > 1
                         ? `<button type="button" onclick="eliminarPago(${i})" class="w-7 h-7 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center text-xs shrink-0"><i class="fas fa-times"></i></button>`
                         : '<div class="w-7"></div>'}
+                    ${filaAutorizacion}
                 `;
                 cont.appendChild(div);
             });
@@ -1238,12 +1246,16 @@
                     toast('El monto pagado es menor al total de la venta', 'error');
                     return;
                 }
+                if (pagos.some(p => p.forma_pago === 'TARJETA' && p.monto > 0 && !p.autorizacion)) {
+                    toast('Escribe el nº de autorización del voucher de la tarjeta', 'error');
+                    return;
+                }
             }
 
             const payload = {
                 tipo: tipoDoc,
                 cliente_id: elementosDOM.txcliente.value || null,
-                pagos: pagos.map(p => ({ forma_pago: p.forma_pago, monto: p.monto })),
+                pagos: pagos.map(p => ({ forma_pago: p.forma_pago, monto: p.monto, referencia: p.forma_pago === 'TARJETA' && p.autorizacion ? 'Aut. ' + p.autorizacion : null })),
                 forma_pago: pagos[0].forma_pago,  // backward compat
                 notas: elementosDOM.txreferencia.value,
                 aplicar_itbms: true,
