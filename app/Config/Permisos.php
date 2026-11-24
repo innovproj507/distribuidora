@@ -148,6 +148,7 @@ class Permisos extends BaseConfig
             'cotizaciones.ver',
             'cotizaciones.crear',
             'cotizaciones.aprobar',
+            'cotizaciones.eliminar', // borrar duplicadas o por error (no las convertidas en venta)
             'clientes.ver',
             'clientes.crear',
             'clientes.editar',

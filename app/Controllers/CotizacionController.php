@@ -278,6 +278,47 @@ class CotizacionController extends BaseController
         return redirect()->to("/ventas/cotizaciones/{$cotizacionId}");
     }
 
+    /**
+     * Borra una cotización (duplicada o hecha por error). No toca inventario ni dinero; las convertidas
+     * en venta no se borran porque la factura la referencia. Las líneas quedan en la bitácora.
+     */
+    public function eliminar(int $cotizacionId)
+    {
+        $cotizacion = $this->buscar($cotizacionId);
+        if (!$cotizacion) {
+            $this->error('Cotización no encontrada o no autorizada.');
+            return redirect()->to('/ventas/cotizaciones');
+        }
+        $venta = Db::value("SELECT numero_factura FROM ventas WHERE cotizacion_origen_id = ? LIMIT 1", [$cotizacionId]);
+        if ($cotizacion['estado'] === 'convertida' || $venta) {
+            $this->error('Esta cotización ya se convirtió en venta' . ($venta ? " ({$venta})" : '') . '; no se puede eliminar.');
+            return redirect()->to("/ventas/cotizaciones/{$cotizacionId}");
+        }
+
+        $lineas = Db::all("SELECT producto_id, cantidad, precio, descuento, total_linea FROM cotizaciones_detalle WHERE cotizacion_id = ?", [$cotizacionId]);
+        try {
+            Db::begin();
+            Db::query("DELETE FROM cotizaciones_detalle WHERE cotizacion_id = ?", [$cotizacionId]);
+            Db::query("DELETE FROM cotizaciones WHERE cotizacion_id = ?", [$cotizacionId]);
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            log_message('error', 'Eliminar cotización: ' . $e->getMessage());
+            $this->error('No se pudo eliminar la cotización.');
+            return redirect()->to("/ventas/cotizaciones/{$cotizacionId}");
+        }
+
+        AuditService::log(
+            'cotizaciones.eliminar',
+            "Cotización {$cotizacion['numero']} eliminada (" . ($cotizacion['cliente_nombre'] ?? 'sin cliente') . ', $' . number_format((float) $cotizacion['total'], 2) . ')',
+            $cotizacionId, 'cotizacion',
+            ['cotizacion' => array_intersect_key($cotizacion, array_flip(['numero', 'cliente_id', 'vendedor_id', 'total', 'estado', 'fecha', 'notas'])), 'lineas' => $lineas],
+            $this->empresaId()
+        );
+        $this->success("Cotización {$cotizacion['numero']} eliminada.");
+        return redirect()->to('/ventas/cotizaciones');
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private const SELECT_CON_CLIENTE = "SELECT co.*, c.nombre AS cliente_nombre, c.ruc AS cliente_ruc, c.direccion AS cliente_direccion,

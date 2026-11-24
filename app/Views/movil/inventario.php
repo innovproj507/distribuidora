@@ -271,8 +271,17 @@ function abrirMovimiento(id) {
   document.getElementById('mov-total').textContent = '';
   document.getElementById('mov-cantidad').value = '';
   document.getElementById('mov-motivo').value = '';
-  elegirTipoMovimiento('entrada');
+  // Sin tipo por defecto: con "Entrada" preseleccionada se guardaron mermas como entradas
+  elegirTipoMovimiento('');
   abrirSheet('sheet-movimiento');
+}
+
+function movTipoConfirmado(tipo, motivo) {
+  if (tipo !== 'entrada' && tipo !== 'salida') { toast('Elige si es Entrada o Salida.', 'error'); return false; }
+  if (tipo === 'entrada' && /da[ñn]|merma|consumo|vencid|uso local|perdid|robo|regal/i.test(motivo)) {
+    return confirm('Marcaste ENTRADA (suma al stock), pero el motivo «' + motivo.trim() + '» parece una salida.\n\n¿Seguro que es una entrada?');
+  }
+  return true;
 }
 
 function elegirTipoMovimiento(tipo) {
@@ -289,6 +298,7 @@ function elegirTipoMovimiento(tipo) {
 
 async function guardarMovimiento(ev) {
   ev.preventDefault();
+  if (!movTipoConfirmado(movTipo, document.getElementById('mov-motivo').value)) return false;
   const boton = document.getElementById('mov-guardar');
   boton.disabled = true;
   try {

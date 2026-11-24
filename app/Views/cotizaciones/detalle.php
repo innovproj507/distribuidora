@@ -50,6 +50,15 @@ $linkPublico = base_url('c?t=' . urlencode($cotizacion['token'] ?? ''));
         <a href="/ventas/cotizaciones" class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
             Volver
         </a>
+        <?php if ($est !== 'convertida' && \App\Libraries\Auth::can('cotizaciones.eliminar')): ?>
+        <form action="/ventas/cotizaciones/<?= $cotizacion['cotizacion_id'] ?>/eliminar" method="POST" class="inline"
+              onsubmit="return confirm('¿Eliminar la cotización <?= esc($cotizacion['numero'] ?? '', 'js') ?>?\n\nSe borra por completo (no toca inventario ni dinero). El enlace que se haya enviado al cliente dejará de abrir.')">
+            <?= csrf_field() ?>
+            <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-red-300 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 transition">
+                <i class="fas fa-trash-alt"></i> Eliminar
+            </button>
+        </form>
+        <?php endif; ?>
     </div>
 
     <!-- Pipeline -->

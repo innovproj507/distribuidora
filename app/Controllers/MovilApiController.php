@@ -179,10 +179,15 @@ class MovilApiController extends BaseController
 
         $data       = $this->jsonInput();
         $productoId = (int) ($data['producto_id'] ?? 0);
-        $tipo       = ($data['tipo'] ?? '') === 'salida' ? 'salida' : 'entrada';
+        $tipo       = (string) ($data['tipo'] ?? '');
         $cantidad   = (float) ($data['cantidad'] ?? 0);
         $motivo     = trim((string) ($data['motivo'] ?? ''));
         $depositoId = $this->depositoId();
+
+        // Antes cualquier cosa que no fuera 'salida' se guardaba como entrada
+        if (!in_array($tipo, ['entrada', 'salida'], true)) {
+            return $this->json(['error' => 'Elige si es Entrada o Salida.'], 422);
+        }
 
         if ($cantidad <= 0) {
             return $this->json(['error' => 'La cantidad debe ser mayor que cero.'], 422);

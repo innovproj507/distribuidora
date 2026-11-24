@@ -201,7 +201,8 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerr
 <?php endif; ?>
 <?php if ($puedeAjustar && !$p['maneja_lotes']): ?>
 <script>
-let movTipo = 'entrada';
+// Sin tipo por defecto: con "Entrada" preseleccionada se guardaron mermas como entradas
+let movTipo = '';
 // Lo escrito puede estar en bandejas, cajas…: se envía en unidades base
 function movCantidadBase() {
   const f = document.getElementById('mov-factor');
@@ -210,6 +211,13 @@ function movCantidadBase() {
 function movTotal() {
   const f = document.getElementById('mov-factor');
   document.getElementById('mov-total').textContent = f && parseFloat(f.value) > 1 && movCantidadBase() > 0 ? '= ' + numero(movCantidadBase()) + ' <?= $um ?>' : '';
+}
+function movTipoConfirmado(tipo, motivo) {
+  if (tipo !== 'entrada' && tipo !== 'salida') { toast('Elige si es Entrada o Salida.', 'error'); return false; }
+  if (tipo === 'entrada' && /da[ñn]|merma|consumo|vencid|uso local|perdid|robo|regal/i.test(motivo)) {
+    return confirm('Marcaste ENTRADA (suma al stock), pero el motivo «' + motivo.trim() + '» parece una salida.\n\n¿Seguro que es una entrada?');
+  }
+  return true;
 }
 function elegirTipo(tipo) {
   movTipo = tipo;
@@ -220,6 +228,7 @@ function elegirTipo(tipo) {
 }
 async function guardarMovimiento(ev) {
   ev.preventDefault();
+  if (!movTipoConfirmado(movTipo, document.getElementById('mov-motivo').value)) return false;
   const boton = document.getElementById('mov-guardar');
   boton.disabled = true;
   try {
@@ -235,7 +244,7 @@ async function guardarMovimiento(ev) {
   }
   return false;
 }
-elegirTipo('entrada');
+elegirTipo('');
 </script>
 <?php endif; ?>
 <?php $this->endSection(); ?>
