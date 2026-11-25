@@ -93,7 +93,7 @@ class CompraController extends BaseController
 
         $s = (int) $compra['sucursal_id']; // precios de la tienda de la compra
         $lineas = Db::all(
-            "SELECT cd.producto_id, cd.cantidad, cd.costo, cd.presentacion, cd.factor_presentacion, p.nombre, p.codigo, p.unidad_medida,
+            "SELECT cd.producto_id, cd.cantidad, cd.costo, cd.itbms, cd.presentacion, cd.factor_presentacion, p.nombre, p.codigo, p.unidad_medida,
                     (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND sucursal_id = {$s} AND tipo_precio = 'a') AS precio_a,
                     (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND sucursal_id = {$s} AND tipo_precio = 'b') AS precio_b,
                     (SELECT precio FROM precios_productos WHERE producto_id = cd.producto_id AND sucursal_id = {$s} AND tipo_precio = 'c') AS precio_c
@@ -131,7 +131,7 @@ class CompraController extends BaseController
                 'cantidad' => round((float) $l['cantidad'] / $f, 4), 'costo' => round($costo * $f, 10),
                 'margen_pct' => $costo > 0 && $precio > 0 ? round(($precio / $costo - 1) * 100, 2) : 0,
                 'precio_a' => $precio, 'precio_b' => (float) $l['precio_b'], 'precio_c' => (float) $l['precio_c'],
-                'deposito_id' => (int) $compra['deposito_id'], 'itbms' => 0,
+                'deposito_id' => (int) $compra['deposito_id'], 'con_itbms' => (float) $l['itbms'] > 0,
             ];
         }, $lineas);
 

@@ -185,7 +185,7 @@ final class CompraService
                 // Cómo se escribió la línea (Caja de 6…): solo para volver a mostrarla igual al editar
                 'presentacion'        => ($pf = (float) ($item['pres_factor'] ?? 1)) > 1 ? mb_substr(trim((string) ($item['pres_nombre'] ?? '')), 0, 50) ?: null : null,
                 'factor_presentacion' => $pf > 1 ? round($pf, 2) : 1,
-                'itbms'             => (float) ($item['itbms'] ?? 0),
+                'itbms'             => round((float) ($item['itbms'] ?? 0), 2), // ITBMS de esta fila de la factura (0 = exento)
                 'total_linea'       => $cantidad * $costo,
                 'numero_lote'       => $numeroLote,
                 'fecha_vencimiento' => $vence,

@@ -155,7 +155,9 @@ $cancelada = $est === 'cancelada';
                     <?php endif; ?>
                     <?php if (ver_costos()): ?>
                     <td class="px-4 py-3 text-right text-gray-600">$<?= number_format((float)($d['costo'] ?? 0), 2) ?></td>
-                    <td class="px-4 py-3 text-right font-semibold text-gray-800">$<?= number_format((float)($d['total_linea'] ?? 0), 2) ?></td>
+                    <td class="px-4 py-3 text-right font-semibold text-gray-800">$<?= number_format((float)($d['total_linea'] ?? 0), 2) ?>
+                        <?php if ((float) ($d['itbms'] ?? 0) > 0): ?><div class="text-[11px] font-normal text-sky-600">+ ITBMS $<?= number_format((float) $d['itbms'], 2) ?></div><?php endif; ?>
+                    </td>
                     <?php endif; ?>
                 </tr>
                 <?php endforeach; ?>

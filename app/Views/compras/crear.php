@@ -390,6 +390,12 @@
                                         <input type="number" step="any" min="0" :value="importe(item).toFixed(2)" @change="fijarImporte(item, $event.target.value)"
                                             title="Escribe el total de la fila de la factura y el costo unitario se calcula solo"
                                             class="w-24 text-right text-sm py-1 bg-gray-50 rounded border-gray-200 focus:border-sky-400 focus:ring-0 font-semibold text-gray-700">
+                                        <!-- ITBMS por producto: en la factura del proveedor unos productos lo llevan y otros no -->
+                                        <label x-show="compra.con_itbms" class="mt-1 flex items-center justify-end gap-1 text-[11px] cursor-pointer select-none"
+                                               :class="item.con_itbms ? 'text-sky-600 font-semibold' : 'text-gray-400'">
+                                            <input type="checkbox" x-model="item.con_itbms" @change="updateTotals()" class="rounded border-gray-300 text-sky-500 focus:ring-sky-400 w-3 h-3">
+                                            <span x-text="item.con_itbms ? 'ITBMS $' + itbmsLinea(item).toFixed(2) : 'ITBMS'"></span>
+                                        </label>
                                     </td>
                                     <td class="py-3 text-center">
                                         <button @click="removeItem(index)" class="text-gray-300 hover:text-red-400 transition-colors text-sm">
@@ -435,11 +441,14 @@
                     <span class="font-semibold text-gray-700" x-text="'$' + totals.subtotal.toFixed(2)">$0.00</span>
                 </div>
                 <label class="flex items-center justify-end gap-2 text-xs text-gray-500 cursor-pointer select-none">
-                    <input type="checkbox" x-model="compra.con_itbms" @change="updateTotals()" class="rounded border-gray-300 text-sky-500 focus:ring-sky-400">
+                    <input type="checkbox" x-model="compra.con_itbms" @change="activarItbms()" class="rounded border-gray-300 text-sky-500 focus:ring-sky-400">
                     El proveedor cobra ITBMS
                 </label>
+                <p class="text-[11px] text-gray-400 max-w-[16rem] ml-auto" x-show="compra.con_itbms">
+                    Marca <b>ITBMS</b> debajo del importe solo en los productos que lo llevan en la factura.
+                </p>
                 <div class="flex items-center justify-between gap-16 text-sm text-gray-500" x-show="compra.con_itbms">
-                    <span>ITBMS (7%):</span>
+                    <span>ITBMS (7%) <span class="text-xs text-gray-400" x-text="'· ' + items.filter(i => i.con_itbms).length + ' de ' + items.length + ' productos'"></span>:</span>
                     <span class="font-semibold text-gray-700" x-text="'$' + totals.itbms.toFixed(2)">$0.00</span>
                 </div>
                 <div class="flex items-center justify-between gap-16 pt-2 border-t border-gray-100 text-sm">
@@ -504,6 +513,8 @@ function compraForm() {
                 if (!Array.isArray(i.unidades) || !i.unidades.length) i.unidades = [{ nombre: 'Unidad', factor: 1 }];
                 i.factor = i.factor || 1;
             });
+            // Compras/borradores de antes del ITBMS por producto: el 7% era sobre toda la factura
+            if (this.compra.con_itbms && !this.items.some(i => i.con_itbms)) this.items.forEach(i => { i.con_itbms = true; });
             this.updateTotals();
             this.$watch('items', () => this.guardarBorrador());
             this.$watch('compra', () => this.guardarBorrador());
@@ -731,7 +742,7 @@ function compraForm() {
                     precio_b: parseFloat(p.precio_b) || 0,
                     precio_c: parseFloat(p.precio_c) || 0,
                     deposito_id: <?= $depositos[0]['deposito_id'] ?? 'null' ?>,
-                    itbms: 0
+                    con_itbms: false
                 });
             }
             this.searchQuery = '';
@@ -791,14 +802,25 @@ function compraForm() {
             this.updateTotals();
         },
 
+        // ITBMS 7% de una fila (como en la factura del proveedor, que lo calcula por producto)
+        itbmsLinea(item) {
+            return this.compra.con_itbms && item.con_itbms ? Math.round(this.importe(item) * 7) / 100 : 0;
+        },
+
+        // Al marcar "El proveedor cobra ITBMS" sin ninguna fila marcada se marcan todas; luego se desmarcan las exentas
+        activarItbms() {
+            if (this.compra.con_itbms && !this.items.some(i => i.con_itbms)) this.items.forEach(i => { i.con_itbms = true; });
+            this.updateTotals();
+        },
+
         updateTotals() {
-            let sub = 0;
+            let sub = 0, itbms = 0;
             // El total es la suma de las filas ya redondeadas, como en la factura (antes podía dar 842.49 con filas que suman 842.50)
-            this.items.forEach(i => { sub += this.importe(i); });
+            this.items.forEach(i => { sub += this.importe(i); itbms += this.itbmsLinea(i); });
             sub = Math.round(sub * 100) / 100;
             this.totals.subtotal = sub;
-            this.totals.itbms    = this.compra.con_itbms ? Math.round(sub * 7) / 100 : 0;
-            this.totals.total    = sub + this.totals.itbms;
+            this.totals.itbms    = Math.round(itbms * 100) / 100;
+            this.totals.total    = Math.round((sub + this.totals.itbms) * 100) / 100;
         },
 
         async saveCompra(recibir = true) {
@@ -828,9 +850,9 @@ function compraForm() {
                         // El servidor recibe unidades base: 2 cajas de 12 a $30 → 24 unidades a $2.50
                         items: this.items.map(i => {
                             const f = i.factor || 1;
-                            const { unidades, factor, precio_pres, ...linea } = i;
+                            const { unidades, factor, precio_pres, con_itbms, ...linea } = i;
                             const pres = this.presSeleccionada(i);
-                            return { ...linea, cantidad: Math.round((parseFloat(i.cantidad) || 0) * f * 100) / 100, costo: Math.round((parseFloat(i.costo) || 0) / f * 1e10) / 1e10,
+                            return { ...linea, itbms: this.itbmsLinea(i), cantidad: Math.round((parseFloat(i.cantidad) || 0) * f * 100) / 100, costo: Math.round((parseFloat(i.costo) || 0) / f * 1e10) / 1e10,
                                      pres_factor: f, pres_nombre: f > 1 ? this.nombrePres(i) : '',
                                      // Precio de venta del bulto/caja en esta tienda (si se cambió aquí)
                                      pres_unidad_id: pres ? pres.unidad_id : null, pres_precio: pres ? (parseFloat(precio_pres) || 0) : 0 };
